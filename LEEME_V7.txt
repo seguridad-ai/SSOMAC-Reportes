@@ -1,0 +1,15 @@
+SSOMAC DIGITAL - V7
+
+NOVEDADES
+- Configuración > Responsables de corrección.
+- Agregar, editar, desactivar y reactivar responsables.
+- Filtros por estado y alcance.
+- Responsables corporativos o por proyecto.
+- Nueva ocurrencia ya usa un desplegable de responsables, no texto libre.
+- Se guarda responsable_correccion_id y también el nombre histórico en responsable_correccion.
+
+IMPORTANTE
+1. Ya ejecutaste ETAPA 26, por lo que no necesitas volver a hacerlo.
+2. Conserva tu Publishable key en config.js. Si reemplazas toda la carpeta, copia tu config.js de la versión que ya funciona.
+3. El envío automático de correo TODAVÍA NO se activa en esta versión. La V7 deja listo el directorio y la asignación del responsable.
+4. El siguiente módulo será el formulario público/QR para trabajadores y la bandeja de validación.

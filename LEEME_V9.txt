@@ -1,0 +1,13 @@
+SSOMAC DIGITAL - V9
+
+NOVEDAD: Administracion de Proyectos / Sedes.
+
+1. Ejecuta ETAPA_28_PROYECTOS.sql en Supabase SQL Editor.
+2. Copia tu config.js funcional de la V8 a esta carpeta.
+3. Entra con ADMIN o SIG.
+4. Inicio > Proyectos / sedes.
+5. Puedes agregar, editar, desactivar y reactivar unidades.
+6. Un proyecto/sede nuevo ACTIVO aparece automaticamente en el formulario publico de trabajadores.
+7. Los usuarios ADMIN/SIG activos reciben acceso automatico al crear una nueva unidad.
+
+No se eliminan proyectos historicos; se desactivan.

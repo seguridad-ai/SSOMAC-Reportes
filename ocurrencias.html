@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Ocurrencias</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+
+</head>
+<body data-page="occurrences">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Seguimiento de ocurrencias</span></div>
+    <div class="top-actions">
+      <a class="button-link" href="nueva-ocurrencia.html">+ Nueva ocurrencia</a>
+      <a class="button-link secondary-link" href="reporte-diario.html">Reporte diario</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="page-head">
+        <div><p class="eyebrow">Seguimiento</p><h1>Ocurrencias</h1></div>
+      </div>
+
+      <div class="filters">
+        <div class="field">
+          <label for="filterProject">Proyecto</label>
+          <select id="filterProject"><option value="">Todos</option></select>
+        </div>
+        <div class="field">
+          <label for="filterStatus">Estado</label>
+          <select id="filterStatus"><option value="">Todos</option></select>
+        </div>
+        <div class="field grow">
+          <label for="filterText">Buscar</label>
+          <input id="filterText" placeholder="N.º, lugar o descripción">
+        </div>
+      </div>
+
+      <div id="occurrencesList" class="occurrence-list">Cargando...</div>
+      <p id="listMessage" class="message"></p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

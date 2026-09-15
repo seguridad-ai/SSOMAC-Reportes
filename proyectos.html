@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Proyectos y sedes</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="projects-admin">
+<header class="topbar">
+  <div><strong>SSOMAC Digital</strong><span>Configuración · Proyectos y sedes</span></div>
+  <div class="top-actions">
+    <a class="button-link secondary-link" href="app.html">← Inicio</a>
+    <a class="button-link secondary-link" href="responsables.html">Responsables</a>
+    <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="container">
+  <section class="page-head project-admin-head">
+    <div>
+      <p class="eyebrow">Configuración</p>
+      <h1>Proyectos y sedes</h1>
+      <p class="muted">Administra las unidades que aparecerán en los formularios y reportes.</p>
+    </div>
+    <button id="newProjectBtn">+ Agregar proyecto / sede</button>
+  </section>
+
+  <section class="kpi-grid project-kpis">
+    <article class="kpi"><span>Activos</span><strong id="projectKpiActive">—</strong></article>
+    <article class="kpi"><span>Inactivos</span><strong id="projectKpiInactive">—</strong></article>
+    <article class="kpi"><span>Proyectos</span><strong id="projectKpiProjects">—</strong></article>
+    <article class="kpi"><span>Sedes</span><strong id="projectKpiSites">—</strong></article>
+  </section>
+
+  <section id="projectFormCard" class="card hidden">
+    <p id="projectFormEyebrow" class="eyebrow">Nuevo registro</p>
+    <h2 id="projectFormTitle">Agregar proyecto / sede</h2>
+    <form id="projectForm" class="form-grid">
+      <input id="projectEditId" type="hidden">
+
+      <div class="field">
+        <label for="projectUnitType">Tipo *</label>
+        <select id="projectUnitType" required>
+          <option value="PROYECTO">Proyecto</option>
+          <option value="SEDE">Sede</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="projectCode">Código *</label>
+        <input id="projectCode" type="text" maxlength="15" required placeholder="Ej. CV / JUL / LIMA">
+        <small>Se usa también para los links/QR: reportar.html?p=CODIGO</small>
+      </div>
+
+      <div class="field">
+        <label for="projectName">Nombre *</label>
+        <input id="projectName" type="text" maxlength="150" required placeholder="Ej. Cerro Verde">
+      </div>
+
+      <div class="field">
+        <label for="projectClient">Cliente / Entidad</label>
+        <input id="projectClient" type="text" maxlength="180" placeholder="Ej. Sociedad Minera Cerro Verde">
+      </div>
+
+      <div class="full form-actions">
+        <button id="saveProjectBtn" type="submit">Guardar</button>
+        <button id="cancelProjectBtn" type="button" class="secondary">Cancelar</button>
+      </div>
+      <p id="projectFormMessage" class="message full"></p>
+    </form>
+  </section>
+
+  <section class="card mt">
+    <div class="filters">
+      <div class="field grow">
+        <label for="projectSearch">Buscar</label>
+        <input id="projectSearch" type="search" placeholder="Código, nombre o cliente">
+      </div>
+      <div class="field">
+        <label for="projectStatusFilter">Estado</label>
+        <select id="projectStatusFilter">
+          <option value="ALL">Todos</option>
+          <option value="ACTIVE">Activos</option>
+          <option value="INACTIVE">Inactivos</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="projectTypeFilter">Tipo</label>
+        <select id="projectTypeFilter">
+          <option value="ALL">Todos</option>
+          <option value="PROYECTO">Proyectos</option>
+          <option value="SEDE">Sedes</option>
+        </select>
+      </div>
+    </div>
+    <div id="projectsAdminList" class="responsible-list">Cargando...</div>
+    <p id="projectsAdminMessage" class="message"></p>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

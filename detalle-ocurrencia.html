@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Detalle</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+
+</head>
+<body data-page="occurrence-detail">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Detalle de ocurrencia</span></div>
+    <div class="top-actions">
+      <a class="button-link secondary-link" href="ocurrencias.html">← Ocurrencias</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div id="detailHeader">Cargando...</div>
+      <div id="detailBody"></div>
+      <p id="detailMessage" class="message"></p>
+    </section>
+
+    <section id="workflowCard" class="card mt">
+      <h2>Seguimiento / Levantamiento</h2>
+      <div id="workflowContent">Cargando...</div>
+    </section>
+
+    <section class="card mt">
+      <h2>Evidencias</h2>
+      <div id="evidenceGallery" class="evidence-grid">Cargando...</div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

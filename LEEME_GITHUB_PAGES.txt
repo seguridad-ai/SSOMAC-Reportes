@@ -1,0 +1,39 @@
+SSOMAC DIGITAL - PUBLICACION GRATUITA EN GITHUB PAGES
+
+OBJETIVO
+Publicar el aplicativo para obtener enlaces HTTPS reales que puedan abrir los
+trabajadores desde QR y que luego puedan enviarse por correo a responsables.
+
+ANTES DE SUBIR
+1. Copia tu config.js funcional a esta carpeta.
+2. config.js SOLO debe contener SUPABASE_URL y la Publishable key.
+3. NO subas Secret key, service_role, contraseñas ni futuras claves de Resend.
+
+GITHUB
+1. Crea un repositorio público, por ejemplo: ssomac-reportes
+2. Sube TODOS los archivos de esta carpeta a la raíz del repositorio.
+3. En el repositorio: Settings > Pages.
+4. Source: Deploy from a branch.
+5. Branch: main.
+6. Folder: /(root).
+7. Save.
+
+URL ESPERADA
+https://TU_USUARIO.github.io/ssomac-reportes/
+
+PRUEBAS
+Inicio:
+https://TU_USUARIO.github.io/ssomac-reportes/index.html
+
+Formulario público Cerro Verde:
+https://TU_USUARIO.github.io/ssomac-reportes/reportar.html?p=CV
+
+Formulario público Julcani:
+https://TU_USUARIO.github.io/ssomac-reportes/reportar.html?p=JUL
+
+NOTAS
+- .nojekyll evita procesamiento Jekyll innecesario.
+- robots.txt solicita a buscadores no indexar el sitio. No es una medida de
+  autenticación; la seguridad de datos internos depende de Supabase Auth/RLS.
+- La Publishable key de Supabase está diseñada para uso del lado cliente con
+  RLS correctamente configurado.

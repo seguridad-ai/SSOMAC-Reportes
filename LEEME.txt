@@ -1,0 +1,30 @@
+SSOMAC DIGITAL - VERSION 4
+
+ANTES DE USAR LA VERSION 4
+1. En Supabase > SQL Editor ejecuta:
+   ETAPA_22_SEGUIMIENTO.sql
+2. Confirma que no aparezca error.
+
+CONFIGURACION
+1. Abre config.js con Bloc de notas / Notepad++ / VS Code.
+2. Reemplaza:
+   PEGA_AQUI_TU_PUBLISHABLE_KEY
+   por tu Publishable key.
+3. NO uses Secret key ni service_role.
+4. Guarda config.js.
+
+NOVEDADES V4
+- Dashboard con cantidades por estado.
+- Página "Ocurrencias" con filtros.
+- Detalle de cada ocurrencia.
+- Visualización de evidencias privadas mediante URL temporal.
+- ABIERTO -> EN PROCESO.
+- Registro de levantamiento con comentario + fotografía.
+- PENDIENTE DE VALIDACION.
+- Validar y cerrar.
+- Devolver a corrección con observación.
+- Buena práctica nace CERRADA automáticamente y no requiere seguimiento.
+
+IMPORTANTE
+La Publishable key ahora está en config.js. En futuras versiones no tendrás que
+editar app.js; solo conservar tu config.js.

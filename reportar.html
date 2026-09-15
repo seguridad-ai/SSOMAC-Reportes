@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explo Drilling Perú | Reporte de Acto y Condición</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="public-worker-report" class="public-report-body">
+  <main class="public-shell">
+    <section class="public-report-card">
+      <div class="public-brand">
+        <img src="logo_explo_drilling.png" alt="Explo Drilling Perú">
+        <div>
+          <p class="eyebrow">SIG · SSOMAC</p>
+          <h1>Reporte de Acto y Condición</h1>
+          <p class="muted">Registra de forma rápida una observación detectada en tu lugar de trabajo.</p>
+        </div>
+      </div>
+
+      <div class="public-note">
+        Este reporte será revisado por Seguridad/SIG antes de convertirse en una ocurrencia formal.
+        Si te equivocas al seleccionar Acto o Condición, el equipo revisor podrá corregirlo.
+      </div>
+
+      <form id="workerReportForm" class="form-grid">
+        <div class="field">
+          <label for="workerProject">Proyecto *</label>
+          <select id="workerProject" required></select>
+          <small id="workerProjectInfo"></small>
+        </div>
+
+        <div class="field">
+          <label for="workerMonth">Mes</label>
+          <input id="workerMonth" type="text" readonly>
+        </div>
+
+        <div class="field">
+          <label>Origen del hallazgo</label>
+          <input type="text" value="REPORTE DE ACTO Y CONDICIÓN" readonly>
+        </div>
+
+        <div class="field">
+          <label for="workerDate">Fecha *</label>
+          <input id="workerDate" type="date" required>
+        </div>
+
+        <div class="field full">
+          <label for="workerName">Reportado por - Nombres y apellidos *</label>
+          <input id="workerName" type="text" maxlength="250" required placeholder="Ej. Juan Carlos Pérez Gómez">
+        </div>
+
+        <div class="field full">
+          <label for="workerPlace">Lugar del hallazgo *</label>
+          <input id="workerPlace" type="text" maxlength="250" required placeholder="Ej. Plataforma DDH-02 / Taller / Campamento">
+        </div>
+
+        <div class="field full">
+          <label for="workerType">Acto / Condición subestándar *</label>
+          <select id="workerType" required></select>
+        </div>
+
+        <div class="field full">
+          <label for="workerDescription">Descripción del hallazgo *</label>
+          <textarea id="workerDescription" rows="5" maxlength="2500" required placeholder="Describe qué observaste, dónde estaba y qué riesgo podría generar."></textarea>
+        </div>
+
+        <div class="field full">
+          <label for="workerResponsible">Responsable de la corrección *</label>
+          <select id="workerResponsible" required disabled>
+            <option value="">Selecciona primero el proyecto...</option>
+          </select>
+          <small>Selecciona a quien consideras responsable. Seguridad/SIG podrá modificarlo durante la revisión.</small>
+        </div>
+
+        <div class="field full">
+          <label for="workerPhoto">Foto de la observación *</label>
+          <input id="workerPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required>
+          <small>La fotografía se optimizará antes de enviarse.</small>
+          <img id="workerPhotoPreview" class="photo-preview hidden" alt="Vista previa de la observación">
+        </div>
+
+        <div class="full public-submit-row">
+          <button id="workerSubmitBtn" type="submit">Enviar reporte</button>
+        </div>
+
+        <div id="workerResult" class="full hidden"></div>
+        <p id="workerReportMessage" class="message full"></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

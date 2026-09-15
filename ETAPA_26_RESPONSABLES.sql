@@ -1,0 +1,3 @@
+-- ETAPA 26 ya ejecutada en Supabase.
+-- Este archivo queda como referencia de la versión v7.
+-- La tabla public.responsables_correccion debe tener políticas SELECT/INSERT/UPDATE para ADMIN/SIG.

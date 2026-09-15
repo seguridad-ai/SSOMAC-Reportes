@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSOMAC Digital | Reporte diario</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="daily-report">
+<header class="topbar">
+  <div>
+    <strong>SSOMAC Digital</strong>
+    <span>Reporte diario de ocurrencias</span>
+  </div>
+  <div class="top-actions">
+    <a class="button-link secondary-link" href="app.html">Inicio</a>
+    <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+    <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="container report-wide">
+<section class="card">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">EDP-SIG-SSOMAC-RE-EA-211</p>
+      <h1>Resumen de reporte de ocurrencias diarias</h1>
+    </div>
+    <button id="exportExcelBtn" disabled>Exportar Excel</button>
+  </div>
+
+  <div class="filters report-filters">
+    <div class="field">
+      <label for="reportProject">Proyecto</label>
+      <select id="reportProject"></select>
+    </div>
+    <div class="field">
+      <label for="reportDate">Fecha *</label>
+      <input id="reportDate" type="date">
+    </div>
+    <div class="field report-count">
+      <label>Ocurrencias</label>
+      <div id="reportCount" class="counter-box">0</div>
+    </div>
+  </div>
+
+  <p id="reportMessage" class="message"></p>
+
+  <div class="table-scroll">
+    <table class="report-table">
+      <thead>
+      <tr>
+        <th>Item</th>
+        <th>Proyecto</th>
+        <th>Mes</th>
+        <th>Origen de Hallazgo</th>
+        <th>Fecha</th>
+        <th>Reportado por</th>
+        <th>Lugar de Hallazgo</th>
+        <th>Acto/Condición Sub estándar</th>
+        <th>Descripción del hallazgo</th>
+        <th>Causas Inmediatas</th>
+        <th>Causa Básica</th>
+        <th>Acciones a implementar</th>
+        <th>Potencial de pérdida</th>
+        <th>Responsable de Corrección</th>
+        <th>Área responsable de seguimiento</th>
+        <th>Fecha Levantamiento</th>
+        <th>Fecha Ejecutada</th>
+        <th>Estado</th>
+        <th>Evidencia de Levantamiento (fotografías)</th>
+      </tr>
+      </thead>
+      <tbody id="dailyReportBody">
+        <tr>
+          <td colspan="19" class="empty-cell">
+            Selecciona proyecto y fecha.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

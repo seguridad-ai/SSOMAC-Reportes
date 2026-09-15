@@ -1,0 +1,18 @@
+SSOMAC DIGITAL - V6
+
+CAMBIOS DEL REPORTE DIARIO
+1. Al abrir Reporte diario se muestra automáticamente TODOS LOS PROYECTOS del día seleccionado.
+2. El selector Proyecto permite TODOS LOS PROYECTOS o un proyecto individual.
+3. Exportar Excel genera el formato corporativo basado en EDP-SIG-SSOMAC-RE-EA-211-03:
+   - Logo Explo Drilling Perú
+   - SIG - SSOMAC
+   - franja roja del título
+   - Código, N°, Versión y Fecha Act
+   - texto de instrucción
+   - encabezados grises
+   - filas dinámicas según cantidad de ocurrencias
+   - evidencia fotográfica insertada dentro de la última columna cuando esté disponible
+4. El archivo se descarga como .xlsx para compatibilidad moderna.
+
+NO requiere ejecutar SQL adicional si ETAPA_23_REPORTE_DIARIO.sql ya fue ejecutado.
+Mantén tu Publishable key en config.js.

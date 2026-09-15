@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Responsables de corrección</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="responsibles">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Configuración · Responsables de corrección</span></div>
+    <div class="top-actions">
+      <a class="button-link secondary-link" href="app.html">← Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="page-head resp-page-head">
+      <div>
+        <p class="eyebrow">Configuración</p>
+        <h1>Responsables de corrección</h1>
+        <p class="muted">Directorio utilizado para asignar observaciones y, posteriormente, enviar el enlace de levantamiento por correo.</p>
+      </div>
+      <button id="newResponsibleBtn">+ Agregar responsable</button>
+    </section>
+
+    <section id="responsibleFormCard" class="card hidden resp-form-card">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow" id="responsibleFormEyebrow">Nuevo registro</p>
+          <h2 id="responsibleFormTitle">Agregar responsable</h2>
+        </div>
+      </div>
+
+      <form id="responsibleForm" class="form-grid">
+        <input id="responsibleEditId" type="hidden">
+        <div class="field">
+          <label for="respSite">Sede *</label>
+          <input id="respSite" type="text" maxlength="100" required placeholder="Ej. LIMA">
+        </div>
+        <div class="field">
+          <label for="respArea">Área / Proceso *</label>
+          <input id="respArea" type="text" maxlength="120" required placeholder="Ej. SSOMAC">
+        </div>
+        <div class="field">
+          <label for="respNames">Nombres *</label>
+          <input id="respNames" type="text" maxlength="150" required>
+        </div>
+        <div class="field">
+          <label for="respLastNames">Apellidos *</label>
+          <input id="respLastNames" type="text" maxlength="150" required>
+        </div>
+        <div class="field">
+          <label for="respPosition">Cargo *</label>
+          <input id="respPosition" type="text" maxlength="180" required>
+        </div>
+        <div class="field">
+          <label for="respEmail">Correo *</label>
+          <input id="respEmail" type="email" maxlength="320" required placeholder="nombre@explodrillingperu.pe">
+        </div>
+        <div class="field">
+          <label for="respScope">Alcance *</label>
+          <select id="respScope" required>
+            <option value="GLOBAL">Todos los proyectos</option>
+            <option value="PROJECT">Proyecto específico</option>
+          </select>
+        </div>
+        <div id="respProjectField" class="field hidden">
+          <label for="respProject">Proyecto *</label>
+          <select id="respProject"></select>
+        </div>
+        <div class="full form-actions">
+          <button id="saveResponsibleBtn" type="submit">Guardar responsable</button>
+          <button id="cancelResponsibleBtn" type="button" class="secondary">Cancelar</button>
+        </div>
+        <p id="responsibleFormMessage" class="message full"></p>
+      </form>
+    </section>
+
+    <section class="kpi-grid resp-kpis">
+      <article class="kpi"><span>Total</span><strong id="respKpiTotal">—</strong></article>
+      <article class="kpi"><span>Activos</span><strong id="respKpiActive">—</strong></article>
+      <article class="kpi"><span>Inactivos</span><strong id="respKpiInactive">—</strong></article>
+      <article class="kpi"><span>Corporativos</span><strong id="respKpiGlobal">—</strong></article>
+    </section>
+
+    <section class="card">
+      <div class="filters resp-filters">
+        <div class="field grow">
+          <label for="respSearch">Buscar</label>
+          <input id="respSearch" type="search" placeholder="Nombre, cargo, área o correo">
+        </div>
+        <div class="field">
+          <label for="respStatusFilter">Estado</label>
+          <select id="respStatusFilter">
+            <option value="ALL">Todos</option>
+            <option value="ACTIVE">Activos</option>
+            <option value="INACTIVE">Inactivos</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="respScopeFilter">Alcance</label>
+          <select id="respScopeFilter">
+            <option value="ALL">Todos</option>
+            <option value="GLOBAL">Todos los proyectos</option>
+            <option value="PROJECT">Proyecto específico</option>
+          </select>
+        </div>
+      </div>
+      <div id="responsiblesList" class="responsibles-list">Cargando...</div>
+      <p id="responsiblesMessage" class="message"></p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

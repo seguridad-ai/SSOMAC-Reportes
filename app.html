@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Inicio</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+
+</head>
+<body data-page="app">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Explo Drilling Perú</span></div>
+    <div class="top-actions">
+      <a class="button-link" href="nueva-ocurrencia.html">+ Nueva ocurrencia</a>
+      <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+      <a class="button-link secondary-link" href="reporte-diario.html">Reporte diario</a>
+      <a class="button-link secondary-link" href="reportes-trabajadores.html">Reportes trabajadores</a>
+      <a id="projectsNav" class="button-link secondary-link hidden" href="proyectos.html">Proyectos / sedes</a>
+      <a id="responsiblesNav" class="button-link secondary-link hidden" href="responsables.html">Responsables</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="welcome">
+      <p class="eyebrow">Usuario conectado</p>
+      <h1 id="userName">Cargando...</h1>
+      <p id="userMeta"></p>
+    </section>
+
+    <section class="kpi-grid">
+      <article class="kpi"><span>Abiertas</span><strong id="kpiOpen">—</strong></article>
+      <article class="kpi"><span>En proceso</span><strong id="kpiProcess">—</strong></article>
+      <article class="kpi"><span>Por validar</span><strong id="kpiPending">—</strong></article>
+      <article class="kpi"><span>Cerradas</span><strong id="kpiClosed">—</strong></article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Proyectos autorizados</h2>
+        <div id="projectsList" class="list">Cargando...</div>
+      </article>
+
+      <article class="card">
+        <h2>Gestión de ocurrencias</h2>
+        <p>Registra hallazgos, revisa pendientes, carga levantamientos y valida cierres.</p>
+        <div class="stack-actions">
+          <a class="button-link" href="nueva-ocurrencia.html">Nueva ocurrencia</a>
+          <a class="button-link secondary-link" href="ocurrencias.html">Ver ocurrencias</a>
+          <a class="button-link secondary-link" href="reporte-diario.html">Reporte diario</a>
+      <a class="button-link secondary-link" href="reportes-trabajadores.html">Reportes trabajadores</a>
+          <a id="projectsCardLink" class="button-link secondary-link hidden" href="proyectos.html">Administrar proyectos / sedes</a>
+          <a id="responsiblesCardLink" class="button-link secondary-link hidden" href="responsables.html">Administrar responsables</a>
+        </div>
+      </article>
+    </section>
+
+    <p id="appMessage" class="message"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

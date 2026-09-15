@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SSOMAC Digital | Reportes de trabajadores</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="worker-reports-admin">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Reportes enviados por trabajadores</span></div>
+    <div class="top-actions">
+      <a class="button-link secondary-link" href="app.html">← Inicio</a>
+      <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="page-head">
+      <div>
+        <p class="eyebrow">Bandeja de revisión</p>
+        <h1>Reportes de trabajadores</h1>
+        <p class="muted">Revisa, corrige y valida los reportes recibidos desde el link/QR público.</p>
+      </div>
+      <a class="button-link secondary-link" href="reportar.html" target="_blank">Abrir formulario público</a>
+    </section>
+
+    <section class="kpi-grid worker-kpis">
+      <article class="kpi"><span>Nuevos</span><strong id="workerKpiNew">—</strong></article>
+      <article class="kpi"><span>En revisión</span><strong id="workerKpiReview">—</strong></article>
+      <article class="kpi"><span>Validados</span><strong id="workerKpiValidated">—</strong></article>
+      <article class="kpi"><span>Descartados</span><strong id="workerKpiDiscarded">—</strong></article>
+    </section>
+
+    <section class="card">
+      <div class="filters">
+        <div class="field">
+          <label for="workerReportStatus">Estado</label>
+          <select id="workerReportStatus">
+            <option value="ALL">Todos</option>
+            <option value="NUEVO">Nuevos</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="VALIDADO">Validados</option>
+            <option value="DESCARTADO">Descartados</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="workerReportProjectFilter">Proyecto</label>
+          <select id="workerReportProjectFilter"><option value="ALL">Todos</option></select>
+        </div>
+        <div class="field grow">
+          <label for="workerReportSearch">Buscar</label>
+          <input id="workerReportSearch" type="search" placeholder="Código, trabajador, lugar o descripción">
+        </div>
+      </div>
+      <div id="workerReportsList" class="worker-report-list">Cargando...</div>
+      <p id="workerReportsMessage" class="message"></p>
+    </section>
+
+    <section id="workerReviewCard" class="card mt hidden">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">Revisión técnica</p>
+          <h2 id="workerReviewTitle">Reporte</h2>
+        </div>
+        <button id="workerCloseReviewBtn" class="secondary" type="button">Cerrar revisión</button>
+      </div>
+
+      <div class="worker-review-layout">
+        <div>
+          <div id="workerOriginalPhoto" class="worker-photo-box">Sin fotografía</div>
+          <div class="detail-item mt-sm"><span>Origen</span><strong>REPORTE DE ACTO Y CONDICIÓN</strong></div>
+        </div>
+
+        <form id="workerReviewForm" class="form-grid">
+          <input id="workerReviewId" type="hidden">
+
+          <div class="field">
+            <label for="reviewProject">Proyecto *</label>
+            <select id="reviewProject" required></select>
+          </div>
+          <div class="field">
+            <label for="reviewDate">Fecha *</label>
+            <input id="reviewDate" type="date" required>
+          </div>
+
+          <div class="field full">
+            <label for="reviewReporter">Reportado por *</label>
+            <input id="reviewReporter" type="text" required>
+          </div>
+
+          <div class="field full">
+            <label for="reviewPlace">Lugar del hallazgo *</label>
+            <input id="reviewPlace" type="text" required>
+          </div>
+
+          <div class="field full">
+            <label for="reviewType">Acto / Condición *</label>
+            <select id="reviewType" required></select>
+          </div>
+
+          <div class="field full">
+            <label for="reviewDescription">Descripción *</label>
+            <textarea id="reviewDescription" rows="4" required></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="reviewResponsible">Responsable de corrección *</label>
+            <select id="reviewResponsible" required></select>
+          </div>
+
+          <div class="field full">
+            <label>Causas inmediatas</label>
+            <div id="reviewImmediateCauses" class="check-panel"></div>
+          </div>
+
+          <div class="field full">
+            <label>Causas básicas</label>
+            <div id="reviewBasicCauses" class="check-panel grouped"></div>
+          </div>
+
+          <div class="field full">
+            <label for="reviewAction">Acciones a implementar *</label>
+            <textarea id="reviewAction" rows="3" required placeholder="Indica la acción que deberá ejecutar el responsable."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="reviewPotential">Potencial de pérdida *</label>
+            <select id="reviewPotential" required></select>
+          </div>
+
+          <div class="field">
+            <label for="reviewArea">Área responsable de seguimiento *</label>
+            <select id="reviewArea" required></select>
+          </div>
+
+          <div class="field full">
+            <label for="reviewDueDate">Fecha de levantamiento *</label>
+            <input id="reviewDueDate" type="date" required>
+          </div>
+
+          <div class="field full">
+            <label for="reviewObservation">Observación de revisión / motivo de descarte</label>
+            <textarea id="reviewObservation" rows="2"></textarea>
+          </div>
+
+          <div class="full workflow-actions">
+            <button id="workerValidateBtn" type="submit" class="success">Validar y generar ocurrencia</button>
+            <button id="workerDiscardBtn" type="button" class="warning">Descartar reporte</button>
+          </div>
+          <p id="workerReviewMessage" class="message full"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

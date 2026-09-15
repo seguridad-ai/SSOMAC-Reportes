@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Nueva ocurrencia</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+
+</head>
+<body data-page="new-occurrence">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Nueva ocurrencia</span></div>
+    <div class="top-actions">
+      <a class="button-link secondary-link" href="app.html">← Inicio</a>
+      <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container narrow">
+    <section class="card">
+      <p class="eyebrow">Reporte digital SSOMAC</p>
+      <h1>Nueva ocurrencia</h1>
+
+      <form id="occurrenceForm" class="form-grid">
+        <div class="field">
+          <label for="project">Proyecto *</label>
+          <select id="project" required></select>
+        </div>
+        <div class="field">
+          <label for="date">Fecha *</label>
+          <input id="date" type="date" required>
+        </div>
+        <div class="field full">
+          <label for="origin">Origen del hallazgo *</label>
+          <select id="origin" required></select>
+        </div>
+        <div id="classificationSection" class="field full hidden">
+          <label for="classification">Acto / Condición subestándar *</label>
+          <select id="classification"><option value="">Seleccione...</option></select>
+        </div>
+        <div class="field full">
+          <label for="place">Lugar del hallazgo *</label>
+          <input id="place" type="text" maxlength="200" required placeholder="Ej. Plataforma de perforación">
+        </div>
+        <div class="field full">
+          <label id="descriptionLabel" for="description">Descripción del hallazgo *</label>
+          <textarea id="description" rows="4" maxlength="2000" required placeholder="Describa claramente lo observado..."></textarea>
+        </div>
+
+        <div id="causesSection" class="full hidden">
+          <div class="field full">
+            <label>Causas inmediatas</label>
+            <div id="immediateCauses" class="check-panel"></div>
+          </div>
+          <div class="field full">
+            <label>Causas básicas</label>
+            <div id="basicCauses" class="check-panel grouped"></div>
+          </div>
+        </div>
+
+        <div id="correctiveSection" class="full hidden">
+          <div class="form-grid">
+            <div class="field full">
+              <label for="action">Acciones a implementar</label>
+              <textarea id="action" rows="3" maxlength="2000" placeholder="Indique la acción o medida a implementar..."></textarea>
+            </div>
+            <div class="field">
+              <label for="potential">Potencial de pérdida</label>
+              <select id="potential"></select>
+            </div>
+            <div class="field">
+              <label for="area">Área responsable</label>
+              <select id="area"></select>
+            </div>
+            <div class="field">
+              <label for="responsibleId">Responsable de corrección *</label>
+              <select id="responsibleId">
+                <option value="">Seleccione...</option>
+              </select>
+              <small id="responsibleInfo">Selecciona el proyecto para cargar los responsables disponibles.</small>
+            </div>
+            <div class="field">
+              <label for="dueDate">Fecha de levantamiento</label>
+              <input id="dueDate" type="date">
+            </div>
+          </div>
+        </div>
+
+        <div class="field full">
+          <label for="photo">Evidencia fotográfica</label>
+          <input id="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+          <small>La imagen se optimiza antes de subirla.</small>
+          <img id="photoPreview" class="photo-preview hidden" alt="Vista previa">
+        </div>
+
+        <div class="full form-actions">
+          <button id="saveBtn" type="submit">Guardar ocurrencia</button>
+          <a class="button-link secondary-link" href="app.html">Cancelar</a>
+        </div>
+        <p id="formMessage" class="message full"></p>
+      </form>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+SSOMAC DIGITAL - V5 CORREGIDO
+
+IMPORTANTE
+Este paquete SÍ incluye config.js.
+
+1. Abre config.js.
+2. Reemplaza:
+   PEGA_AQUI_TU_PUBLISHABLE_KEY
+   por tu Publishable key de Supabase.
+3. NO uses Secret key ni service_role.
+4. Guarda el archivo.
+
+SQL
+Si ya ejecutaste ETAPA_23_REPORTE_DIARIO.sql correctamente, NO necesitas
+volver a ejecutarlo.
+
+NOVEDADES
+- Mantiene Login, Dashboard, Nueva ocurrencia, Seguimiento y cierre.
+- Corrige la fecha para usar la fecha local del equipo.
+- Agrega Reporte diario por proyecto y fecha.
+- Agrega Exportar Excel.
+- Conserva visualización de evidencias privadas.
+
+ARCHIVOS CLAVE
+- config.js
+- app.js
+- app.html
+- nueva-ocurrencia.html
+- ocurrencias.html
+- detalle-ocurrencia.html
+- reporte-diario.html
+- styles.css

@@ -1,0 +1,64 @@
+SSOMAC DIGITAL - VERSION 8
+FORMULARIO PÚBLICO + BANDEJA DE REPORTES DE TRABAJADORES
+
+ANTES DE ABRIR LA V8
+1. Supabase > SQL Editor > New query.
+2. Abre ETAPA_27_REPORTES_TRABAJADORES.sql.
+3. Copia todo y ejecuta Run.
+4. Al final deben aparecer 7 funciones de la Etapa 27.
+
+CONFIGURACIÓN
+- Conserva tu Publishable key en config.js.
+- Si reemplazas toda la carpeta, copia el config.js que ya te funciona.
+
+FORMULARIO PÚBLICO
+Archivo: reportar.html
+No requiere usuario ni contraseña.
+
+Campos del trabajador:
+- Proyecto
+- Mes automático
+- Origen fijo: REPORTE DE ACTO Y CONDICIÓN
+- Fecha
+- Nombres y apellidos
+- Lugar
+- Acto / Condición
+- Descripción
+- Responsable propuesto
+- Fotografía obligatoria
+
+Al enviar se genera un código como:
+REP-000001
+
+QR POR PROYECTO
+Cuando la app esté publicada podrás usar, por ejemplo:
+reportar.html?p=CV
+reportar.html?p=JUL
+reportar.html?p=ZAF
+
+La clave ?p=CODIGO preselecciona y bloquea el proyecto.
+
+BANDEJA INTERNA
+Archivo: reportes-trabajadores.html
+Requiere login.
+
+Permite:
+- Ver NUEVOS / EN REVISIÓN / VALIDADOS / DESCARTADOS
+- Corregir proyecto, fecha, nombre, Acto/Condición, descripción y responsable
+- Completar causas inmediatas y básicas
+- Completar acción, potencial, área y fecha de levantamiento
+- Descartar con motivo
+- Validar y generar ocurrencia formal
+
+AL VALIDAR
+- Se crea la ocurrencia formal.
+- Se conserva el nombre real del trabajador como reportante externo.
+- La fotografía original se incorpora como evidencia del hallazgo.
+- Se crea automáticamente una asignación de levantamiento con el responsable y su correo.
+
+REPORTES CREADOS DIRECTAMENTE POR SEGURIDAD
+La V8 también crea una asignación de levantamiento al guardar una ocurrencia normal.
+
+IMPORTANTE
+La V8 todavía NO envía el correo automáticamente.
+El siguiente paso será conectar las asignaciones de levantamiento con el correo y el link público de levantamiento.
