@@ -1434,6 +1434,20 @@ async function initPublicLift(){
   document.getElementById('liftStatus').textContent=(row.estado_asignacion||'').replaceAll('_',' ');
   card.classList.remove('hidden');
 
+  const originalEvidenceBox=document.getElementById('liftOriginalEvidence');
+  if(row.ruta_foto_hallazgo){
+    const {data:signedPhoto,error:photoError}=await sb.storage
+      .from('evidencias-ssomac')
+      .createSignedUrl(row.ruta_foto_hallazgo,3600);
+    if(!photoError&&signedPhoto?.signedUrl){
+      originalEvidenceBox.innerHTML=`<a href="${signedPhoto.signedUrl}" target="_blank" rel="noopener"><img src="${signedPhoto.signedUrl}" alt="Fotografía de la observación"></a><small>Haz clic sobre la fotografía para verla en tamaño completo.</small>`;
+    }else{
+      originalEvidenceBox.innerHTML='<span>No se pudo cargar la fotografía de la observación.</span>';
+    }
+  }else{
+    originalEvidenceBox.innerHTML='<span>Este reporte no tiene fotografía de hallazgo registrada.</span>';
+  }
+
   if(!row.puede_levantar){
     form.classList.add('hidden');
     result.classList.remove('hidden');
