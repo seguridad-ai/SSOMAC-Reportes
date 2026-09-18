@@ -9,6 +9,60 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.inclu
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const page = document.body.dataset.page;
 
+
+// ============================================================
+// EMAILJS + ENLACES DE LEVANTAMIENTO
+// ============================================================
+function getPublicAppBaseUrl(){
+  const configured=String(cfg.APP_URL||'').trim().replace(/\/$/,'');
+  if(configured)return configured;
+  return new URL('.',window.location.href).href.replace(/\/$/,'');
+}
+
+function buildLiftLink(token){
+  return `${getPublicAppBaseUrl()}/levantamiento.html?t=${encodeURIComponent(token)}`;
+}
+
+function emailJsConfigured(){
+  return Boolean(
+    cfg.EMAILJS_SERVICE_ID &&
+    cfg.EMAILJS_TEMPLATE_ID &&
+    cfg.EMAILJS_PUBLIC_KEY
+  );
+}
+
+async function sendAssignmentEmail(params){
+  if(!emailJsConfigured()){
+    throw new Error('EmailJS no está configurado en config.js');
+  }
+
+  const response=await fetch('https://api.emailjs.com/api/v1.0/email/send',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      service_id:cfg.EMAILJS_SERVICE_ID,
+      template_id:cfg.EMAILJS_TEMPLATE_ID,
+      user_id:cfg.EMAILJS_PUBLIC_KEY,
+      template_params:params
+    })
+  });
+
+  if(!response.ok){
+    const detail=await response.text().catch(()=>response.statusText);
+    throw new Error(`EmailJS ${response.status}: ${detail||response.statusText}`);
+  }
+  return true;
+}
+
+async function markAssignmentEmailSent(assignmentId){
+  if(!assignmentId)return;
+  const {error}=await sb.from('asignaciones_levantamiento').update({
+    estado:'CORREO_ENVIADO',
+    correo_enviado_en:new Date().toISOString()
+  }).eq('id',assignmentId);
+  if(error)console.warn('Correo enviado, pero no se pudo actualizar la asignación:',error.message);
+}
+
 function showMessage(el, text, ok=false){ if(!el)return; el.textContent=text||''; el.style.color=ok?'#067647':'#b42318'; }
 function escapeHtml(v=''){ return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;"); }
 function today(){
@@ -167,15 +221,44 @@ async function initNewOccurrence(){
       }
       const f=photoEl.files?.[0];if(f){const blob=await optimizeImage(f);const path=`ocurrencias/${occ.id}/hallazgo/${Date.now()}_${uid()}.webp`;const {error:ue}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});if(ue)throw ue;const {error:ee}=await sb.from('evidencias').insert({ocurrencia_id:occ.id,tipo_evidencia:'HALLAZGO',ruta_archivo:path,creado_por_id:session.user.id});if(ee)throw ee;}
       let assignmentWarning='';
+      let assignmentEmailNote='';
       if(!good&&selectedResponsible){
-        const {error:assignmentError}=await sb.rpc('crear_asignacion_levantamiento',{
+        const {data:assignmentData,error:assignmentError}=await sb.rpc('crear_asignacion_levantamiento',{
           p_ocurrencia_id:occ.id,
           p_responsable_id:selectedResponsible.id,
           p_fecha_limite:document.getElementById('dueDate').value||null
         });
-        if(assignmentError)assignmentWarning=' La ocurrencia fue creada, pero la asignación de levantamiento quedó pendiente: '+assignmentError.message;
+        if(assignmentError){
+          assignmentWarning=' La ocurrencia fue creada, pero la asignación de levantamiento quedó pendiente: '+assignmentError.message;
+        }else{
+          const assignment=Array.isArray(assignmentData)?assignmentData[0]:assignmentData;
+          const project=(projectsRes.data||[]).map(x=>x.proyectos).find(p=>p?.id===projectEl.value);
+          const selectedType=types.find(t=>t.id===classificationEl.value);
+          try{
+            const reporter=await getProfile(session.user.id);
+            await sendAssignmentEmail({
+              codigo_reporte:`OC-${String(occ.numero).padStart(6,'0')}`,
+              correo_responsable:selectedResponsible.email,
+              nombre_responsable:`${selectedResponsible.nombres||''} ${selectedResponsible.apellidos||''}`.trim(),
+              proyecto:project?.nombre||projectEl.options[projectEl.selectedIndex]?.text||'',
+              fecha:formatDateEsV6(dateEl.value),
+              reportado_por:`${reporter.nombres||''} ${reporter.apellidos||''}`.trim(),
+              lugar:document.getElementById('place').value.trim(),
+              tipo_hallazgo:selectedType?.nombre||'',
+              descripcion:document.getElementById('description').value.trim(),
+              accion:document.getElementById('action').value.trim()||'Por definir',
+              fecha_limite:document.getElementById('dueDate').value?formatDateEsV6(document.getElementById('dueDate').value):'Sin fecha definida',
+              link_levantamiento:buildLiftLink(assignment?.token)
+            });
+            await markAssignmentEmailSent(assignment?.asignacion_id);
+            assignmentEmailNote=' Se envió el correo de levantamiento al responsable.';
+          }catch(emailErr){
+            console.error(emailErr);
+            assignmentWarning+=' La asignación fue creada, pero no se pudo enviar el correo: '+(emailErr.message||emailErr);
+          }
+        }
       }
-      showMessage(msg,`Ocurrencia N.° ${occ.numero} registrada correctamente.${assignmentWarning}`,true);form.reset();dateEl.value=today();classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');preview.classList.add('hidden');renderResponsibles();window.scrollTo({top:0,behavior:'smooth'});
+      showMessage(msg,`Ocurrencia N.° ${occ.numero} registrada correctamente.${assignmentEmailNote}${assignmentWarning}`,true);form.reset();dateEl.value=today();classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');preview.classList.add('hidden');renderResponsibles();window.scrollTo({top:0,behavior:'smooth'});
     }catch(err){console.error(err);showMessage(msg,'No se pudo guardar: '+(err.message||err));}
     finally{saveBtn.disabled=false;saveBtn.textContent='Guardar ocurrencia';}
   });
@@ -1128,9 +1211,36 @@ async function initWorkerReportsAdmin(){
       });
       if(error)throw error;
       const out=Array.isArray(data)?data[0]:data;
-      showMessage(reviewMsg,`Reporte validado. Se generó la ocurrencia N.° ${out?.numero_ocurrencia||''} y su asignación de levantamiento.`,true);
+      let emailStatus='';
+      const responsible=responsibles.find(r=>r.id===document.getElementById('reviewResponsible').value);
+      const project=projects.find(p=>p.id===document.getElementById('reviewProject').value);
+      const type=types.find(t=>t.id===document.getElementById('reviewType').value);
+      if(responsible&&out?.token_levantamiento){
+        try{
+          await sendAssignmentEmail({
+            codigo_reporte:workerCode(current),
+            correo_responsable:responsible.email,
+            nombre_responsable:`${responsible.nombres||''} ${responsible.apellidos||''}`.trim(),
+            proyecto:project?.nombre||'',
+            fecha:formatDateEsV6(document.getElementById('reviewDate').value),
+            reportado_por:document.getElementById('reviewReporter').value.trim(),
+            lugar:document.getElementById('reviewPlace').value.trim(),
+            tipo_hallazgo:type?.nombre||'',
+            descripcion:document.getElementById('reviewDescription').value.trim(),
+            accion:document.getElementById('reviewAction').value.trim(),
+            fecha_limite:formatDateEsV6(document.getElementById('reviewDueDate').value),
+            link_levantamiento:buildLiftLink(out.token_levantamiento)
+          });
+          await markAssignmentEmailSent(out.asignacion_id);
+          emailStatus=' Correo de levantamiento enviado al responsable.';
+        }catch(emailErr){
+          console.error(emailErr);
+          emailStatus=' La ocurrencia se creó, pero el correo NO pudo enviarse: '+(emailErr.message||emailErr);
+        }
+      }
+      showMessage(reviewMsg,`Reporte validado. Se generó la ocurrencia N.° ${out?.numero_ocurrencia||''} y su asignación de levantamiento.${emailStatus}`,!emailStatus.includes('NO pudo'));
       await loadRows();
-      setTimeout(()=>{if(out?.ocurrencia_id)location.href=`detalle-ocurrencia.html?id=${out.ocurrencia_id}`;},1000);
+      setTimeout(()=>{if(out?.ocurrencia_id)location.href=`detalle-ocurrencia.html?id=${out.ocurrencia_id}`;},emailStatus.includes('NO pudo')?3500:1800);
     }catch(err){console.error(err);showMessage(reviewMsg,'No se pudo validar: '+(err.message||err));}
     finally{validateBtn.disabled=false;validateBtn.textContent='Validar y generar ocurrencia';}
   });
@@ -1273,3 +1383,100 @@ async function initProjectsAdmin(){
 }
 
 if(page==='projects-admin')initProjectsAdmin();
+
+
+// ============================================================
+// ETAPA 29 - LEVANTAMIENTO PUBLICO MEDIANTE TOKEN
+// ============================================================
+async function initPublicLift(){
+  const token=new URLSearchParams(location.search).get('t');
+  const loading=document.getElementById('liftLoading');
+  const card=document.getElementById('liftContent');
+  const errorBox=document.getElementById('liftError');
+  const form=document.getElementById('publicLiftForm');
+  const msg=document.getElementById('publicLiftMessage');
+  const result=document.getElementById('publicLiftResult');
+  const photo=document.getElementById('publicLiftPhoto');
+  const preview=document.getElementById('publicLiftPhotoPreview');
+  const submitBtn=document.getElementById('publicLiftSubmitBtn');
+
+  if(!token){
+    loading.classList.add('hidden');
+    errorBox.classList.remove('hidden');
+    errorBox.textContent='El enlace de levantamiento no es válido.';
+    return;
+  }
+
+  const {data,error}=await sb.rpc('public_obtener_levantamiento',{p_token:token});
+  loading.classList.add('hidden');
+  if(error){
+    errorBox.classList.remove('hidden');
+    errorBox.textContent='No se pudo abrir el levantamiento: '+error.message;
+    return;
+  }
+  const row=Array.isArray(data)?data[0]:data;
+  if(!row){
+    errorBox.classList.remove('hidden');
+    errorBox.textContent='El enlace no existe o ya no está disponible.';
+    return;
+  }
+
+  document.getElementById('liftCode').textContent=row.codigo_reporte||'Reporte SIG';
+  document.getElementById('liftProject').textContent=row.proyecto||'—';
+  document.getElementById('liftDate').textContent=formatDateEsV6(row.fecha);
+  document.getElementById('liftReporter').textContent=row.reportado_por||'—';
+  document.getElementById('liftPlace').textContent=row.lugar||'—';
+  document.getElementById('liftType').textContent=row.tipo_hallazgo||'—';
+  document.getElementById('liftDescription').textContent=row.descripcion||'—';
+  document.getElementById('liftAction').textContent=row.accion||'—';
+  document.getElementById('liftDue').textContent=row.fecha_limite?formatDateEsV6(row.fecha_limite):'Sin fecha definida';
+  document.getElementById('liftResponsible').textContent=row.nombre_responsable||'—';
+  document.getElementById('liftStatus').textContent=(row.estado_asignacion||'').replaceAll('_',' ');
+  card.classList.remove('hidden');
+
+  if(!row.puede_levantar){
+    form.classList.add('hidden');
+    result.classList.remove('hidden');
+    result.innerHTML=`<div class="public-success"><strong>Este levantamiento ya fue procesado</strong><p>Estado actual: ${escapeHtml((row.estado_asignacion||'').replaceAll('_',' '))}.</p></div>`;
+    return;
+  }
+
+  photo.addEventListener('change',()=>{
+    const file=photo.files?.[0];
+    if(!file){preview.classList.add('hidden');preview.removeAttribute('src');return;}
+    preview.src=URL.createObjectURL(file);
+    preview.classList.remove('hidden');
+  });
+
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();showMessage(msg,'');
+    const comment=document.getElementById('publicLiftComment').value.trim();
+    const file=photo.files?.[0];
+    if(comment.length<5){showMessage(msg,'Describe la acción correctiva realizada.');return;}
+    if(!file){showMessage(msg,'Adjunta una fotografía del levantamiento.');return;}
+    submitBtn.disabled=true;submitBtn.textContent='Enviando levantamiento...';
+    try{
+      const blob=await optimizeImage(file);
+      const path=`levantamientos/${token}/evidencia/${Date.now()}_${uid()}.webp`;
+      const {error:uploadError}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});
+      if(uploadError)throw uploadError;
+      const {data:done,error:rpcError}=await sb.rpc('public_registrar_levantamiento',{
+        p_token:token,
+        p_comentario:comment,
+        p_ruta_foto:path
+      });
+      if(rpcError)throw rpcError;
+      form.classList.add('hidden');
+      result.classList.remove('hidden');
+      result.innerHTML=`<div class="public-success"><strong>Levantamiento enviado correctamente</strong><p>La evidencia quedó pendiente de validación por Seguridad/SIG.</p></div>`;
+      window.scrollTo({top:0,behavior:'smooth'});
+    }catch(err){
+      console.error(err);
+      showMessage(msg,'No se pudo enviar el levantamiento: '+(err.message||err));
+    }finally{
+      submitBtn.disabled=false;submitBtn.textContent='Enviar levantamiento';
+    }
+  });
+}
+
+if(page==='public-lift')initPublicLift();
