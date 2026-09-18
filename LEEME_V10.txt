@@ -1,0 +1,28 @@
+SSOMAC DIGITAL - V10 ACTUALIZACION
+
+OBJETIVO
+- Enviar automáticamente el correo de asignación por EmailJS al validar un reporte de trabajador.
+- Enviar el mismo correo cuando un Ing. Seguridad/Admin crea una ocurrencia directa.
+- Generar el enlace público levantamiento.html?t=TOKEN.
+- Permitir que el responsable, sin usuario, registre acción correctiva + fotografía.
+- Pasar automáticamente la ocurrencia a PENDIENTE DE VALIDACION.
+
+PASOS
+1. En Supabase > SQL Editor ejecutar ETAPA_29_CORREO_Y_LEVANTAMIENTO.sql.
+2. Confirmar que al final aparecen 3 funciones.
+3. En GitHub reemplazar app.js y styles.css.
+4. En GitHub agregar levantamiento.html.
+5. NO reemplazar config.js: conserva el que ya modificaste con EmailJS y APP_URL.
+6. Esperar el despliegue de GitHub Pages.
+7. Probar primero una ocurrencia dirigida a sig@explodrillingperu.pe.
+
+CONFIG.JS DEBE CONTENER
+EMAILJS_SERVICE_ID
+EMAILJS_TEMPLATE_ID
+EMAILJS_PUBLIC_KEY
+APP_URL = https://seguridad-ai.github.io/SSOMAC-Reportes
+
+IMPORTANTE
+- Nunca subir la Private Key de EmailJS.
+- Si el correo falla, la ocurrencia y la asignación quedan creadas; el mensaje mostrará la falla de correo.
+- La evidencia del hallazgo original continúa privada. El responsable ve los datos del reporte y carga su evidencia de levantamiento.
