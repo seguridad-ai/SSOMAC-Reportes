@@ -438,7 +438,7 @@ async function initOccurrences(){
 
 async function initOccurrenceDetail(){
   const session=await requireSession();if(!session)return;document.getElementById('logoutBtn').addEventListener('click',logout);
-  const id=new URLSearchParams(location.search).get('id'),head=document.getElementById('detailHeader'),body=document.getElementById('detailBody'),msg=document.getElementById('detailMessage'),workflow=document.getElementById('workflowContent'),gallery=document.getElementById('evidenceGallery');
+  const id=new URLSearchParams(location.search).get('id'),head=document.getElementById('detailHeader'),body=document.getElementById('detailBody'),msg=document.getElementById('detailMessage'),workflow=document.getElementById('workflowContent'),gallery=document.getElementById('evidenceGallery'),history=document.getElementById('occurrenceHistory');
   if(!id){showMessage(msg,'Falta el identificador de la ocurrencia.');return;}
   try{
     const profile=await getProfile(session.user.id),statuses=await getStatuses();
@@ -479,8 +479,9 @@ async function initOccurrenceDetail(){
     }
 
     await renderEvidence(id,gallery);
+    await renderOccurrenceHistory(id,history);
     renderWorkflow(o,profile,statuses,session,workflow,msg,id);
-  }catch(err){console.error(err);showMessage(msg,err.message);workflow.textContent='No se pudo cargar el flujo.';gallery.textContent='No se pudieron cargar las evidencias.';}
+  }catch(err){console.error(err);showMessage(msg,err.message);workflow.textContent='No se pudo cargar el flujo.';gallery.textContent='No se pudieron cargar las evidencias.';if(history)history.textContent='No se pudo cargar el historial.';}
 }
 
 async function renderEvidence(occId,gallery){
@@ -493,6 +494,64 @@ async function renderEvidence(occId,gallery){
     cards.push(`<article class="evidence-card">${se?'':`<img src="${signed.signedUrl}" alt="${escapeHtml(e.tipo_evidencia)}">`}<div class="evidence-info"><strong>${escapeHtml(e.tipo_evidencia)}</strong><small>${escapeHtml(e.creado_en||'')}</small>${e.comentario?`<p>${escapeHtml(e.comentario)}</p>`:''}</div></article>`);
   }
   gallery.innerHTML=cards.join('');
+}
+
+// ============================================================
+// HISTORIAL Y TRAZABILIDAD DE OCURRENCIAS (V10.4)
+// ============================================================
+function formatHistoryDateTime(value){
+  if(!value)return 'Fecha no disponible';
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return String(value);
+  return new Intl.DateTimeFormat('es-PE',{
+    day:'2-digit',month:'2-digit',year:'numeric',
+    hour:'2-digit',minute:'2-digit'
+  }).format(d);
+}
+
+function historyEventClass(type=''){
+  if(['OCURRENCIA_CERRADA','BUENA_PRACTICA_REGISTRADA'].includes(type))return 'success';
+  if(type==='LEVANTAMIENTO_DEVUELTO')return 'warning';
+  if(type==='LEVANTAMIENTO_ENVIADO')return 'info';
+  if(['RESPONSABLE_ASIGNADO','RESPONSABLE_MODIFICADO','FECHA_LIMITE_MODIFICADA'].includes(type))return 'assignment';
+  if(type==='TRAZABILIDAD_ACTIVADA')return 'baseline';
+  return 'neutral';
+}
+
+function formatHistoryState(value){
+  return String(value||'').replaceAll('_',' ');
+}
+
+async function renderOccurrenceHistory(occId,container){
+  if(!container)return;
+  const {data,error}=await sb.from('historial_ocurrencias')
+    .select('id,tipo_evento,titulo,detalle,estado_anterior,estado_nuevo,actor_nombre,creado_en,evidencia_id')
+    .eq('ocurrencia_id',occId)
+    .order('creado_en',{ascending:true});
+  if(error)throw error;
+  if(!data?.length){
+    container.innerHTML='<div class="list-item">Aún no existen eventos de trazabilidad para esta ocurrencia.</div>';
+    return;
+  }
+
+  container.innerHTML=`<div class="history-timeline">${data.map((event,index)=>{
+    const stateChanged=event.estado_anterior&&event.estado_nuevo&&event.estado_anterior!==event.estado_nuevo;
+    const actor=event.actor_nombre||'Sistema';
+    return `<article class="history-event ${historyEventClass(event.tipo_evento)}">
+      <div class="history-marker" aria-hidden="true"><span></span></div>
+      <div class="history-content">
+        <div class="history-heading">
+          <div>
+            <strong>${escapeHtml(event.titulo||event.tipo_evento||'Evento')}</strong>
+            <small>${escapeHtml(formatHistoryDateTime(event.creado_en))} · ${escapeHtml(actor)}</small>
+          </div>
+          <span class="history-number">${index+1}</span>
+        </div>
+        ${event.detalle?`<p>${escapeHtml(event.detalle)}</p>`:''}
+        ${stateChanged?`<div class="history-state-change"><span>${escapeHtml(formatHistoryState(event.estado_anterior))}</span><b>→</b><span>${escapeHtml(formatHistoryState(event.estado_nuevo))}</span></div>`:''}
+      </div>
+    </article>`;
+  }).join('')}</div>`;
 }
 
 function renderWorkflow(o,profile,statuses,session,box,msg,occId){

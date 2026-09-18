@@ -1,0 +1,34 @@
+SSOMAC DIGITAL V10.4 - ETAPA 33
+HISTORIAL Y TRAZABILIDAD DE OCURRENCIAS
+
+1) En Supabase > SQL Editor > New query:
+   - Ejecutar completo: ETAPA_33_HISTORIAL_TRAZABILIDAD.sql
+
+2) En GitHub reemplazar solamente:
+   - app.js
+   - styles.css
+   - detalle-ocurrencia.html
+
+3) NO reemplazar config.js.
+
+4) Commit sugerido:
+   V10.4 - Historial y trazabilidad de ocurrencias
+
+5) Después de publicar GitHub Pages:
+   - Ctrl + F5
+   - Abrir Ocurrencias > Ver detalle
+   - Revisar la nueva sección "Historial y trazabilidad".
+
+NOTA SOBRE REGISTROS ANTERIORES:
+Las ocurrencias existentes antes de la ETAPA 33 muestran una línea base
+"Trazabilidad activada". No se inventan fechas o acciones anteriores que
+no estaban almacenadas como historial.
+
+Desde la ETAPA 33 en adelante se registran automáticamente:
+- Ocurrencia registrada
+- Responsable asignado
+- Inicio de seguimiento
+- Levantamiento enviado
+- Devolución para corrección
+- Cierre validado
+- Modificación de responsable o fecha límite

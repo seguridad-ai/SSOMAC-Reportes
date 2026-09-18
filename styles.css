@@ -191,3 +191,42 @@ small{color:var(--muted)}.message{min-height:20px;color:#b42318}
 
 @media(max-width:1100px){.dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.deadline-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.alerts-head{flex-direction:column}.alerts-counter{white-space:normal}.occurrence-status-stack{align-items:flex-start;min-width:0}}
+
+/* ============================================================
+   HISTORIAL Y TRAZABILIDAD - V10.4
+   ============================================================ */
+.section-heading-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.history-intro{margin:6px 0 0;color:#667085;font-size:14px;line-height:1.5}
+.history-timeline{position:relative;margin-top:6px}
+.history-event{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;position:relative;padding-bottom:18px}
+.history-event:last-child{padding-bottom:0}
+.history-marker{position:relative;display:flex;justify-content:center}
+.history-marker::after{content:"";position:absolute;top:19px;bottom:-19px;width:2px;background:#e4e7ec}
+.history-event:last-child .history-marker::after{display:none}
+.history-marker span{position:relative;z-index:1;width:14px;height:14px;border-radius:50%;background:#98a2b3;border:3px solid #fff;box-shadow:0 0 0 2px #d0d5dd;margin-top:5px}
+.history-content{border:1px solid #e4e7ec;border-radius:12px;padding:14px 16px;background:#fff}
+.history-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.history-heading strong{display:block;color:#101828;font-size:15px;line-height:1.35}
+.history-heading small{display:block;color:#667085;font-size:12px;margin-top:4px}
+.history-content p{margin:10px 0 0;color:#344054;line-height:1.55;font-size:14px}
+.history-number{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:27px;height:27px;padding:0 7px;border-radius:999px;background:#f2f4f7;color:#475467;font-size:12px;font-weight:700}
+.history-state-change{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:11px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+.history-state-change span{padding:5px 8px;border-radius:999px;background:#f2f4f7;color:#475467}
+.history-state-change b{color:#98a2b3}
+.history-event.success .history-marker span{background:#12b76a;box-shadow:0 0 0 2px #a6f4c5}
+.history-event.success .history-content{border-left:4px solid #12b76a}
+.history-event.warning .history-marker span{background:#f79009;box-shadow:0 0 0 2px #fedf89}
+.history-event.warning .history-content{border-left:4px solid #f79009}
+.history-event.info .history-marker span{background:#2e90fa;box-shadow:0 0 0 2px #b2ddff}
+.history-event.info .history-content{border-left:4px solid #2e90fa}
+.history-event.assignment .history-marker span{background:#7f56d9;box-shadow:0 0 0 2px #d9d6fe}
+.history-event.assignment .history-content{border-left:4px solid #7f56d9}
+.history-event.baseline .history-marker span{background:#667085;box-shadow:0 0 0 2px #d0d5dd}
+.history-event.baseline .history-content{background:#f9fafb}
+@media (max-width:700px){
+  .history-event{grid-template-columns:24px minmax(0,1fr);gap:8px}
+  .history-content{padding:12px}
+  .history-heading{gap:8px}
+  .history-heading strong{font-size:14px}
+  .history-number{min-width:24px;height:24px}
+}
