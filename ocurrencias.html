@@ -27,6 +27,13 @@
         <div><p class="eyebrow">Seguimiento</p><h1>Ocurrencias</h1></div>
       </div>
 
+      <section class="deadline-summary-grid">
+        <article class="deadline-kpi EN_PLAZO"><span>En plazo</span><strong id="deadlineKpiOnTime">—</strong></article>
+        <article class="deadline-kpi POR_VENCER"><span>Por vencer</span><strong id="deadlineKpiDueSoon">—</strong><small>0–3 días</small></article>
+        <article class="deadline-kpi VENCIDO"><span>Vencidas</span><strong id="deadlineKpiOverdue">—</strong></article>
+        <article class="deadline-kpi SIN_FECHA"><span>Sin fecha límite</span><strong id="deadlineKpiNoDate">—</strong></article>
+      </section>
+
       <div class="filters">
         <div class="field">
           <label for="filterProject">Proyecto</label>
@@ -35,6 +42,17 @@
         <div class="field">
           <label for="filterStatus">Estado</label>
           <select id="filterStatus"><option value="">Todos</option></select>
+        </div>
+        <div class="field">
+          <label for="filterDeadline">Plazo</label>
+          <select id="filterDeadline">
+            <option value="">Todos</option>
+            <option value="VENCIDO">Vencidas</option>
+            <option value="POR_VENCER">Por vencer (0–3 días)</option>
+            <option value="EN_PLAZO">En plazo</option>
+            <option value="SIN_FECHA">Sin fecha límite</option>
+            <option value="LEVANTADO">Levantadas / por validar</option>
+          </select>
         </div>
         <div class="field grow">
           <label for="filterText">Buscar</label>

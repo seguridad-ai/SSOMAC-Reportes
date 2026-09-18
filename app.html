@@ -31,11 +31,25 @@
       <p id="userMeta"></p>
     </section>
 
-    <section class="kpi-grid">
+    <section class="kpi-grid dashboard-kpis">
       <article class="kpi"><span>Abiertas</span><strong id="kpiOpen">—</strong></article>
       <article class="kpi"><span>En proceso</span><strong id="kpiProcess">—</strong></article>
-      <article class="kpi"><span>Por validar</span><strong id="kpiPending">—</strong></article>
+      <article class="kpi kpi-info"><span>Por validar</span><strong id="kpiPending">—</strong></article>
+      <article class="kpi kpi-warning"><span>Por vencer</span><strong id="kpiDueSoon">—</strong><small>0–3 días</small></article>
+      <article class="kpi kpi-danger"><span>Vencidas</span><strong id="kpiOverdue">—</strong></article>
       <article class="kpi"><span>Cerradas</span><strong id="kpiClosed">—</strong></article>
+    </section>
+
+    <section class="card alerts-card">
+      <div class="alerts-head">
+        <div>
+          <p class="eyebrow">Seguimiento SSOMAC</p>
+          <h2>Centro de alertas</h2>
+          <p class="muted">Prioriza vencimientos, próximos vencimientos y revisiones pendientes sin consumir correos.</p>
+        </div>
+        <span class="alerts-counter"><span aria-hidden="true">●</span> <strong id="alertsCount">—</strong> tipos de alerta</span>
+      </div>
+      <div id="alertsList" class="internal-alerts">Cargando alertas...</div>
     </section>
 
     <section class="grid">

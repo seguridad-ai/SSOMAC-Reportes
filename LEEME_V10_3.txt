@@ -1,0 +1,27 @@
+SSOMAC DIGITAL V10.3 - CONTROL DE PLAZOS Y ALERTAS INTERNAS
+
+NO REQUIERE EJECUTAR SQL.
+
+Reemplazar en GitHub:
+- app.js
+- styles.css
+- app.html
+- ocurrencias.html
+
+NO reemplazar config.js.
+
+Novedades:
+- KPI Por vencer (0-3 días) y Vencidas en Inicio.
+- Centro de alertas interno sin consumo de EmailJS.
+- Alertas de vencidas, por vencer, levantamientos por validar y reportes de trabajadores pendientes.
+- Semáforo de plazo por ocurrencia.
+- Filtro de Plazo: Vencidas / Por vencer / En plazo / Sin fecha / Levantadas.
+- Orden automático: vencidas primero, luego por vencer.
+- Cálculo local en navegador; no modifica la base de datos.
+
+Reglas:
+- VENCIDO: fecha de levantamiento anterior a hoy y estado Abierto/En proceso.
+- POR VENCER: vence hoy o dentro de 3 días.
+- EN PLAZO: faltan más de 3 días.
+- LEVANTADO: Pendiente de validación; ya no se considera vencido.
+- CERRADO: no se considera vencido.

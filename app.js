@@ -72,6 +72,59 @@ function today(){
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+
+// ============================================================
+// CONTROL DE PLAZOS Y ALERTAS INTERNAS (V10.3)
+// ============================================================
+function parseYmdLocal(value){
+  if(!value)return null;
+  const m=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return null;
+  return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
+}
+
+function daysUntilYmd(value){
+  const target=parseYmdLocal(value);
+  if(!target)return null;
+  const now=new Date();
+  const base=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  return Math.round((target-base)/86400000);
+}
+
+function getDeadlineInfo(row){
+  const state=row?.estado?.codigo||'';
+  if(state==='CERRADO')return {code:'CERRADO',label:'Cerrado',days:null,priority:5};
+  if(state==='PENDIENTE_VALIDACION')return {code:'LEVANTADO',label:'Levantado · por validar',days:null,priority:4};
+  if(!row?.fecha_levantamiento)return {code:'SIN_FECHA',label:'Sin fecha límite',days:null,priority:3};
+
+  const days=daysUntilYmd(row.fecha_levantamiento);
+  if(days===null)return {code:'SIN_FECHA',label:'Sin fecha límite',days:null,priority:3};
+  if(days<0){
+    const n=Math.abs(days);
+    return {code:'VENCIDO',label:`Vencido hace ${n} día${n===1?'':'s'}`,days,priority:0};
+  }
+  if(days===0)return {code:'POR_VENCER',label:'Vence hoy',days,priority:1};
+  if(days<=3)return {code:'POR_VENCER',label:`Vence en ${days} día${days===1?'':'s'}`,days,priority:1};
+  return {code:'EN_PLAZO',label:`En plazo · ${days} días`,days,priority:2};
+}
+
+function renderInternalAlerts(container,counts){
+  if(!container)return;
+  const items=[];
+  if(counts.overdue>0)items.push({level:'danger',title:`${counts.overdue} observación${counts.overdue===1?'':'es'} vencida${counts.overdue===1?'':'s'}`,text:'Requiere seguimiento prioritario.',href:'ocurrencias.html?plazo=VENCIDO'});
+  if(counts.dueSoon>0)items.push({level:'warning',title:`${counts.dueSoon} observación${counts.dueSoon===1?'':'es'} por vencer`,text:'Vencen hoy o dentro de los próximos 3 días.',href:'ocurrencias.html?plazo=POR_VENCER'});
+  if(counts.pendingValidation>0)items.push({level:'info',title:`${counts.pendingValidation} levantamiento${counts.pendingValidation===1?'':'s'} por validar`,text:'La corrección ya fue enviada y espera revisión de Seguridad/SIG.',href:'ocurrencias.html?estado=PENDIENTE_VALIDACION'});
+  if(counts.workerPending>0)items.push({level:'neutral',title:`${counts.workerPending} reporte${counts.workerPending===1?'':'s'} de trabajador pendiente${counts.workerPending===1?'':'s'}`,text:'Existen reportes nuevos o en revisión.',href:'reportes-trabajadores.html'});
+
+  const countEl=document.getElementById('alertsCount');
+  if(countEl)countEl.textContent=String(items.length);
+  if(!items.length){
+    container.innerHTML='<div class="alert-empty"><strong>Sin alertas prioritarias.</strong><span>No hay vencimientos, próximos vencimientos ni revisiones pendientes.</span></div>';
+    return;
+  }
+  container.innerHTML=items.map(a=>`<a class="internal-alert ${a.level}" href="${a.href}"><span class="alert-dot" aria-hidden="true"></span><span class="alert-copy"><strong>${escapeHtml(a.title)}</strong><small>${escapeHtml(a.text)}</small></span><span class="alert-arrow">→</span></a>`).join('');
+}
 function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`); }
 async function requireSession(){ const {data}=await sb.auth.getSession(); if(!data.session){location.href='index.html'; return null;} return data.session; }
 async function logout(){ await sb.auth.signOut(); location.href='index.html'; }
@@ -119,14 +172,34 @@ async function initApp(){
     const box=document.getElementById('projectsList'); box.innerHTML='';
     (links||[]).forEach(r=>{ const d=document.createElement('div'); d.className='list-item'; d.innerHTML=`<strong>${escapeHtml(r.proyectos?.nombre||'')}</strong><span>${escapeHtml(r.proyectos?.cliente||'')}</span>`; box.appendChild(d); });
 
-    const {data:occ,error:oerr}=await sb.from('ocurrencias').select('id,estado:estados_ocurrencia(codigo)');
+    const {data:occ,error:oerr}=await sb.from('ocurrencias').select('id,fecha_levantamiento,estado:estados_ocurrencia(codigo)');
     if(oerr)throw oerr;
     const counts={ABIERTO:0,EN_PROCESO:0,PENDIENTE_VALIDACION:0,CERRADO:0};
-    (occ||[]).forEach(o=>{ const c=o.estado?.codigo; if(c in counts)counts[c]++; });
+    let overdue=0,dueSoon=0;
+    (occ||[]).forEach(o=>{
+      const c=o.estado?.codigo;if(c in counts)counts[c]++;
+      const deadline=getDeadlineInfo(o);
+      if(deadline.code==='VENCIDO')overdue++;
+      if(deadline.code==='POR_VENCER')dueSoon++;
+    });
     document.getElementById('kpiOpen').textContent=counts.ABIERTO;
     document.getElementById('kpiProcess').textContent=counts.EN_PROCESO;
     document.getElementById('kpiPending').textContent=counts.PENDIENTE_VALIDACION;
+    document.getElementById('kpiDueSoon').textContent=dueSoon;
+    document.getElementById('kpiOverdue').textContent=overdue;
     document.getElementById('kpiClosed').textContent=counts.CERRADO;
+
+    let workerPending=0;
+    const {data:workerRows,error:workerErr}=await sb.from('reportes_trabajadores').select('id,estado_revision').in('estado_revision',['NUEVO','EN_REVISION']);
+    if(!workerErr)workerPending=(workerRows||[]).length;
+    else console.warn('No se pudo calcular la alerta de reportes de trabajadores:',workerErr.message);
+
+    renderInternalAlerts(document.getElementById('alertsList'),{
+      overdue,
+      dueSoon,
+      pendingValidation:counts.PENDIENTE_VALIDACION,
+      workerPending
+    });
   }catch(err){ showMessage(msg,err.message); }
 }
 
@@ -320,22 +393,46 @@ async function initNewOccurrence(){
 
 async function initOccurrences(){
   const session=await requireSession();if(!session)return;document.getElementById('logoutBtn').addEventListener('click',logout);
-  const list=document.getElementById('occurrencesList'),msg=document.getElementById('listMessage'),fp=document.getElementById('filterProject'),fs=document.getElementById('filterStatus'),ft=document.getElementById('filterText');
+  const list=document.getElementById('occurrencesList'),msg=document.getElementById('listMessage'),fp=document.getElementById('filterProject'),fs=document.getElementById('filterStatus'),fd=document.getElementById('filterDeadline'),ft=document.getElementById('filterText');
   try{
     const {data,error}=await sb.from('ocurrencias').select(`
-      id,numero,fecha,lugar_hallazgo,descripcion,fecha_levantamiento,
+      id,numero,fecha,lugar_hallazgo,descripcion,fecha_levantamiento,fecha_ejecutada,modalidad_levantamiento,
       proyecto:proyectos(id,nombre,cliente),
       origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(codigo,nombre),
       estado:estados_ocurrencia(codigo,nombre)
     `).order('numero',{ascending:false});
     if(error)throw error;
-    let rows=data||[];
+    let rows=(data||[]).map(r=>({...r,_deadline:getDeadlineInfo(r)}));
     const projects=[...new Map(rows.filter(r=>r.proyecto).map(r=>[r.proyecto.id,r.proyecto])).values()];
     fp.innerHTML='<option value="">Todos</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
     const statuses=await getStatuses();fs.innerHTML='<option value="">Todos</option>'+Object.values(statuses).map(s=>`<option value="${s.codigo}">${escapeHtml(s.nombre)}</option>`).join('');
-    const render=()=>{const q=ft.value.trim().toLowerCase(),p=fp.value,s=fs.value;const f=rows.filter(r=>(!p||r.proyecto?.id===p)&&(!s||r.estado?.codigo===s)&&(!q||String(r.numero).includes(q)||(r.lugar_hallazgo||'').toLowerCase().includes(q)||(r.descripcion||'').toLowerCase().includes(q)));if(!f.length){list.innerHTML='<div class="list-item">No hay ocurrencias con esos filtros.</div>';return;}list.innerHTML=f.map(r=>`<article class="occurrence-card"><div><h3>Ocurrencia N.° ${r.numero} · ${escapeHtml(r.proyecto?.nombre||'')}</h3><div class="occurrence-meta"><span>${escapeHtml(r.fecha)}</span><span>${escapeHtml(r.origen?.nombre||'')}</span><span>${escapeHtml(r.tipo?.nombre||'BUENA PRACTICA')}</span></div><p>${escapeHtml(r.descripcion||'')}</p></div><div><span class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</span><div style="margin-top:10px"><a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${r.id}">Ver detalle</a></div></div></article>`).join('');};
-    fp.addEventListener('change',render);fs.addEventListener('change',render);ft.addEventListener('input',render);render();
+
+    const deadlineCounts={EN_PLAZO:0,POR_VENCER:0,VENCIDO:0,SIN_FECHA:0};
+    rows.forEach(r=>{if(r._deadline.code in deadlineCounts)deadlineCounts[r._deadline.code]++;});
+    document.getElementById('deadlineKpiOnTime').textContent=deadlineCounts.EN_PLAZO;
+    document.getElementById('deadlineKpiDueSoon').textContent=deadlineCounts.POR_VENCER;
+    document.getElementById('deadlineKpiOverdue').textContent=deadlineCounts.VENCIDO;
+    document.getElementById('deadlineKpiNoDate').textContent=deadlineCounts.SIN_FECHA;
+
+    const params=new URLSearchParams(location.search);
+    const requestedStatus=params.get('estado');
+    const requestedDeadline=params.get('plazo');
+    if(requestedStatus&&[...fs.options].some(o=>o.value===requestedStatus))fs.value=requestedStatus;
+    if(requestedDeadline&&[...fd.options].some(o=>o.value===requestedDeadline))fd.value=requestedDeadline;
+
+    const render=()=>{
+      const q=ft.value.trim().toLowerCase(),p=fp.value,s=fs.value,d=fd.value;
+      const f=rows.filter(r=>(!p||r.proyecto?.id===p)&&(!s||r.estado?.codigo===s)&&(!d||r._deadline.code===d)&&(!q||String(r.numero).includes(q)||(r.lugar_hallazgo||'').toLowerCase().includes(q)||(r.descripcion||'').toLowerCase().includes(q)))
+        .sort((a,b)=>a._deadline.priority-b._deadline.priority || ((a._deadline.days??9999)-(b._deadline.days??9999)) || b.numero-a.numero);
+      if(!f.length){list.innerHTML='<div class="list-item">No hay ocurrencias con esos filtros.</div>';return;}
+      list.innerHTML=f.map(r=>{
+        const deadline=r._deadline;
+        const deadlineHtml=deadline.code==='CERRADO'?'':`<span class="deadline-badge ${deadline.code}">${escapeHtml(deadline.label)}</span>`;
+        return `<article class="occurrence-card deadline-card ${deadline.code}"><div><h3>Ocurrencia N.° ${r.numero} · ${escapeHtml(r.proyecto?.nombre||'')}</h3><div class="occurrence-meta"><span>${escapeHtml(r.fecha)}</span><span>${escapeHtml(r.origen?.nombre||'')}</span><span>${escapeHtml(r.tipo?.nombre||'BUENA PRACTICA')}</span>${r.fecha_levantamiento?`<span>Fecha límite: ${escapeHtml(formatDateEsV6(r.fecha_levantamiento))}</span>`:''}</div><p>${escapeHtml(r.descripcion||'')}</p></div><div class="occurrence-status-stack"><span class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</span>${deadlineHtml}<div><a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${r.id}">Ver detalle</a></div></div></article>`;
+      }).join('');
+    };
+    fp.addEventListener('change',render);fs.addEventListener('change',render);fd.addEventListener('change',render);ft.addEventListener('input',render);render();
   }catch(err){showMessage(msg,err.message);}
 }
 
