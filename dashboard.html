@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Dashboard analítico</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="analytics-dashboard">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Dashboard analítico SSOMAC</span></div>
+    <div class="top-actions">
+      <a class="button-link" href="nueva-ocurrencia.html">+ Nueva ocurrencia</a>
+      <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+      <a class="button-link secondary-link" href="reporte-diario.html">Reporte diario</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container analytics-wide">
+    <section class="analytics-head">
+      <div>
+        <p class="eyebrow">ANÁLISIS DE DESEMPEÑO</p>
+        <h1>Dashboard analítico SSOMAC</h1>
+        <p class="muted">Analiza ocurrencias, plazos, cierre, causas y modalidad de levantamiento con los proyectos autorizados para tu usuario.</p>
+      </div>
+      <div class="analytics-result-chip"><span>Registros filtrados</span><strong id="analyticsFilteredCount">—</strong></div>
+    </section>
+
+    <section class="card analytics-filter-card">
+      <div class="analytics-filter-head">
+        <div><h2>Filtros</h2><p class="muted">Todos los indicadores y gráficos se actualizan automáticamente.</p></div>
+        <button id="analyticsResetBtn" class="secondary" type="button">Restablecer filtros</button>
+      </div>
+      <div class="analytics-filters">
+        <div class="field"><label for="analyticsYear">Año</label><select id="analyticsYear"></select></div>
+        <div class="field"><label for="analyticsMonth">Mes</label><select id="analyticsMonth"><option value="">Todos</option></select></div>
+        <div class="field"><label for="analyticsProject">Proyecto</label><select id="analyticsProject"><option value="">Todos</option></select></div>
+        <div class="field"><label for="analyticsArea">Área responsable</label><select id="analyticsArea"><option value="">Todas</option></select></div>
+        <div class="field"><label for="analyticsOrigin">Origen</label><select id="analyticsOrigin"><option value="">Todos</option></select></div>
+        <div class="field"><label for="analyticsType">Tipo</label><select id="analyticsType"><option value="">Todos</option></select></div>
+        <div class="field"><label for="analyticsStatus">Estado</label><select id="analyticsStatus"><option value="">Todos</option></select></div>
+        <div class="field"><label for="analyticsPotential">Potencial</label><select id="analyticsPotential"><option value="">Todos</option></select></div>
+      </div>
+    </section>
+
+    <section class="analytics-kpis">
+      <article class="analytics-kpi"><span>Total ocurrencias</span><strong id="anKpiTotal">—</strong><small>Según filtros aplicados</small></article>
+      <article class="analytics-kpi"><span>Cerradas</span><strong id="anKpiClosed">—</strong><small id="anKpiClosureRate">—% de cierre</small></article>
+      <article class="analytics-kpi"><span>Tiempo prom. levantamiento</span><strong id="anKpiAvgDays">—</strong><small>días calendario</small></article>
+      <article class="analytics-kpi"><span>Dentro del plazo</span><strong id="anKpiOnTime">—</strong><small id="anKpiOnTimeBase">sobre levantadas con plazo</small></article>
+      <article class="analytics-kpi danger"><span>Vencidas</span><strong id="anKpiOverdue">—</strong><small>pendientes fuera de plazo</small></article>
+      <article class="analytics-kpi info"><span>Por validar</span><strong id="anKpiPending">—</strong><small>levantamientos enviados</small></article>
+      <article class="analytics-kpi success"><span>Levantamiento inmediato</span><strong id="anKpiImmediate">—</strong><small id="anKpiImmediateBase">sobre modalidades registradas</small></article>
+      <article class="analytics-kpi"><span>Ampliaciones</span><strong id="anKpiExtensions">—</strong><small>ampliaciones acumuladas</small></article>
+    </section>
+
+    <section class="analytics-grid">
+      <article class="card analytics-chart-card analytics-span-2">
+        <div class="analytics-chart-head"><div><p class="eyebrow">TENDENCIA</p><h2>Ocurrencias por mes</h2></div></div>
+        <div class="analytics-chart-wrap tall"><canvas id="chartMonthly"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card">
+        <div class="analytics-chart-head"><div><p class="eyebrow">ESTADO</p><h2>Estado de ocurrencias</h2></div></div>
+        <div class="analytics-chart-wrap"><canvas id="chartStatus"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card">
+        <div class="analytics-chart-head"><div><p class="eyebrow">CLASIFICACIÓN</p><h2>Actos, condiciones y buenas prácticas</h2></div></div>
+        <div class="analytics-chart-wrap"><canvas id="chartType"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card analytics-span-2">
+        <div class="analytics-chart-head"><div><p class="eyebrow">PROYECTOS</p><h2>Ocurrencias por proyecto</h2></div></div>
+        <div class="analytics-chart-wrap tall"><canvas id="chartProject"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card analytics-span-2">
+        <div class="analytics-chart-head"><div><p class="eyebrow">ÁREAS</p><h2>Hallazgos por área responsable</h2></div></div>
+        <div class="analytics-chart-wrap tall"><canvas id="chartArea"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card">
+        <div class="analytics-chart-head"><div><p class="eyebrow">POTENCIAL</p><h2>Potencial de pérdida</h2></div></div>
+        <div class="analytics-chart-wrap"><canvas id="chartPotential"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card">
+        <div class="analytics-chart-head"><div><p class="eyebrow">LEVANTAMIENTO</p><h2>Inmediato vs. asignado</h2></div></div>
+        <div class="analytics-chart-wrap"><canvas id="chartModality"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card analytics-span-2">
+        <div class="analytics-chart-head"><div><p class="eyebrow">ORIGEN</p><h2>Origen de hallazgos</h2></div></div>
+        <div class="analytics-chart-wrap"><canvas id="chartOrigin"></canvas></div>
+      </article>
+    </section>
+
+    <section class="analytics-grid mt">
+      <article class="card analytics-chart-card analytics-span-2">
+        <div class="analytics-chart-head"><div><p class="eyebrow">PARETO</p><h2>Causas inmediatas más recurrentes</h2><p class="muted">Barras: frecuencia · Línea: porcentaje acumulado.</p></div></div>
+        <div class="analytics-chart-wrap pareto"><canvas id="chartImmediateCauses"></canvas></div>
+      </article>
+      <article class="card analytics-chart-card analytics-span-2">
+        <div class="analytics-chart-head"><div><p class="eyebrow">PARETO</p><h2>Causas básicas más recurrentes</h2><p class="muted">Muestra las 10 causas con mayor frecuencia en el filtro actual.</p></div></div>
+        <div class="analytics-chart-wrap pareto"><canvas id="chartBasicCauses"></canvas></div>
+      </article>
+    </section>
+
+    <section class="card mt">
+      <div class="analytics-chart-head"><div><p class="eyebrow">CARGA ACTIVA</p><h2>Seguimiento por responsable de corrección</h2><p class="muted">Considera ocurrencias no cerradas del filtro actual.</p></div></div>
+      <div class="analytics-table-scroll">
+        <table class="analytics-table">
+          <thead><tr><th>Responsable</th><th>Activas</th><th>Vencidas</th><th>Por validar</th><th>En plazo / por vencer</th></tr></thead>
+          <tbody id="analyticsResponsibleBody"><tr><td colspan="5">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card mt analytics-notes">
+      <h2>Criterios de cálculo</h2>
+      <p><strong>% de cierre:</strong> ocurrencias cerradas / total filtrado. <strong>Tiempo promedio:</strong> días calendario entre fecha del hallazgo y fecha ejecutada. <strong>Dentro del plazo:</strong> fecha ejecutada menor o igual a la fecha límite vigente. <strong>Vencidas:</strong> ocurrencias abiertas o en proceso cuya fecha límite vigente ya pasó.</p>
+      <p class="muted">Las ampliaciones de plazo se conservan en la trazabilidad; para el semáforo y el indicador de cumplimiento se utiliza la fecha límite vigente.</p>
+    </section>
+
+    <p id="analyticsMessage" class="message"></p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

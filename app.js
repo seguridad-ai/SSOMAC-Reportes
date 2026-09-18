@@ -1892,3 +1892,150 @@ async function initPublicLift(){
 }
 
 if(page==='public-lift')initPublicLift();
+
+// ============================================================
+// ETAPA 35 - DASHBOARD ANALITICO SSOMAC (V10.6)
+// ============================================================
+const ANALYTICS_MONTHS=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+let analyticsCharts=[];
+
+async function analyticsFetchAll(table,select){
+  const rows=[];const size=1000;let from=0;
+  while(true){
+    const {data,error}=await sb.from(table).select(select).range(from,from+size-1);
+    if(error)throw error;
+    rows.push(...(data||[]));
+    if(!data||data.length<size)break;
+    from+=size;
+  }
+  return rows;
+}
+
+function analyticsUniqueOptions(rows,getValue,getLabel){
+  const map=new Map();
+  rows.forEach(r=>{const v=getValue(r);if(v!==null&&v!==undefined&&String(v)!=='')map.set(String(v),getLabel(r));});
+  return [...map.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'es'));
+}
+function analyticsFillSelect(el,items,allLabel){
+  if(!el)return;const current=el.value;
+  el.innerHTML=`<option value="">${escapeHtml(allLabel)}</option>`+items.map(([v,l])=>`<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('');
+  if([...el.options].some(o=>o.value===current))el.value=current;
+}
+function analyticsDiffDays(start,end){
+  const a=parseYmdLocal(start),b=parseYmdLocal(end);if(!a||!b)return null;return Math.max(0,Math.round((b-a)/86400000));
+}
+function analyticsPct(n,d){return d?Math.round((n/d)*100):null;}
+function analyticsCountBy(rows,getLabel,{excludeBlank=false}={}){
+  const m=new Map();
+  rows.forEach(r=>{let k=getLabel(r);if(k===null||k===undefined||String(k).trim()===''){if(excludeBlank)return;k='N.A.';}k=String(k).trim();m.set(k,(m.get(k)||0)+1);});
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'es'));
+}
+function analyticsChartLabel(value,max=34){const s=String(value??'');return s.length>max?s.slice(0,max-1)+'…':s;}
+function analyticsDestroyCharts(){analyticsCharts.forEach(c=>{try{c.destroy();}catch(_){}});analyticsCharts=[];}
+function analyticsMakeChart(id,config){
+  const canvas=document.getElementById(id);if(!canvas||typeof Chart==='undefined')return null;
+  const chart=new Chart(canvas.getContext('2d'),config);analyticsCharts.push(chart);return chart;
+}
+function analyticsPalette(n){
+  const base=['#C00000','#2563eb','#15803d','#d97706','#7c3aed','#0891b2','#be185d','#475569','#65a30d','#ea580c','#4f46e5','#0f766e'];
+  return Array.from({length:n},(_,i)=>base[i%base.length]);
+}
+function analyticsDoughnut(id,pairs){
+  const safe=pairs.length?pairs:[['Sin datos',0]];
+  return analyticsMakeChart(id,{type:'doughnut',data:{labels:safe.map(x=>x[0]),datasets:[{data:safe.map(x=>x[1]),backgroundColor:analyticsPalette(safe.length),borderColor:'#ffffff',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:11,usePointStyle:true,padding:14}},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}`}}}}});
+}
+function analyticsBar(id,pairs,{horizontal=false,maxItems=12}={}){
+  let safe=pairs.slice(0,maxItems);if(!safe.length)safe=[['Sin datos',0]];
+  return analyticsMakeChart(id,{type:'bar',data:{labels:safe.map(x=>x[0]),datasets:[{label:'Ocurrencias',data:safe.map(x=>x[1]),backgroundColor:safe.map((_,i)=>analyticsPalette(safe.length)[i]),borderRadius:6,maxBarThickness:48}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:horizontal?'y':'x',plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>items[0]?.label||''}}},scales:{x:{beginAtZero:true,ticks:{precision:0,callback:function(v){return horizontal?v:analyticsChartLabel(this.getLabelForValue(v),22);}},grid:{display:horizontal}},y:{beginAtZero:true,ticks:{precision:0,callback:function(v){return horizontal?analyticsChartLabel(this.getLabelForValue(v),36):v;}},grid:{display:!horizontal}}}}});
+}
+function analyticsPareto(id,pairs){
+  const top=pairs.slice(0,10);const safe=top.length?top:[['Sin datos',0]];const total=safe.reduce((a,x)=>a+x[1],0)||1;let acc=0;const cum=safe.map(x=>{acc+=x[1];return Math.round(acc/total*1000)/10;});
+  return analyticsMakeChart(id,{data:{labels:safe.map(x=>x[0]),datasets:[{type:'bar',label:'Frecuencia',data:safe.map(x=>x[1]),backgroundColor:'#C00000',borderRadius:5,yAxisID:'y',maxBarThickness:38},{type:'line',label:'% acumulado',data:cum,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:3,pointHoverRadius:5,tension:.2,yAxisID:'y1'}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{title:items=>items[0]?.label||''}}},scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{ticks:{callback:function(v){return analyticsChartLabel(this.getLabelForValue(v),44);}}},y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%'}}}}});
+}
+
+async function initAnalyticsDashboard(){
+  const session=await requireSession();if(!session)return;
+  document.getElementById('logoutBtn')?.addEventListener('click',logout);
+  const msg=document.getElementById('analyticsMessage');
+  const ids={year:'analyticsYear',month:'analyticsMonth',project:'analyticsProject',area:'analyticsArea',origin:'analyticsOrigin',type:'analyticsType',status:'analyticsStatus',potential:'analyticsPotential'};
+  const els=Object.fromEntries(Object.entries(ids).map(([k,id])=>[k,document.getElementById(id)]));
+  try{
+    if(typeof Chart==='undefined')throw new Error('No se pudo cargar el motor de gráficos. Actualiza la página e inténtalo nuevamente.');
+    Chart.defaults.font.family='Arial, Helvetica, sans-serif';Chart.defaults.color='#475467';
+
+    const occurrences=await analyticsFetchAll('ocurrencias',`id,numero,fecha,fecha_levantamiento,fecha_levantamiento_original,fecha_ejecutada,modalidad_levantamiento,responsable_correccion,numero_ampliaciones,
+      proyecto:proyectos(id,nombre),origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
+    const [immediateCauses,basicCauses]=await Promise.all([
+      analyticsFetchAll('ocurrencia_causas_inmediatas','ocurrencia_id,causas_inmediatas(id,nombre)'),
+      analyticsFetchAll('ocurrencia_causas_basicas','ocurrencia_id,causas_basicas(id,nombre,grupo_nombre,subgrupo_nombre)')
+    ]);
+
+    const rows=(occurrences||[]).map(o=>{
+      const d=parseYmdLocal(o.fecha);const good=o.origen?.nombre==='BUENA PRACTICA';
+      return {...o,_year:d?String(d.getFullYear()):'',_month:d?String(d.getMonth()+1).padStart(2,'0'):'',_typeKey:good?'GOOD':(o.tipo?.id||''),_typeLabel:good?'BUENA PRÁCTICA':(o.tipo?.nombre||'N.A.')};
+    });
+
+    const years=[...new Set(rows.map(r=>r._year).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
+    els.year.innerHTML='<option value="">Todos los años</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    ANALYTICS_MONTHS.forEach((m,i)=>els.month.insertAdjacentHTML('beforeend',`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`));
+    analyticsFillSelect(els.project,analyticsUniqueOptions(rows,r=>r.proyecto?.id,r=>r.proyecto?.nombre||''),'Todos');
+    analyticsFillSelect(els.area,analyticsUniqueOptions(rows,r=>r.area?.id,r=>r.area?.nombre||''),'Todas');
+    analyticsFillSelect(els.origin,analyticsUniqueOptions(rows,r=>r.origen?.id,r=>r.origen?.nombre||''),'Todos');
+    analyticsFillSelect(els.type,analyticsUniqueOptions(rows,r=>r._typeKey,r=>r._typeLabel),'Todos');
+    analyticsFillSelect(els.status,analyticsUniqueOptions(rows,r=>r.estado?.id,r=>r.estado?.nombre||''),'Todos');
+    analyticsFillSelect(els.potential,analyticsUniqueOptions(rows,r=>r.potencial?.id,r=>r.potencial?.nombre||''),'Todos');
+
+    const currentYear=String(new Date().getFullYear());
+    els.year.value=years.includes(currentYear)?currentYear:(years[0]||'');
+
+    function filteredRows(){
+      return rows.filter(r=>(!els.year.value||r._year===els.year.value)&&(!els.month.value||r._month===els.month.value)&&(!els.project.value||String(r.proyecto?.id||'')===els.project.value)&&(!els.area.value||String(r.area?.id||'')===els.area.value)&&(!els.origin.value||String(r.origen?.id||'')===els.origin.value)&&(!els.type.value||String(r._typeKey||'')===els.type.value)&&(!els.status.value||String(r.estado?.id||'')===els.status.value)&&(!els.potential.value||String(r.potencial?.id||'')===els.potential.value));
+    }
+
+    function render(){
+      const filtered=filteredRows();const idSet=new Set(filtered.map(r=>r.id));
+      document.getElementById('analyticsFilteredCount').textContent=String(filtered.length);
+      const total=filtered.length;const closed=filtered.filter(r=>r.estado?.codigo==='CERRADO').length;const pending=filtered.filter(r=>r.estado?.codigo==='PENDIENTE_VALIDACION').length;const overdue=filtered.filter(r=>getDeadlineInfo(r).code==='VENCIDO').length;
+      const executionDays=filtered.map(r=>analyticsDiffDays(r.fecha,r.fecha_ejecutada)).filter(v=>v!==null);const avgDays=executionDays.length?executionDays.reduce((a,b)=>a+b,0)/executionDays.length:null;
+      const withDeadlineAndLift=filtered.filter(r=>r.fecha_ejecutada&&r.fecha_levantamiento);const onTime=withDeadlineAndLift.filter(r=>String(r.fecha_ejecutada)<=String(r.fecha_levantamiento)).length;const onTimePct=analyticsPct(onTime,withDeadlineAndLift.length);
+      const modalities=filtered.filter(r=>r.modalidad_levantamiento==='INMEDIATO'||r.modalidad_levantamiento==='ASIGNADO');const immediate=modalities.filter(r=>r.modalidad_levantamiento==='INMEDIATO').length;const immediatePct=analyticsPct(immediate,modalities.length);
+      const extensions=filtered.reduce((a,r)=>a+(Number(r.numero_ampliaciones)||0),0);
+
+      document.getElementById('anKpiTotal').textContent=total;
+      document.getElementById('anKpiClosed').textContent=closed;document.getElementById('anKpiClosureRate').textContent=`${analyticsPct(closed,total)??'—'}% de cierre`;
+      document.getElementById('anKpiAvgDays').textContent=avgDays===null?'—':(Math.round(avgDays*10)/10).toLocaleString('es-PE');
+      document.getElementById('anKpiOnTime').textContent=onTimePct===null?'—':`${onTimePct}%`;document.getElementById('anKpiOnTimeBase').textContent=`${withDeadlineAndLift.length} levantada${withDeadlineAndLift.length===1?'':'s'} con plazo`;
+      document.getElementById('anKpiOverdue').textContent=overdue;document.getElementById('anKpiPending').textContent=pending;
+      document.getElementById('anKpiImmediate').textContent=immediatePct===null?'—':`${immediatePct}%`;document.getElementById('anKpiImmediateBase').textContent=`${modalities.length} modalidad${modalities.length===1?'':'es'} registrada${modalities.length===1?'':'s'}`;
+      document.getElementById('anKpiExtensions').textContent=extensions;
+
+      analyticsDestroyCharts();
+      const monthly=ANALYTICS_MONTHS.map((m,i)=>[m,filtered.filter(r=>Number(r._month)===i+1).length]);
+      analyticsMakeChart('chartMonthly',{type:'line',data:{labels:monthly.map(x=>x[0]),datasets:[{label:'Ocurrencias',data:monthly.map(x=>x[1]),borderColor:'#C00000',backgroundColor:'rgba(192,0,0,.10)',fill:true,tension:.28,pointRadius:4,pointBackgroundColor:'#C00000'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}});
+      analyticsDoughnut('chartStatus',analyticsCountBy(filtered,r=>r.estado?.nombre||'N.A.'));
+      analyticsDoughnut('chartType',analyticsCountBy(filtered,r=>r._typeLabel));
+      analyticsBar('chartProject',analyticsCountBy(filtered,r=>r.proyecto?.nombre||'N.A.'),{horizontal:false,maxItems:15});
+      analyticsBar('chartArea',analyticsCountBy(filtered,r=>r.area?.nombre||'N.A.'),{horizontal:true,maxItems:15});
+      analyticsDoughnut('chartPotential',analyticsCountBy(filtered,r=>r.potencial?.nombre,{excludeBlank:true}));
+      analyticsDoughnut('chartModality',analyticsCountBy(modalities,r=>r.modalidad_levantamiento==='INMEDIATO'?'INMEDIATO':'ASIGNADO'));
+      analyticsBar('chartOrigin',analyticsCountBy(filtered,r=>r.origen?.nombre||'N.A.'),{horizontal:false,maxItems:10});
+
+      const ciPairs=analyticsCountBy(immediateCauses.filter(c=>idSet.has(c.ocurrencia_id)),c=>c.causas_inmediatas?.nombre,{excludeBlank:true});
+      const cbPairs=analyticsCountBy(basicCauses.filter(c=>idSet.has(c.ocurrencia_id)),c=>c.causas_basicas?.nombre,{excludeBlank:true});
+      analyticsPareto('chartImmediateCauses',ciPairs);analyticsPareto('chartBasicCauses',cbPairs);
+
+      const active=filtered.filter(r=>r.estado?.codigo!=='CERRADO');const responsibleMap=new Map();
+      active.forEach(r=>{const name=(r.responsable_correccion||'Sin responsable asignado').trim()||'Sin responsable asignado';if(!responsibleMap.has(name))responsibleMap.set(name,{name,active:0,overdue:0,pending:0,onTime:0});const x=responsibleMap.get(name);x.active++;const dl=getDeadlineInfo(r);if(dl.code==='VENCIDO')x.overdue++;if(r.estado?.codigo==='PENDIENTE_VALIDACION')x.pending++;if(dl.code==='EN_PLAZO'||dl.code==='POR_VENCER')x.onTime++;});
+      const responsibleRows=[...responsibleMap.values()].sort((a,b)=>b.active-a.active||b.overdue-a.overdue||a.name.localeCompare(b.name,'es')).slice(0,20);
+      const tbody=document.getElementById('analyticsResponsibleBody');tbody.innerHTML=responsibleRows.length?responsibleRows.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td><strong>${x.active}</strong></td><td class="danger-number">${x.overdue}</td><td class="info-number">${x.pending}</td><td>${x.onTime}</td></tr>`).join(''):'<tr><td colspan="5">No hay ocurrencias activas con los filtros seleccionados.</td></tr>';
+
+      showMessage(msg,total?'':'No hay ocurrencias que coincidan con los filtros seleccionados.',total>0);
+    }
+
+    Object.values(els).forEach(el=>el?.addEventListener('change',render));
+    document.getElementById('analyticsResetBtn')?.addEventListener('click',()=>{els.year.value=years.includes(currentYear)?currentYear:(years[0]||'');els.month.value='';els.project.value='';els.area.value='';els.origin.value='';els.type.value='';els.status.value='';els.potential.value='';render();});
+    render();
+  }catch(err){console.error(err);showMessage(msg,'No se pudo cargar el dashboard: '+(err.message||err));}
+}
+
+if(page==='analytics-dashboard')initAnalyticsDashboard();

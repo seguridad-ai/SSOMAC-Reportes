@@ -1,0 +1,32 @@
+SSOMAC DIGITAL V10.6 - ETAPA 35
+DASHBOARD ANALITICO SSOMAC
+
+NO REQUIERE SQL NUEVO.
+
+ARCHIVOS A REEMPLAZAR / AGREGAR EN GITHUB:
+1. app.js
+2. styles.css
+3. app.html
+4. ocurrencias.html
+5. detalle-ocurrencia.html
+6. dashboard.html  <-- archivo nuevo
+
+NO REEMPLAZAR config.js.
+
+CAMBIOS PRINCIPALES:
+- Nuevo modulo Dashboard analitico.
+- Filtros: año, mes, proyecto, area, origen, tipo, estado y potencial.
+- KPI: total, cerradas, % cierre, tiempo promedio de levantamiento,
+  % dentro del plazo, vencidas, por validar, % levantamiento inmediato,
+  ampliaciones acumuladas.
+- Graficos: tendencia mensual, estado, tipo, proyecto, area,
+  potencial, modalidad de levantamiento y origen.
+- Pareto de causas inmediatas y causas basicas.
+- Tabla de carga activa por responsable.
+- Los datos respetan las politicas RLS y proyectos autorizados del usuario.
+
+PRUEBA:
+- Subir los 6 archivos.
+- Esperar GitHub Pages.
+- Ctrl + F5.
+- Entrar a Inicio > Dashboard o abrir dashboard.html.
