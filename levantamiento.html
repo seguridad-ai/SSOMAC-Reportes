@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explo Drilling Perú | Levantamiento de observación</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="public-lift" class="public-report-body">
+  <main class="public-shell">
+    <section class="public-report-card">
+      <div class="public-brand">
+        <img src="logo_explo_drilling.png" alt="Explo Drilling Perú">
+        <div>
+          <p class="eyebrow">SIG · SSOMAC</p>
+          <h1>Levantamiento de observación</h1>
+          <p class="muted">Registra la corrección ejecutada y adjunta la evidencia fotográfica.</p>
+        </div>
+      </div>
+
+      <div id="liftLoading" class="lift-loading">Cargando información del reporte...</div>
+      <div id="liftError" class="lift-error hidden"></div>
+
+      <div id="liftContent" class="hidden">
+        <div class="lift-status-row">
+          <div>
+            <p class="eyebrow">Reporte asignado</p>
+            <h2 id="liftCode" style="margin:4px 0">Reporte SIG</h2>
+          </div>
+          <span id="liftStatus" class="lift-status-pill"></span>
+        </div>
+
+        <div class="lift-summary">
+          <div class="detail-item"><span>Proyecto</span><strong id="liftProject"></strong></div>
+          <div class="detail-item"><span>Fecha</span><strong id="liftDate"></strong></div>
+          <div class="detail-item"><span>Reportado por</span><strong id="liftReporter"></strong></div>
+          <div class="detail-item"><span>Responsable</span><strong id="liftResponsible"></strong></div>
+          <div class="detail-item"><span>Lugar</span><strong id="liftPlace"></strong></div>
+          <div class="detail-item"><span>Tipo</span><strong id="liftType"></strong></div>
+          <div class="detail-item full"><span>Descripción del hallazgo</span><strong id="liftDescription"></strong></div>
+          <div class="detail-item"><span>Fecha límite</span><strong id="liftDue"></strong></div>
+        </div>
+
+        <div class="lift-action-box">
+          <strong>Acción requerida</strong><br>
+          <span id="liftAction"></span>
+        </div>
+
+        <form id="publicLiftForm">
+          <div class="field">
+            <label for="publicLiftComment">Acción correctiva realizada *</label>
+            <textarea id="publicLiftComment" rows="5" maxlength="2500" required placeholder="Describe qué se corrigió, reemplazó, reparó o implementó."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="publicLiftPhoto">Evidencia fotográfica del levantamiento *</label>
+            <input id="publicLiftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required>
+            <small>Adjunta una fotografía donde se evidencie claramente la corrección.</small>
+            <img id="publicLiftPhotoPreview" class="photo-preview hidden" alt="Vista previa">
+          </div>
+
+          <div class="public-submit-row">
+            <button id="publicLiftSubmitBtn" type="submit">Enviar levantamiento</button>
+          </div>
+          <p id="publicLiftMessage" class="message"></p>
+        </form>
+        <div id="publicLiftResult" class="hidden"></div>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
