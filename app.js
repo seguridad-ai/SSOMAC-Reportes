@@ -438,12 +438,12 @@ async function initOccurrences(){
 
 async function initOccurrenceDetail(){
   const session=await requireSession();if(!session)return;document.getElementById('logoutBtn').addEventListener('click',logout);
-  const id=new URLSearchParams(location.search).get('id'),head=document.getElementById('detailHeader'),body=document.getElementById('detailBody'),msg=document.getElementById('detailMessage'),workflow=document.getElementById('workflowContent'),gallery=document.getElementById('evidenceGallery'),history=document.getElementById('occurrenceHistory');
+  const id=new URLSearchParams(location.search).get('id'),head=document.getElementById('detailHeader'),body=document.getElementById('detailBody'),msg=document.getElementById('detailMessage'),deadlineBox=document.getElementById('deadlineManagement'),workflow=document.getElementById('workflowContent'),gallery=document.getElementById('evidenceGallery'),history=document.getElementById('occurrenceHistory');
   if(!id){showMessage(msg,'Falta el identificador de la ocurrencia.');return;}
   try{
     const profile=await getProfile(session.user.id),statuses=await getStatuses();
     const {data:o,error}=await sb.from('ocurrencias').select(`
-      id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_ejecutada,modalidad_levantamiento,reportado_por_id,reportado_por_externo,levantado_por_id,validado_por_id,fecha_validacion,observacion_validacion,
+      id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_levantamiento_original,numero_ampliaciones,fecha_ultima_ampliacion,fecha_ejecutada,modalidad_levantamiento,reportado_por_id,reportado_por_externo,levantado_por_id,validado_por_id,fecha_validacion,observacion_validacion,
       proyecto:proyectos(nombre,cliente),
       origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(codigo,nombre),
@@ -462,7 +462,8 @@ async function initOccurrenceDetail(){
       <div class="detail-item"><span>Potencial</span><strong>${escapeHtml(o.potencial?.nombre||'No aplica')}</strong></div>
       <div class="detail-item"><span>Área responsable</span><strong>${escapeHtml(o.area?.nombre||'No aplica')}</strong></div>
       <div class="detail-item"><span>Responsable</span><strong>${escapeHtml(o.responsable_correccion||'No aplica')}</strong></div>
-      <div class="detail-item"><span>Fecha de levantamiento</span><strong>${escapeHtml(o.fecha_levantamiento||'No aplica')}</strong></div>
+      <div class="detail-item"><span>Fecha límite vigente</span><strong>${escapeHtml(o.fecha_levantamiento?formatDateEsV6(o.fecha_levantamiento):'No aplica')}</strong></div>
+      <div class="detail-item"><span>Fecha límite original</span><strong>${escapeHtml(o.fecha_levantamiento_original?formatDateEsV6(o.fecha_levantamiento_original):(o.fecha_levantamiento?formatDateEsV6(o.fecha_levantamiento):'No aplica'))}</strong></div>
       <div class="detail-item"><span>Modalidad de levantamiento</span><strong>${escapeHtml(o.modalidad_levantamiento==='INMEDIATO'?'INMEDIATO':'ASIGNADO PARA SEGUIMIENTO')}</strong></div>
       ${o.observacion_validacion?`<div class="detail-item full"><span>Observación de validación</span><strong>${escapeHtml(o.observacion_validacion)}</strong></div>`:''}
     </div>`;
@@ -479,9 +480,10 @@ async function initOccurrenceDetail(){
     }
 
     await renderEvidence(id,gallery);
+    await renderDeadlineManagement(o,profile,id,deadlineBox,msg);
     await renderOccurrenceHistory(id,history);
     renderWorkflow(o,profile,statuses,session,workflow,msg,id);
-  }catch(err){console.error(err);showMessage(msg,err.message);workflow.textContent='No se pudo cargar el flujo.';gallery.textContent='No se pudieron cargar las evidencias.';if(history)history.textContent='No se pudo cargar el historial.';}
+  }catch(err){console.error(err);showMessage(msg,err.message);if(deadlineBox)deadlineBox.textContent='No se pudo cargar la gestión de plazo.';workflow.textContent='No se pudo cargar el flujo.';gallery.textContent='No se pudieron cargar las evidencias.';if(history)history.textContent='No se pudo cargar el historial.';}
 }
 
 async function renderEvidence(occId,gallery){
@@ -513,7 +515,7 @@ function historyEventClass(type=''){
   if(['OCURRENCIA_CERRADA','BUENA_PRACTICA_REGISTRADA'].includes(type))return 'success';
   if(type==='LEVANTAMIENTO_DEVUELTO')return 'warning';
   if(type==='LEVANTAMIENTO_ENVIADO')return 'info';
-  if(['RESPONSABLE_ASIGNADO','RESPONSABLE_MODIFICADO','FECHA_LIMITE_MODIFICADA'].includes(type))return 'assignment';
+  if(['RESPONSABLE_ASIGNADO','RESPONSABLE_MODIFICADO','FECHA_LIMITE_MODIFICADA','PLAZO_AMPLIADO'].includes(type))return 'assignment';
   if(type==='TRAZABILIDAD_ACTIVADA')return 'baseline';
   return 'neutral';
 }
@@ -552,6 +554,132 @@ async function renderOccurrenceHistory(occId,container){
       </div>
     </article>`;
   }).join('')}</div>`;
+}
+
+
+// ============================================================
+// AMPLIACION DE PLAZO CONTROLADA (V10.5 / ETAPA 34)
+// ============================================================
+function addDaysYmd(value,days){
+  const d=parseYmdLocal(value);
+  if(!d)return '';
+  d.setDate(d.getDate()+days);
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function deadlineStatusClass(code=''){
+  if(code==='VENCIDO')return 'danger';
+  if(code==='POR_VENCER')return 'warning';
+  if(code==='EN_PLAZO')return 'success';
+  if(code==='LEVANTADO')return 'info';
+  return 'neutral';
+}
+
+async function renderDeadlineManagement(o,profile,occId,container,msg){
+  if(!container)return;
+
+  if(o.origen?.nombre==='BUENA PRACTICA'){
+    container.innerHTML='<div class="list-item">Buena práctica: no requiere plazo de levantamiento.</div>';
+    return;
+  }
+
+  const {data:extensions,error}=await sb.from('ampliaciones_plazo')
+    .select('id,fecha_anterior,fecha_nueva,dias_ampliados,motivo,actor_nombre,creado_en')
+    .eq('ocurrencia_id',occId)
+    .order('creado_en',{ascending:true});
+  if(error)throw error;
+
+  const history=extensions||[];
+  const original=o.fecha_levantamiento_original||o.fecha_levantamiento||null;
+  const current=o.fecha_levantamiento||null;
+  const deadline=getDeadlineInfo(o);
+  const canExtend=['ADMIN','SIG','ING_SEGURIDAD'].includes(profile.rol)
+    && ['ABIERTO','EN_PROCESO'].includes(o.estado?.codigo)
+    && Boolean(current);
+  const count=Math.max(Number(o.numero_ampliaciones||0),history.length);
+
+  let reason='';
+  if(!current)reason='La ocurrencia no tiene una fecha límite definida. La ampliación aplica únicamente sobre un plazo existente.';
+  else if(o.estado?.codigo==='PENDIENTE_VALIDACION')reason='El levantamiento ya fue presentado y se encuentra pendiente de validación; el plazo ya no corresponde ampliarlo.';
+  else if(o.estado?.codigo==='CERRADO')reason='La ocurrencia está cerrada y su plazo ya no puede modificarse.';
+  else if(!['ADMIN','SIG','ING_SEGURIDAD'].includes(profile.rol))reason='Tu perfil puede consultar el plazo, pero no autorizar ampliaciones.';
+
+  const historyHtml=history.length?`<details class="extension-history">
+    <summary>Ver historial de ampliaciones (${history.length})</summary>
+    <div class="extension-list">${history.map((x,i)=>`<article class="extension-item">
+      <div class="extension-item-head"><strong>Ampliación ${i+1}</strong><span>${escapeHtml(formatHistoryDateTime(x.creado_en))}</span></div>
+      <div class="extension-dates"><span>${escapeHtml(formatDateEsV6(x.fecha_anterior))}</span><b>→</b><span>${escapeHtml(formatDateEsV6(x.fecha_nueva))}</span><em>+${Number(x.dias_ampliados||0)} día${Number(x.dias_ampliados||0)===1?'':'s'}</em></div>
+      <p>${escapeHtml(x.motivo||'')}</p>
+      <small>Autorizado por: ${escapeHtml(x.actor_nombre||'Sistema')}</small>
+    </article>`).join('')}</div>
+  </details>`:'';
+
+  container.innerHTML=`
+    <div class="deadline-management-card">
+      <div class="deadline-summary-grid">
+        <div><span>Fecha original</span><strong>${escapeHtml(original?formatDateEsV6(original):'Sin fecha')}</strong></div>
+        <div><span>Fecha vigente</span><strong>${escapeHtml(current?formatDateEsV6(current):'Sin fecha')}</strong></div>
+        <div><span>Estado del plazo</span><strong><span class="deadline-inline ${deadlineStatusClass(deadline.code)}">${escapeHtml(deadline.label)}</span></strong></div>
+        <div><span>Ampliaciones</span><strong>${count}</strong></div>
+      </div>
+      ${count>0?'<p class="deadline-note">La fecha original se conserva para auditoría. El semáforo y los reportes usan la fecha vigente.</p>':''}
+      ${historyHtml}
+      ${canExtend?`<div class="deadline-actions"><button id="showExtensionFormBtn" class="secondary">Ampliar plazo</button></div>
+      <div id="extensionFormBox" class="extension-form hidden">
+        <div class="form-grid">
+          <div><label for="newDeadline">Nueva fecha límite *</label><input id="newDeadline" type="date" min="${escapeHtml(addDaysYmd(current,1))}"></div>
+          <div class="full"><label for="extensionReason">Motivo de ampliación *</label><textarea id="extensionReason" rows="4" maxlength="800" placeholder="Ej.: Se requiere adquirir un repuesto para ejecutar la corrección definitiva."></textarea><small>Mínimo 10 caracteres. El motivo quedará registrado en la trazabilidad.</small></div>
+        </div>
+        <div class="workflow-actions"><button id="saveExtensionBtn" class="warning">Guardar ampliación</button><button id="cancelExtensionBtn" class="secondary">Cancelar</button></div>
+        <p id="extensionMessage" class="message"></p>
+      </div>`:`${reason?`<div class="deadline-readonly-note">${escapeHtml(reason)}</div>`:''}`}
+    </div>`;
+
+  if(!canExtend)return;
+
+  const formBox=document.getElementById('extensionFormBox');
+  const showBtn=document.getElementById('showExtensionFormBtn');
+  const cancelBtn=document.getElementById('cancelExtensionBtn');
+  const saveBtn=document.getElementById('saveExtensionBtn');
+  const newDate=document.getElementById('newDeadline');
+  const reasonEl=document.getElementById('extensionReason');
+  const localMsg=document.getElementById('extensionMessage');
+
+  showBtn?.addEventListener('click',()=>{
+    formBox.classList.remove('hidden');
+    showBtn.classList.add('hidden');
+    newDate?.focus();
+  });
+  cancelBtn?.addEventListener('click',()=>{
+    formBox.classList.add('hidden');
+    showBtn.classList.remove('hidden');
+    if(localMsg)showMessage(localMsg,'');
+  });
+
+  saveBtn?.addEventListener('click',async()=>{
+    const dateValue=newDate?.value||'';
+    const motive=reasonEl?.value.trim()||'';
+    if(!dateValue){showMessage(localMsg,'Selecciona la nueva fecha límite.');return;}
+    if(dateValue<=current){showMessage(localMsg,'La nueva fecha debe ser posterior a la fecha vigente.');return;}
+    if(motive.length<10){showMessage(localMsg,'Registra un motivo de al menos 10 caracteres.');return;}
+
+    saveBtn.disabled=true;saveBtn.textContent='Guardando...';
+    try{
+      const {error:rpcError}=await sb.rpc('ampliar_plazo_ocurrencia',{
+        p_ocurrencia_id:occId,
+        p_fecha_nueva:dateValue,
+        p_motivo:motive
+      });
+      if(rpcError)throw rpcError;
+      showMessage(localMsg,'Plazo ampliado correctamente. La fecha original y el motivo quedaron registrados.',true);
+      setTimeout(()=>location.reload(),500);
+    }catch(err){
+      console.error(err);
+      showMessage(localMsg,'No se pudo ampliar el plazo: '+(err.message||err));
+      saveBtn.disabled=false;saveBtn.textContent='Guardar ampliación';
+    }
+  });
 }
 
 function renderWorkflow(o,profile,statuses,session,box,msg,occId){

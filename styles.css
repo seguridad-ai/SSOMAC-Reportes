@@ -230,3 +230,28 @@ small{color:var(--muted)}.message{min-height:20px;color:#b42318}
   .history-heading strong{font-size:14px}
   .history-number{min-width:24px;height:24px}
 }
+
+/* ============================================================
+   V10.5 - AMPLIACION DE PLAZO CONTROLADA
+   ============================================================ */
+.deadline-management-card{border:1px solid #e4e7ec;border-radius:14px;padding:16px;background:#fff}
+.deadline-management-card .deadline-summary-grid{margin:0;grid-template-columns:repeat(4,minmax(0,1fr))}
+.deadline-management-card .deadline-summary-grid>div{border:1px solid #e4e7ec;border-radius:12px;padding:12px 14px;background:#f9fafb}
+.deadline-management-card .deadline-summary-grid span{display:block;font-size:12px;color:#667085;margin-bottom:5px}
+.deadline-management-card .deadline-summary-grid strong{display:block;color:#101828;font-size:16px;line-height:1.35}
+.deadline-inline{display:inline-flex!important;width:auto;padding:5px 9px;border-radius:999px;font-size:12px!important;font-weight:800;margin:0!important}
+.deadline-inline.danger{background:#fee2e2;color:#991b1b}.deadline-inline.warning{background:#fef3c7;color:#92400e}.deadline-inline.success{background:#dcfce7;color:#166534}.deadline-inline.info{background:#dbeafe;color:#1e40af}.deadline-inline.neutral{background:#e5e7eb;color:#374151}
+.deadline-note{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:#f8fafc;color:#475467;font-size:13px;line-height:1.5}
+.deadline-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.deadline-readonly-note{margin-top:14px;border:1px solid #e4e7ec;border-radius:10px;padding:11px 12px;background:#f9fafb;color:#667085;font-size:13px;line-height:1.5}
+.extension-form{margin-top:14px;border-top:1px solid #e4e7ec;padding-top:14px}
+.extension-form small{display:block;margin-top:5px;color:#667085;line-height:1.4}
+.extension-history{margin-top:14px;border:1px solid #e4e7ec;border-radius:10px;background:#fff;overflow:hidden}
+.extension-history summary{cursor:pointer;padding:11px 13px;font-weight:700;color:#344054;background:#f9fafb}
+.extension-list{display:grid;gap:10px;padding:12px}
+.extension-item{border:1px solid #e4e7ec;border-radius:10px;padding:12px;background:#fff}
+.extension-item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.extension-item-head span{color:#667085;font-size:12px}
+.extension-dates{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.extension-dates span{font-weight:700;color:#101828}.extension-dates b{color:#98a2b3}.extension-dates em{font-style:normal;font-size:11px;font-weight:800;color:#6941c6;background:#f4f3ff;border-radius:999px;padding:4px 7px}
+.extension-item p{margin:9px 0 5px;color:#344054;line-height:1.5;font-size:13px}.extension-item small{color:#667085}
+@media(max-width:900px){.deadline-management-card .deadline-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.deadline-management-card .deadline-summary-grid{grid-template-columns:1fr}.extension-item-head{flex-direction:column;gap:3px}}

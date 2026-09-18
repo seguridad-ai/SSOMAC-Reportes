@@ -1,0 +1,54 @@
+SSOMAC DIGITAL v10.5
+ETAPA 34 - AMPLIACION DE PLAZO CONTROLADA
+
+OBJETIVO
+- Conservar la fecha limite original.
+- Permitir ampliaciones solo a ADMIN, SIG e ING_SEGURIDAD.
+- Exigir nueva fecha y motivo.
+- Mantener sincronizada la fecha del link publico de levantamiento.
+- Registrar todas las ampliaciones en historial y trazabilidad.
+
+PASO 1 - SUPABASE
+1. Abrir SQL Editor > New query.
+2. Pegar TODO el archivo:
+   ETAPA_34_AMPLIACION_PLAZO_CONTROLADA.sql
+3. Pulsar Run.
+4. Verificar que aparezcan:
+   - fecha_levantamiento_original
+   - numero_ampliaciones
+   - fecha_ultima_ampliacion
+   - ampliar_plazo_ocurrencia
+   - trg_inicializar_fecha_original_ocurrencia
+   - trg_proteger_plazo_ocurrencia
+
+PASO 2 - GITHUB
+Reemplazar solamente:
+- app.js
+- styles.css
+- detalle-ocurrencia.html
+
+NO reemplazar config.js.
+
+PASO 3 - PRUEBA
+1. Abrir una ocurrencia ABIERTO o EN PROCESO con fecha limite.
+2. Ir a Plazo de levantamiento.
+3. Pulsar Ampliar plazo.
+4. Elegir una fecha posterior a la vigente.
+5. Escribir un motivo de al menos 10 caracteres.
+6. Guardar.
+
+RESULTADO ESPERADO
+- La fecha original no cambia.
+- La fecha vigente cambia.
+- Aumenta el contador de ampliaciones.
+- El historial de ampliaciones muestra fecha anterior, nueva fecha, motivo y usuario.
+- Historial y trazabilidad agrega: Plazo de levantamiento ampliado.
+- El semaforo usa la nueva fecha vigente.
+- Si existe una asignacion activa, el link publico muestra la nueva fecha limite.
+
+REGLAS
+- Solo ADMIN, SIG e ING_SEGURIDAD pueden ampliar.
+- Solo ABIERTO o EN PROCESO.
+- No aplica a CERRADO ni PENDIENTE_VALIDACION.
+- La nueva fecha debe ser posterior a la fecha vigente y a la fecha actual.
+- El motivo es obligatorio (minimo 10 caracteres).
