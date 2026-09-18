@@ -87,6 +87,21 @@
               <label for="dueDate">Fecha de levantamiento</label>
               <input id="dueDate" type="date">
             </div>
+            <div class="field full immediate-toggle-box">
+              <label>¿La observación fue levantada inmediatamente?</label>
+              <div class="choice-row">
+                <label class="choice-card"><input type="radio" name="immediateLift" value="NO" checked><span><strong>NO</strong><small>Requiere seguimiento del responsable y envío de correo.</small></span></label>
+                <label class="choice-card"><input type="radio" name="immediateLift" value="SI"><span><strong>SÍ</strong><small>La corrección ya fue ejecutada. No se enviará correo.</small></span></label>
+              </div>
+            </div>
+            <div id="immediateLiftFields" class="field full hidden immediate-lift-fields">
+              <label for="immediateLiftComment">Acción correctiva realizada *</label>
+              <textarea id="immediateLiftComment" rows="3" maxlength="2000" placeholder="Describe qué se corrigió, reemplazó, reparó o implementó."></textarea>
+              <label for="immediateLiftPhoto">Evidencia fotográfica del levantamiento *</label>
+              <input id="immediateLiftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+              <small>Esta fotografía se guardará como evidencia de LEVANTAMIENTO y el reporte pasará a pendiente de validación.</small>
+              <img id="immediateLiftPreview" class="photo-preview hidden" alt="Vista previa del levantamiento">
+            </div>
           </div>
         </div>
 

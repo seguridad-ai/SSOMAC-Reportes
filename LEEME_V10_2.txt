@@ -1,0 +1,11 @@
+SSOMAC DIGITAL - V10.2 / ETAPA 31
+
+Objetivo: permitir que Seguridad/SIG registre un levantamiento inmediato sin crear asignación ni consumir un correo de EmailJS.
+
+1. Ejecutar ETAPA_31_LEVANTAMIENTO_INMEDIATO.sql en Supabase.
+2. En GitHub reemplazar app.js, styles.css, nueva-ocurrencia.html y reportes-trabajadores.html.
+3. NO reemplazar config.js.
+4. Probar una ocurrencia directa con 'SÍ - levantada inmediatamente'. Debe pedir acción realizada + foto, pasar a PENDIENTE DE VALIDACIÓN y NO enviar correo.
+5. Probar un reporte de trabajador validado como ya levantado. Debe generar la ocurrencia, guardar la evidencia de levantamiento y NO enviar correo.
+
+La modalidad queda registrada en ocurrencias.modalidad_levantamiento como INMEDIATO o ASIGNADO.

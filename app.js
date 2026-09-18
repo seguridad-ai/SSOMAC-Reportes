@@ -137,7 +137,30 @@ async function initNewOccurrence(){
   const projectEl=document.getElementById('project'),dateEl=document.getElementById('date'),originEl=document.getElementById('origin'),classificationEl=document.getElementById('classification');
   const classificationSection=document.getElementById('classificationSection'),causesSection=document.getElementById('causesSection'),correctiveSection=document.getElementById('correctiveSection');
   const potentialEl=document.getElementById('potential'),areaEl=document.getElementById('area'),responsibleEl=document.getElementById('responsibleId'),responsibleInfo=document.getElementById('responsibleInfo'),photoEl=document.getElementById('photo'),preview=document.getElementById('photoPreview'),descriptionLabel=document.getElementById('descriptionLabel');
+  const immediateLiftFields=document.getElementById('immediateLiftFields'),immediateLiftComment=document.getElementById('immediateLiftComment'),immediateLiftPhoto=document.getElementById('immediateLiftPhoto'),immediateLiftPreview=document.getElementById('immediateLiftPreview');
   dateEl.value=today();
+
+  function isImmediateLift(){
+    return document.querySelector('input[name="immediateLift"]:checked')?.value==='SI';
+  }
+  function syncImmediateLiftUI(){
+    const immediate=isImmediateLift();
+    immediateLiftFields?.classList.toggle('hidden',!immediate);
+    if(immediateLiftComment) immediateLiftComment.required=immediate;
+    if(immediateLiftPhoto) immediateLiftPhoto.required=immediate;
+    if(!immediate){
+      if(immediateLiftComment) immediateLiftComment.value='';
+      if(immediateLiftPhoto) immediateLiftPhoto.value='';
+      if(immediateLiftPreview){immediateLiftPreview.src='';immediateLiftPreview.classList.add('hidden');}
+    }
+  }
+  document.querySelectorAll('input[name="immediateLift"]').forEach(x=>x.addEventListener('change',syncImmediateLiftUI));
+  immediateLiftPhoto?.addEventListener('change',()=>{
+    const f=immediateLiftPhoto.files?.[0];
+    if(!f){immediateLiftPreview.src='';immediateLiftPreview.classList.add('hidden');return;}
+    immediateLiftPreview.src=URL.createObjectURL(f);immediateLiftPreview.classList.remove('hidden');
+  });
+  syncImmediateLiftUI();
 
   const [projectsRes,originsRes,typesRes,potentialsRes,areasRes,responsiblesRes]=await Promise.all([
     sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,nombre,cliente)').eq('usuario_id',session.user.id),
@@ -176,9 +199,9 @@ async function initNewOccurrence(){
   originEl.addEventListener('change',()=>{
     const origin=origins.find(o=>o.id===originEl.value),good=origin?.nombre==='BUENA PRACTICA';
     clearCauses();
-    if(!origin){classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');classificationEl.required=false;responsibleEl.required=false;return;}
-    if(good){classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');classificationEl.value='';classificationEl.required=false;responsibleEl.required=false;responsibleEl.value='';descriptionLabel.textContent='Descripción de la buena práctica *';}
-    else{classificationSection.classList.remove('hidden');classificationEl.required=true;classificationEl.value='';responsibleEl.required=true;causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');descriptionLabel.textContent='Descripción del hallazgo *';}
+    if(!origin){classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');classificationEl.required=false;responsibleEl.required=false;document.querySelector('input[name="immediateLift"][value="NO"]')?.click();return;}
+    if(good){classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');classificationEl.value='';classificationEl.required=false;responsibleEl.required=false;responsibleEl.value='';descriptionLabel.textContent='Descripción de la buena práctica *';document.querySelector('input[name="immediateLift"][value="NO"]')?.click();}
+    else{classificationSection.classList.remove('hidden');classificationEl.required=true;classificationEl.value='';responsibleEl.required=true;causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');descriptionLabel.textContent='Descripción del hallazgo *';syncImmediateLiftUI();}
   });
   classificationEl.addEventListener('change',async()=>{clearCauses(); if(!classificationEl.value){causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');return;} causesSection.classList.remove('hidden');correctiveSection.classList.remove('hidden');await loadCauses(classificationEl.value);});
   photoEl.addEventListener('change',()=>{const f=photoEl.files?.[0];if(!f){preview.classList.add('hidden');return;}preview.src=URL.createObjectURL(f);preview.classList.remove('hidden');});
@@ -201,7 +224,9 @@ async function initNewOccurrence(){
     e.preventDefault();showMessage(msg,'');
     const origin=origins.find(o=>o.id===originEl.value),good=origin?.nombre==='BUENA PRACTICA';
     const selectedResponsible=responsibles.find(r=>r.id===responsibleEl.value);
+    const immediate=!good&&isImmediateLift();
     if(!originEl.value||!projectEl.value||(!good&&!classificationEl.value)||(!good&&!selectedResponsible)){showMessage(msg,'Completa los campos obligatorios, incluido el responsable de corrección.');return;}
+    if(immediate&&(!immediateLiftComment.value.trim()||!immediateLiftPhoto.files?.[0])){showMessage(msg,'Para un levantamiento inmediato debes registrar la acción correctiva realizada y su fotografía.');return;}
     saveBtn.disabled=true;saveBtn.textContent='Guardando...';
     try{
       const payload={
@@ -211,7 +236,8 @@ async function initNewOccurrence(){
         potencial_perdida_id:good?null:(potentialEl.value||null),
         responsable_correccion_id:good?null:(selectedResponsible?.id||null),
         responsable_correccion:good?null:(selectedResponsible?`${selectedResponsible.nombres||''} ${selectedResponsible.apellidos||''}`.trim():null),
-        area_responsable_id:good?null:(areaEl.value||null),fecha_levantamiento:good?null:(document.getElementById('dueDate').value||null)
+        area_responsable_id:good?null:(areaEl.value||null),fecha_levantamiento:good?null:(document.getElementById('dueDate').value||null),
+        modalidad_levantamiento:good?null:(immediate?'INMEDIATO':'ASIGNADO')
       };
       const {data:occ,error:oe}=await sb.from('ocurrencias').insert(payload).select('id,numero').single();if(oe)throw oe;
       if(!good){
@@ -222,7 +248,35 @@ async function initNewOccurrence(){
       const f=photoEl.files?.[0];if(f){const blob=await optimizeImage(f);const path=`ocurrencias/${occ.id}/hallazgo/${Date.now()}_${uid()}.webp`;const {error:ue}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});if(ue)throw ue;const {error:ee}=await sb.from('evidencias').insert({ocurrencia_id:occ.id,tipo_evidencia:'HALLAZGO',ruta_archivo:path,creado_por_id:session.user.id});if(ee)throw ee;}
       let assignmentWarning='';
       let assignmentEmailNote='';
-      if(!good&&selectedResponsible){
+      if(!good&&selectedResponsible&&immediate){
+        try{
+          const liftFile=immediateLiftPhoto.files?.[0];
+          const liftBlob=await optimizeImage(liftFile);
+          const liftPath=`ocurrencias/${occ.id}/levantamiento/${Date.now()}_${uid()}.webp`;
+          const {error:liftUploadError}=await sb.storage.from('evidencias-ssomac').upload(liftPath,liftBlob,{contentType:'image/webp',upsert:false});
+          if(liftUploadError)throw liftUploadError;
+          const {error:liftEvidenceError}=await sb.from('evidencias').insert({
+            ocurrencia_id:occ.id,
+            tipo_evidencia:'LEVANTAMIENTO',
+            ruta_archivo:liftPath,
+            comentario:immediateLiftComment.value.trim(),
+            creado_por_id:session.user.id
+          });
+          if(liftEvidenceError)throw liftEvidenceError;
+          const statuses=await getStatuses();
+          const {error:liftOccError}=await sb.from('ocurrencias').update({
+            estado_id:statuses.PENDIENTE_VALIDACION.id,
+            fecha_ejecutada:today(),
+            levantado_por_id:session.user.id,
+            modalidad_levantamiento:'INMEDIATO'
+          }).eq('id',occ.id);
+          if(liftOccError)throw liftOccError;
+          assignmentEmailNote=' Levantamiento inmediato registrado; no se generó asignación ni se envió correo.';
+        }catch(liftErr){
+          console.error(liftErr);
+          assignmentWarning=' La ocurrencia fue creada, pero no se pudo completar el levantamiento inmediato: '+(liftErr.message||liftErr);
+        }
+      }else if(!good&&selectedResponsible){
         const {data:assignmentData,error:assignmentError}=await sb.rpc('crear_asignacion_levantamiento',{
           p_ocurrencia_id:occ.id,
           p_responsable_id:selectedResponsible.id,
@@ -258,7 +312,7 @@ async function initNewOccurrence(){
           }
         }
       }
-      showMessage(msg,`Ocurrencia N.° ${occ.numero} registrada correctamente.${assignmentEmailNote}${assignmentWarning}`,true);form.reset();dateEl.value=today();classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');preview.classList.add('hidden');renderResponsibles();window.scrollTo({top:0,behavior:'smooth'});
+      showMessage(msg,`Ocurrencia N.° ${occ.numero} registrada correctamente.${assignmentEmailNote}${assignmentWarning}`,true);form.reset();dateEl.value=today();classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');preview.classList.add('hidden');if(immediateLiftPreview){immediateLiftPreview.src='';immediateLiftPreview.classList.add('hidden');}syncImmediateLiftUI();renderResponsibles();window.scrollTo({top:0,behavior:'smooth'});
     }catch(err){console.error(err);showMessage(msg,'No se pudo guardar: '+(err.message||err));}
     finally{saveBtn.disabled=false;saveBtn.textContent='Guardar ocurrencia';}
   });
@@ -292,7 +346,7 @@ async function initOccurrenceDetail(){
   try{
     const profile=await getProfile(session.user.id),statuses=await getStatuses();
     const {data:o,error}=await sb.from('ocurrencias').select(`
-      id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_ejecutada,reportado_por_id,reportado_por_externo,levantado_por_id,validado_por_id,fecha_validacion,observacion_validacion,
+      id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_ejecutada,modalidad_levantamiento,reportado_por_id,reportado_por_externo,levantado_por_id,validado_por_id,fecha_validacion,observacion_validacion,
       proyecto:proyectos(nombre,cliente),
       origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(codigo,nombre),
@@ -312,6 +366,7 @@ async function initOccurrenceDetail(){
       <div class="detail-item"><span>Área responsable</span><strong>${escapeHtml(o.area?.nombre||'No aplica')}</strong></div>
       <div class="detail-item"><span>Responsable</span><strong>${escapeHtml(o.responsable_correccion||'No aplica')}</strong></div>
       <div class="detail-item"><span>Fecha de levantamiento</span><strong>${escapeHtml(o.fecha_levantamiento||'No aplica')}</strong></div>
+      <div class="detail-item"><span>Modalidad de levantamiento</span><strong>${escapeHtml(o.modalidad_levantamiento==='INMEDIATO'?'INMEDIATO':'ASIGNADO PARA SEGUIMIENTO')}</strong></div>
       ${o.observacion_validacion?`<div class="detail-item full"><span>Observación de validación</span><strong>${escapeHtml(o.observacion_validacion)}</strong></div>`:''}
     </div>`;
 
@@ -1043,6 +1098,30 @@ async function initWorkerReportsAdmin(){
   potentials=potentialsRes.data||[];
   areas=areasRes.data||[];
 
+  const reviewImmediateFields=document.getElementById('reviewImmediateLiftFields');
+  const reviewImmediateComment=document.getElementById('reviewImmediateLiftComment');
+  const reviewImmediatePhoto=document.getElementById('reviewImmediateLiftPhoto');
+  const reviewImmediatePreview=document.getElementById('reviewImmediateLiftPreview');
+  function isReviewImmediateLift(){return document.querySelector('input[name="reviewImmediateLift"]:checked')?.value==='SI';}
+  function syncReviewImmediateLiftUI(){
+    const immediate=isReviewImmediateLift();
+    reviewImmediateFields?.classList.toggle('hidden',!immediate);
+    if(reviewImmediateComment)reviewImmediateComment.required=immediate;
+    if(reviewImmediatePhoto)reviewImmediatePhoto.required=immediate;
+    if(!immediate){
+      if(reviewImmediateComment)reviewImmediateComment.value='';
+      if(reviewImmediatePhoto)reviewImmediatePhoto.value='';
+      if(reviewImmediatePreview){reviewImmediatePreview.src='';reviewImmediatePreview.classList.add('hidden');}
+    }
+  }
+  document.querySelectorAll('input[name="reviewImmediateLift"]').forEach(x=>x.addEventListener('change',syncReviewImmediateLiftUI));
+  reviewImmediatePhoto?.addEventListener('change',()=>{
+    const f=reviewImmediatePhoto.files?.[0];
+    if(!f){reviewImmediatePreview.src='';reviewImmediatePreview.classList.add('hidden');return;}
+    reviewImmediatePreview.src=URL.createObjectURL(f);reviewImmediatePreview.classList.remove('hidden');
+  });
+  syncReviewImmediateLiftUI();
+
   projectFilter.innerHTML='<option value="ALL">Todos</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   document.getElementById('reviewProject').innerHTML='<option value="">Seleccione...</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   document.getElementById('reviewType').innerHTML='<option value="">Seleccione...</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
@@ -1126,6 +1205,11 @@ async function initWorkerReportsAdmin(){
     document.getElementById('reviewPotential').value='';
     document.getElementById('reviewArea').value='';
     document.getElementById('reviewDueDate').value='';
+    const immediateNo=document.querySelector('input[name="reviewImmediateLift"][value="NO"]');if(immediateNo)immediateNo.checked=true;
+    if(reviewImmediateComment)reviewImmediateComment.value='';
+    if(reviewImmediatePhoto)reviewImmediatePhoto.value='';
+    if(reviewImmediatePreview){reviewImmediatePreview.src='';reviewImmediatePreview.classList.add('hidden');}
+    syncReviewImmediateLiftUI();
 
     renderReviewResponsibles(current.responsable_propuesto_id);
     await loadReviewCauses(current.tipo_hallazgo_id);
@@ -1190,10 +1274,12 @@ async function initWorkerReportsAdmin(){
     e.preventDefault();if(!current)return;showMessage(reviewMsg,'');
     const immediateIds=[...document.querySelectorAll('input[name="reviewImmediateCause"]:checked')].map(x=>x.value);
     const basicIds=[...document.querySelectorAll('input[name="reviewBasicCause"]:checked')].map(x=>x.value);
+    const immediateLift=isReviewImmediateLift();
     if(!immediateIds.length||!basicIds.length){showMessage(reviewMsg,'Selecciona al menos una causa inmediata y una causa básica.');return;}
+    if(immediateLift&&(!reviewImmediateComment.value.trim()||!reviewImmediatePhoto.files?.[0])){showMessage(reviewMsg,'Para un levantamiento inmediato debes registrar la acción correctiva realizada y adjuntar su fotografía.');return;}
     const validateBtn=document.getElementById('workerValidateBtn');validateBtn.disabled=true;validateBtn.textContent='Validando...';
     try{
-      const {data,error}=await sb.rpc('validar_reporte_trabajador',{
+      const {data,error}=await sb.rpc('validar_reporte_trabajador_v2',{
         p_reporte_id:current.id,
         p_proyecto_id:document.getElementById('reviewProject').value,
         p_fecha:document.getElementById('reviewDate').value,
@@ -1207,7 +1293,8 @@ async function initWorkerReportsAdmin(){
         p_area_id:document.getElementById('reviewArea').value,
         p_fecha_levantamiento:document.getElementById('reviewDueDate').value,
         p_causas_inmediatas:immediateIds,
-        p_causas_basicas:basicIds
+        p_causas_basicas:basicIds,
+        p_levantamiento_inmediato:immediateLift
       });
       if(error)throw error;
       const out=Array.isArray(data)?data[0]:data;
@@ -1215,7 +1302,34 @@ async function initWorkerReportsAdmin(){
       const responsible=responsibles.find(r=>r.id===document.getElementById('reviewResponsible').value);
       const project=projects.find(p=>p.id===document.getElementById('reviewProject').value);
       const type=types.find(t=>t.id===document.getElementById('reviewType').value);
-      if(responsible&&out?.token_levantamiento){
+      if(immediateLift){
+        try{
+          const liftBlob=await optimizeImage(reviewImmediatePhoto.files[0]);
+          const liftPath=`ocurrencias/${out.ocurrencia_id}/levantamiento/${Date.now()}_${uid()}.webp`;
+          const {error:liftUploadError}=await sb.storage.from('evidencias-ssomac').upload(liftPath,liftBlob,{contentType:'image/webp',upsert:false});
+          if(liftUploadError)throw liftUploadError;
+          const {error:liftEvidenceError}=await sb.from('evidencias').insert({
+            ocurrencia_id:out.ocurrencia_id,
+            tipo_evidencia:'LEVANTAMIENTO',
+            ruta_archivo:liftPath,
+            comentario:reviewImmediateComment.value.trim(),
+            creado_por_id:session.user.id
+          });
+          if(liftEvidenceError)throw liftEvidenceError;
+          const statuses=await getStatuses();
+          const {error:liftOccError}=await sb.from('ocurrencias').update({
+            estado_id:statuses.PENDIENTE_VALIDACION.id,
+            fecha_ejecutada:today(),
+            levantado_por_id:session.user.id,
+            modalidad_levantamiento:'INMEDIATO'
+          }).eq('id',out.ocurrencia_id);
+          if(liftOccError)throw liftOccError;
+          emailStatus=' Levantamiento inmediato registrado; no se generó correo.';
+        }catch(liftErr){
+          console.error(liftErr);
+          emailStatus=' La ocurrencia se creó, pero el levantamiento inmediato NO pudo completarse: '+(liftErr.message||liftErr);
+        }
+      }else if(responsible&&out?.token_levantamiento){
         try{
           await sendAssignmentEmail({
             codigo_reporte:workerCode(current),
@@ -1238,7 +1352,7 @@ async function initWorkerReportsAdmin(){
           emailStatus=' La ocurrencia se creó, pero el correo NO pudo enviarse: '+(emailErr.message||emailErr);
         }
       }
-      showMessage(reviewMsg,`Reporte validado. Se generó la ocurrencia N.° ${out?.numero_ocurrencia||''} y su asignación de levantamiento.${emailStatus}`,!emailStatus.includes('NO pudo'));
+      showMessage(reviewMsg,`Reporte validado. Se generó la ocurrencia N.° ${out?.numero_ocurrencia||''}.${immediateLift?'':' Se generó la asignación de levantamiento.'}${emailStatus}`,!emailStatus.includes('NO pudo'));
       await loadRows();
       setTimeout(()=>{if(out?.ocurrencia_id)location.href=`detalle-ocurrencia.html?id=${out.ocurrencia_id}`;},emailStatus.includes('NO pudo')?3500:1800);
     }catch(err){console.error(err);showMessage(reviewMsg,'No se pudo validar: '+(err.message||err));}

@@ -142,6 +142,23 @@
             <input id="reviewDueDate" type="date" required>
           </div>
 
+          <div class="field full immediate-toggle-box">
+            <label>¿La observación ya fue levantada?</label>
+            <div class="choice-row">
+              <label class="choice-card"><input type="radio" name="reviewImmediateLift" value="NO" checked><span><strong>NO</strong><small>Se asignará al responsable y se enviará correo.</small></span></label>
+              <label class="choice-card"><input type="radio" name="reviewImmediateLift" value="SI"><span><strong>SÍ</strong><small>Seguridad registra el levantamiento ahora y no se enviará correo.</small></span></label>
+            </div>
+          </div>
+
+          <div id="reviewImmediateLiftFields" class="field full hidden immediate-lift-fields">
+            <label for="reviewImmediateLiftComment">Acción correctiva realizada *</label>
+            <textarea id="reviewImmediateLiftComment" rows="3" maxlength="2000" placeholder="Describe la corrección que ya fue ejecutada."></textarea>
+            <label for="reviewImmediateLiftPhoto">Evidencia fotográfica del levantamiento *</label>
+            <input id="reviewImmediateLiftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+            <small>El reporte pasará directamente a pendiente de validación y no consumirá un envío de EmailJS.</small>
+            <img id="reviewImmediateLiftPreview" class="photo-preview hidden" alt="Vista previa del levantamiento inmediato">
+          </div>
+
           <div class="field full">
             <label for="reviewObservation">Observación de revisión / motivo de descarte</label>
             <textarea id="reviewObservation" rows="2"></textarea>
