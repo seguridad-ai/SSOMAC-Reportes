@@ -1669,7 +1669,15 @@ async function initProjectsAdmin(){
   const statusEl=document.getElementById('projectStatusFilter');
   const typeEl=document.getElementById('projectTypeFilter');
   const editId=document.getElementById('projectEditId');
+  const qrModal=document.getElementById('projectQrModal');
+  const qrBox=document.getElementById('projectQrCanvas');
+  const qrMsg=document.getElementById('projectQrMessage');
+  const qrLinkInput=document.getElementById('projectQrLink');
+  const qrOpenLink=document.getElementById('openProjectQrLink');
   let records=[];
+  let publicReportCounts={};
+  let activeQrRecord=null;
+  let activeQrUrl='';
 
   if(!allowed){
     newBtn.classList.add('hidden');
@@ -1709,11 +1717,29 @@ async function initProjectsAdmin(){
     const {data,error}=await sb.rpc('admin_listar_unidades');
     if(error){showMessage(listMsg,'No se pudieron cargar los proyectos: '+error.message);list.innerHTML='';return;}
     records=data||[];
+
+    // Conteo informativo de reportes públicos por proyecto. Si la política RLS no lo permite,
+    // la administración de proyectos sigue funcionando normalmente.
+    publicReportCounts={};
+    try{
+      const {data:workerRows,error:workerCountError}=await sb.from('reportes_trabajadores').select('proyecto_id');
+      if(!workerCountError){
+        (workerRows||[]).forEach(row=>{
+          if(row.proyecto_id)publicReportCounts[row.proyecto_id]=(publicReportCounts[row.proyecto_id]||0)+1;
+        });
+      }
+    }catch(_e){}
+
     document.getElementById('projectKpiActive').textContent=records.filter(r=>r.activo).length;
     document.getElementById('projectKpiInactive').textContent=records.filter(r=>!r.activo).length;
     document.getElementById('projectKpiProjects').textContent=records.filter(r=>(r.tipo_unidad||'PROYECTO')==='PROYECTO').length;
     document.getElementById('projectKpiSites').textContent=records.filter(r=>r.tipo_unidad==='SEDE').length;
     renderList();
+  }
+
+  function buildPublicReportUrl(record){
+    const code=String(record?.codigo||'').trim();
+    return `${getPublicAppBaseUrl()}/reportar.html?p=${encodeURIComponent(code)}`;
   }
 
   function renderList(){
@@ -1725,23 +1751,40 @@ async function initProjectsAdmin(){
       return (!q||text.includes(q))&&statusOk&&typeOk;
     });
     if(!filtered.length){list.innerHTML='<div class="list-item">No hay proyectos o sedes con esos filtros.</div>';return;}
-    list.innerHTML=filtered.map(r=>`<article class="responsible-card">
-      <div>
-        <div class="responsible-title"><h3>${escapeHtml(r.nombre||'')}</h3><span class="badge ${r.activo?'CERRADO':'ABIERTO'}">${r.activo?'ACTIVO':'INACTIVO'}</span></div>
-        <div class="responsible-meta">
-          <span>${escapeHtml(r.tipo_unidad||'PROYECTO')}</span>
-          <span>Código: ${escapeHtml(r.codigo||'')}</span>
-          <span>${escapeHtml(r.cliente||'Sin cliente / entidad')}</span>
+    list.innerHTML=filtered.map(r=>{
+      const publicUrl=buildPublicReportUrl(r);
+      const count=publicReportCounts[r.id]||0;
+      return `<article class="responsible-card project-qr-card">
+        <div class="project-qr-main">
+          <div class="responsible-title"><h3>${escapeHtml(r.nombre||'')}</h3><span class="badge ${r.activo?'CERRADO':'ABIERTO'}">${r.activo?'ACTIVO':'INACTIVO'}</span></div>
+          <div class="responsible-meta">
+            <span>${escapeHtml(r.tipo_unidad||'PROYECTO')}</span>
+            <span>Código: ${escapeHtml(r.codigo||'')}</span>
+            <span>${escapeHtml(r.cliente||'Sin cliente / entidad')}</span>
+            <span>Reportes públicos: <strong>${count}</strong></span>
+          </div>
+          <small class="project-public-link">${escapeHtml(publicUrl)}</small>
         </div>
-        <small>Link de reporte: reportar.html?p=${encodeURIComponent(r.codigo||'')}</small>
-      </div>
-      <div class="responsible-actions">
-        <button type="button" class="secondary project-edit" data-id="${r.id}">Editar</button>
-        <button type="button" class="${r.activo?'warning':'success'} project-toggle" data-id="${r.id}" data-active="${r.activo}">${r.activo?'Desactivar':'Reactivar'}</button>
-      </div>
-    </article>`).join('');
+        <div class="responsible-actions project-qr-actions">
+          ${r.activo?`<button type="button" class="project-qr-open" data-id="${r.id}">Ver QR</button>
+          <button type="button" class="secondary project-copy-link" data-id="${r.id}">Copiar enlace</button>
+          <a class="button-link secondary-link" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">Abrir formulario</a>`:'<span class="project-qr-disabled">QR deshabilitado mientras la unidad esté inactiva.</span>'}
+          <button type="button" class="secondary project-edit" data-id="${r.id}">Editar</button>
+          <button type="button" class="${r.activo?'warning':'success'} project-toggle" data-id="${r.id}" data-active="${r.activo}">${r.activo?'Desactivar':'Reactivar'}</button>
+        </div>
+      </article>`;
+    }).join('');
+
     list.querySelectorAll('.project-edit').forEach(b=>b.addEventListener('click',()=>openForm(records.find(r=>r.id===b.dataset.id))));
     list.querySelectorAll('.project-toggle').forEach(b=>b.addEventListener('click',()=>toggleState(b.dataset.id,b.dataset.active==='true')));
+    list.querySelectorAll('.project-qr-open').forEach(b=>b.addEventListener('click',()=>openQrModal(records.find(r=>r.id===b.dataset.id))));
+    list.querySelectorAll('.project-copy-link').forEach(b=>b.addEventListener('click',async()=>{
+      const r=records.find(x=>x.id===b.dataset.id); if(!r)return;
+      const ok=await copyText(buildPublicReportUrl(r));
+      const original=b.textContent;
+      b.textContent=ok?'Copiado ✓':'No se pudo copiar';
+      setTimeout(()=>b.textContent=original,1600);
+    }));
   }
 
   searchEl.addEventListener('input',renderList);
@@ -1776,6 +1819,150 @@ async function initProjectsAdmin(){
     }catch(err){showMessage(formMsg,'No se pudo guardar: '+(err.message||err));}
     finally{btn.disabled=false;btn.textContent=editId.value?'Guardar cambios':'Guardar';}
   });
+
+  function closeQrModal(){
+    qrModal?.classList.add('hidden');
+    document.body.classList.remove('qr-modal-open');
+    activeQrRecord=null; activeQrUrl='';
+    if(qrBox)qrBox.innerHTML='';
+    showMessage(qrMsg,'');
+  }
+
+  async function openQrModal(record){
+    if(!record||!record.activo)return;
+    activeQrRecord=record;
+    activeQrUrl=buildPublicReportUrl(record);
+    document.getElementById('projectQrTitle').textContent=`${record.tipo_unidad==='SEDE'?'Sede':'Proyecto'} · ${record.nombre}`;
+    document.getElementById('projectQrClient').textContent=record.cliente||'Explo Drilling Perú';
+    document.getElementById('projectQrName').textContent=record.nombre||'';
+    document.getElementById('projectQrCode').textContent=`Código: ${record.codigo||''}`;
+    qrLinkInput.value=activeQrUrl;
+    qrOpenLink.href=activeQrUrl;
+    qrBox.innerHTML='';
+    showMessage(qrMsg,'');
+
+    if(typeof QRCode==='undefined'){
+      showMessage(qrMsg,'No se pudo cargar el generador QR. Verifica tu conexión a internet.');
+      return;
+    }
+    new QRCode(qrBox,{
+      text:activeQrUrl,
+      width:230,
+      height:230,
+      colorDark:'#101828',
+      colorLight:'#ffffff',
+      correctLevel:QRCode.CorrectLevel.H
+    });
+    qrModal.classList.remove('hidden');
+    document.body.classList.add('qr-modal-open');
+  }
+
+  async function copyText(text){
+    try{
+      if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return true;}
+      const tmp=document.createElement('textarea');tmp.value=text;tmp.style.position='fixed';tmp.style.opacity='0';document.body.appendChild(tmp);tmp.select();const ok=document.execCommand('copy');tmp.remove();return ok;
+    }catch(_e){return false;}
+  }
+
+  function getQrCanvas(){
+    return qrBox?.querySelector('canvas')||null;
+  }
+
+  function safeFilePart(value){
+    return String(value||'qr').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
+  }
+
+  function downloadDataUrl(dataUrl,fileName){
+    const a=document.createElement('a');a.href=dataUrl;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+  }
+
+  async function loadImageUrlForCanvas(src){
+    return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src;});
+  }
+
+  async function downloadPoster(){
+    if(!activeQrRecord)return;
+    const qrCanvas=getQrCanvas();
+    if(!qrCanvas){showMessage(qrMsg,'El QR todavía no está disponible.');return;}
+    showMessage(qrMsg,'Generando cartel...',true);
+    try{
+      const W=1080,H=1350;
+      const c=document.createElement('canvas');c.width=W;c.height=H;
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+
+      // Franja superior corporativa
+      ctx.fillStyle='#c00000';ctx.fillRect(0,0,W,26);
+      ctx.fillStyle='#f8fafc';ctx.fillRect(0,26,W,250);
+
+      const [corp,yo]=await Promise.all([
+        loadImageUrlForCanvas('assets/img/logo-corporativo.jpg').catch(()=>null),
+        loadImageUrlForCanvas('assets/img/logo-yo-reporto.png').catch(()=>null)
+      ]);
+
+      if(corp){
+        const maxW=360,maxH=150,scale=Math.min(maxW/corp.width,maxH/corp.height,1);
+        ctx.drawImage(corp,58,68,corp.width*scale,corp.height*scale);
+      }
+      if(yo){
+        const maxW=205,maxH=205,scale=Math.min(maxW/yo.width,maxH/yo.height,1);
+        ctx.drawImage(yo,W-58-yo.width*scale,48,yo.width*scale,yo.height*scale);
+      }
+
+      ctx.fillStyle='#101828';ctx.font='700 46px Arial, sans-serif';ctx.textAlign='center';
+      ctx.fillText('YO REPORTO',W/2,330);
+      ctx.fillStyle='#c00000';ctx.font='700 30px Arial, sans-serif';
+      ctx.fillText('ACTOS Y CONDICIONES DE SEGURIDAD',W/2,380);
+
+      ctx.fillStyle='#101828';ctx.font='700 42px Arial, sans-serif';
+      const projectName=String(activeQrRecord.nombre||'').toUpperCase();
+      wrapCanvasText(ctx,projectName,W/2,455,900,50);
+
+      // Caja QR
+      const qrSize=500,qrX=(W-qrSize)/2,qrY=550;
+      ctx.fillStyle='#ffffff';ctx.strokeStyle='#d0d5dd';ctx.lineWidth=4;
+      roundRectCanvas(ctx,qrX-28,qrY-28,qrSize+56,qrSize+56,30,true,true);
+      ctx.drawImage(qrCanvas,qrX,qrY,qrSize,qrSize);
+
+      ctx.fillStyle='#101828';ctx.font='700 34px Arial, sans-serif';
+      ctx.fillText('ESCANEA PARA REPORTAR',W/2,1130);
+      ctx.fillStyle='#475467';ctx.font='400 26px Arial, sans-serif';
+      ctx.fillText('No necesitas usuario ni contraseña.',W/2,1175);
+      ctx.fillText('El proyecto quedará seleccionado automáticamente.',W/2,1215);
+
+      ctx.fillStyle='#c00000';ctx.fillRect(0,H-90,W,90);
+      ctx.fillStyle='#ffffff';ctx.font='700 27px Arial, sans-serif';
+      ctx.fillText('SEGURIDAD ES RESPONSABILIDAD DE TODOS',W/2,H-35);
+
+      downloadDataUrl(c.toDataURL('image/png'),`cartel-yo-reporto-${safeFilePart(activeQrRecord.codigo||activeQrRecord.nombre)}.png`);
+      showMessage(qrMsg,'Cartel generado correctamente.',true);
+    }catch(err){
+      console.error(err);showMessage(qrMsg,'No se pudo generar el cartel: '+(err.message||err));
+    }
+  }
+
+  function roundRectCanvas(ctx,x,y,w,h,r,fill,stroke){
+    r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();if(fill)ctx.fill();if(stroke)ctx.stroke();
+  }
+
+  function wrapCanvasText(ctx,text,x,y,maxWidth,lineHeight){
+    const words=String(text||'').split(/\s+/);let line='',lines=[];
+    for(const word of words){const test=line?line+' '+word:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word;}else line=test;}
+    if(line)lines.push(line);
+    const startY=y-((lines.length-1)*lineHeight/2);lines.forEach((ln,i)=>ctx.fillText(ln,x,startY+i*lineHeight));
+  }
+
+  qrModal?.querySelectorAll('[data-qr-close]').forEach(el=>el.addEventListener('click',closeQrModal));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!qrModal?.classList.contains('hidden'))closeQrModal();});
+  document.getElementById('copyProjectQrLink')?.addEventListener('click',async()=>{
+    const ok=await copyText(activeQrUrl);showMessage(qrMsg,ok?'Enlace copiado al portapapeles.':'No se pudo copiar el enlace.',ok);
+  });
+  document.getElementById('downloadProjectQr')?.addEventListener('click',()=>{
+    if(!activeQrRecord)return;const c=getQrCanvas();if(!c){showMessage(qrMsg,'El QR todavía no está disponible.');return;}
+    downloadDataUrl(c.toDataURL('image/png'),`qr-yo-reporto-${safeFilePart(activeQrRecord.codigo||activeQrRecord.nombre)}.png`);
+    showMessage(qrMsg,'QR descargado correctamente.',true);
+  });
+  document.getElementById('downloadProjectPoster')?.addEventListener('click',downloadPoster);
 
   await loadRecords();
 }

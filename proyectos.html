@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body data-page="projects-admin">
 <header class="topbar">
@@ -23,7 +24,7 @@
     <div>
       <p class="eyebrow">Configuración</p>
       <h1>Proyectos y sedes</h1>
-      <p class="muted">Administra las unidades que aparecerán en los formularios y reportes.</p>
+      <p class="muted">Administra las unidades que aparecerán en los formularios y genera el QR público “Yo Reporto” de cada proyecto o sede.</p>
     </div>
     <button id="newProjectBtn">+ Agregar proyecto / sede</button>
   </section>
@@ -96,10 +97,48 @@
         </select>
       </div>
     </div>
-    <div id="projectsAdminList" class="responsible-list">Cargando...</div>
+    <div id="projectsAdminList" class="responsible-list project-qr-list">Cargando...</div>
     <p id="projectsAdminMessage" class="message"></p>
   </section>
 </main>
+
+<div id="projectQrModal" class="qr-modal hidden" role="dialog" aria-modal="true" aria-labelledby="projectQrTitle">
+  <div class="qr-modal-backdrop" data-qr-close></div>
+  <section class="qr-modal-card">
+    <button type="button" class="qr-modal-close" data-qr-close aria-label="Cerrar">×</button>
+    <div class="qr-modal-brand">
+      <img src="assets/img/logo-corporativo.jpg" alt="Explo Drilling Perú">
+      <div>
+        <p class="eyebrow">YO REPORTO · QR DEL PROYECTO</p>
+        <h2 id="projectQrTitle">Código QR</h2>
+        <p id="projectQrClient" class="muted"></p>
+      </div>
+    </div>
+
+    <div class="qr-modal-layout">
+      <div class="qr-preview-panel">
+        <div id="projectQrCanvas" class="qr-code-box"></div>
+        <div class="qr-project-name" id="projectQrName"></div>
+        <div class="qr-project-code" id="projectQrCode"></div>
+      </div>
+      <div class="qr-modal-info">
+        <img class="qr-yo-reporto" src="assets/img/logo-yo-reporto.png" alt="Yo Reporto">
+        <h3>Escanea para reportar</h3>
+        <p>El proyecto quedará preseleccionado y bloqueado para evitar que el trabajador registre el hallazgo en otra unidad.</p>
+        <label for="projectQrLink">Enlace público</label>
+        <input id="projectQrLink" type="text" readonly>
+        <div class="qr-modal-actions">
+          <button id="copyProjectQrLink" type="button" class="secondary">Copiar enlace</button>
+          <a id="openProjectQrLink" class="button-link secondary-link" href="#" target="_blank" rel="noopener">Abrir formulario</a>
+          <button id="downloadProjectQr" type="button">Descargar QR</button>
+          <button id="downloadProjectPoster" type="button" class="qr-poster-btn">Descargar cartel QR</button>
+        </div>
+        <p id="projectQrMessage" class="message"></p>
+      </div>
+    </div>
+  </section>
+</div>
+
 <script src="app.js"></script>
 </body>
 </html>

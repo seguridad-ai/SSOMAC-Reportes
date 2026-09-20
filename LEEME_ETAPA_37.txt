@@ -1,0 +1,27 @@
+ETAPA 37 - QR "YO REPORTO" POR PROYECTO / SEDE
+================================================
+
+No requiere SQL.
+
+Reemplazar en GitHub:
+- app.js
+- styles.css
+- proyectos.html
+
+No reemplazar config.js.
+
+FUNCIONES NUEVAS
+- Botón "Ver QR" por proyecto/sede activo.
+- Enlace público automático: reportar.html?p=CODIGO.
+- Copiar enlace.
+- Abrir formulario público.
+- Descargar QR en PNG.
+- Descargar cartel vertical "Yo Reporto" en PNG con logo corporativo, logo Yo Reporto, QR y nombre del proyecto.
+- Conteo informativo de reportes públicos por proyecto (si RLS permite la consulta; si no, el módulo continúa funcionando).
+- Las unidades inactivas no permiten generar QR.
+
+IMPORTANTE
+El formulario público ya reconoce ?p=CODIGO, preselecciona el proyecto y bloquea el selector para evitar reportes en otra unidad.
+
+DEPENDENCIA
+proyectos.html carga QRCode.js desde cdnjs. Para generar el QR se necesita conexión a internet al abrir el administrador de proyectos.
