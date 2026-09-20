@@ -438,7 +438,7 @@ async function initOccurrences(){
 
 async function initOccurrenceDetail(){
   const session=await requireSession();if(!session)return;document.getElementById('logoutBtn').addEventListener('click',logout);
-  const id=new URLSearchParams(location.search).get('id'),head=document.getElementById('detailHeader'),body=document.getElementById('detailBody'),msg=document.getElementById('detailMessage'),deadlineBox=document.getElementById('deadlineManagement'),workflow=document.getElementById('workflowContent'),gallery=document.getElementById('evidenceGallery'),history=document.getElementById('occurrenceHistory');
+  const id=new URLSearchParams(location.search).get('id'),head=document.getElementById('detailHeader'),body=document.getElementById('detailBody'),msg=document.getElementById('detailMessage'),deadlineBox=document.getElementById('deadlineManagement'),workflow=document.getElementById('workflowContent'),gallery=document.getElementById('evidenceGallery'),history=document.getElementById('occurrenceHistory'),downloadPdfBtn=document.getElementById('downloadOccurrencePdfBtn');
   if(!id){showMessage(msg,'Falta el identificador de la ocurrencia.');return;}
   try{
     const profile=await getProfile(session.user.id),statuses=await getStatuses();
@@ -483,6 +483,26 @@ async function initOccurrenceDetail(){
     await renderDeadlineManagement(o,profile,id,deadlineBox,msg);
     await renderOccurrenceHistory(id,history);
     renderWorkflow(o,profile,statuses,session,workflow,msg,id);
+
+    if(downloadPdfBtn){
+      downloadPdfBtn.disabled=false;
+      downloadPdfBtn.addEventListener('click',async()=>{
+        const originalText=downloadPdfBtn.textContent;
+        downloadPdfBtn.disabled=true;
+        downloadPdfBtn.textContent='Generando PDF...';
+        showMessage(msg,'Preparando reporte PDF con fotografías...',true);
+        try{
+          await downloadOccurrenceReportPdf({occurrence:o,reporter,occurrenceId:id});
+          showMessage(msg,'Reporte PDF generado correctamente.',true);
+        }catch(pdfErr){
+          console.error(pdfErr);
+          showMessage(msg,'No se pudo generar el PDF: '+(pdfErr.message||pdfErr));
+        }finally{
+          downloadPdfBtn.disabled=false;
+          downloadPdfBtn.textContent=originalText;
+        }
+      });
+    }
   }catch(err){console.error(err);showMessage(msg,err.message);if(deadlineBox)deadlineBox.textContent='No se pudo cargar la gestión de plazo.';workflow.textContent='No se pudo cargar el flujo.';gallery.textContent='No se pudieron cargar las evidencias.';if(history)history.textContent='No se pudo cargar el historial.';}
 }
 
@@ -496,6 +516,317 @@ async function renderEvidence(occId,gallery){
     cards.push(`<article class="evidence-card">${se?'':`<img src="${signed.signedUrl}" alt="${escapeHtml(e.tipo_evidencia)}">`}<div class="evidence-info"><strong>${escapeHtml(e.tipo_evidencia)}</strong><small>${escapeHtml(e.creado_en||'')}</small>${e.comentario?`<p>${escapeHtml(e.comentario)}</p>`:''}</div></article>`);
   }
   gallery.innerHTML=cards.join('');
+}
+
+
+// ============================================================
+// ETAPA 38 - REPORTE INDIVIDUAL PDF (FORMATO CORPORATIVO)
+// ============================================================
+function pdfSafeText(value,fallback=''){
+  const text=String(value??'').trim();
+  return text||fallback;
+}
+
+function pdfFormatDate(value){
+  if(!value)return '';
+  const raw=String(value);
+  const datePart=raw.slice(0,10);
+  const parts=datePart.split('-');
+  if(parts.length===3)return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return raw;
+}
+
+function pdfFormatTime(value){
+  if(!value)return '';
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return '';
+  return new Intl.DateTimeFormat('es-PE',{hour:'2-digit',minute:'2-digit',hour12:false}).format(d);
+}
+
+async function fetchEvidenceForPdf(occurrenceId){
+  const {data,error}=await sb.from('evidencias')
+    .select('id,tipo_evidencia,ruta_archivo,comentario,creado_en')
+    .eq('ocurrencia_id',occurrenceId)
+    .order('creado_en',{ascending:true});
+  if(error)throw error;
+  const result=[];
+  for(const item of (data||[])){
+    const {data:signed,error:signedError}=await sb.storage.from('evidencias-ssomac').createSignedUrl(item.ruta_archivo,3600);
+    result.push({...item,signed_url:signedError?null:signed?.signedUrl});
+  }
+  return result;
+}
+
+async function fetchHistoryForPdf(occurrenceId){
+  const {data,error}=await sb.from('historial_ocurrencias')
+    .select('tipo_evento,titulo,detalle,actor_nombre,creado_en')
+    .eq('ocurrencia_id',occurrenceId)
+    .order('creado_en',{ascending:true});
+  if(error)return [];
+  return data||[];
+}
+
+async function urlToPdfImage(url,quality=.86){
+  if(!url)return null;
+  const response=await fetch(url,{cache:'no-store'});
+  if(!response.ok)throw new Error('No se pudo cargar una fotografía del reporte.');
+  const blob=await response.blob();
+  const objectUrl=URL.createObjectURL(blob);
+  try{
+    const img=await new Promise((resolve,reject)=>{
+      const image=new Image();
+      image.onload=()=>resolve(image);
+      image.onerror=()=>reject(new Error('No se pudo procesar una fotografía.'));
+      image.src=objectUrl;
+    });
+    const maxSide=1800;
+    const scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
+    const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
+    const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+    const canvas=document.createElement('canvas');
+    canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);
+    ctx.drawImage(img,0,0,w,h);
+    return {data:canvas.toDataURL('image/jpeg',quality),width:w,height:h};
+  }finally{
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function pdfDrawContainedImage(doc,image,x,y,w,h,padding=1){
+  if(!image?.data)return;
+  const availW=Math.max(1,w-padding*2),availH=Math.max(1,h-padding*2);
+  const scale=Math.min(availW/image.width,availH/image.height);
+  const iw=image.width*scale,ih=image.height*scale;
+  const ix=x+(w-iw)/2,iy=y+(h-ih)/2;
+  doc.addImage(image.data,'JPEG',ix,iy,iw,ih,undefined,'FAST');
+}
+
+function pdfDrawPhotoGrid(doc,images,x,y,w,h){
+  const valid=(images||[]).filter(Boolean).slice(0,4);
+  if(!valid.length){
+    doc.setFont('helvetica','italic');doc.setFontSize(6.5);doc.setTextColor(110);
+    doc.text('Sin evidencia fotográfica registrada.',x+2,y+5);
+    doc.setTextColor(0);
+    return;
+  }
+  const gap=1.5;
+  const cols=valid.length===1?1:2;
+  const rows=valid.length<=2?1:2;
+  const cellW=(w-gap*(cols-1))/cols;
+  const cellH=(h-gap*(rows-1))/rows;
+  valid.forEach((img,i)=>{
+    const c=i%cols,r=Math.floor(i/cols);
+    const px=x+c*(cellW+gap),py=y+r*(cellH+gap);
+    doc.setDrawColor(170);doc.setLineWidth(.2);doc.rect(px,py,cellW,cellH);
+    pdfDrawContainedImage(doc,img,px,py,cellW,cellH,.7);
+  });
+}
+
+function pdfDrawCheckbox(doc,x,y,label,checked=false){
+  const size=2.4;
+  doc.setDrawColor(60);doc.setLineWidth(.25);doc.rect(x,y-size+0.4,size,size);
+  if(checked){
+    doc.setLineWidth(.45);
+    doc.line(x+.45,y-.7,x+1.05,y+.05);
+    doc.line(x+1.05,y+.05,x+2.0,y-1.25);
+  }
+  doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.text(label,x+3.5,y);
+}
+
+function pdfDrawCellText(doc,text,x,y,w,h,{size=6.7,bold=false,align='left',padding=1.6,maxLines=4}={}){
+  doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(0);
+  const lines=doc.splitTextToSize(pdfSafeText(text),Math.max(5,w-padding*2)).slice(0,maxLines);
+  let tx=x+padding;
+  if(align==='center')tx=x+w/2;
+  doc.text(lines,tx,y+padding+size*.35,{align});
+}
+
+async function pdfLoadLogo(){
+  try{return await urlToPdfImage('assets/img/logo-corporativo.jpg',.9);}catch(_){return null;}
+}
+
+function pdfDrawCorporateHeader(doc,logo){
+  const x=4,y=4,w=202,h=25.5;
+  const logoW=36,centerW=100,rightW=w-logoW-centerW;
+  doc.setDrawColor(0);doc.setLineWidth(.45);doc.rect(x,y,w,h);
+  doc.line(x+logoW,y,x+logoW,y+h);
+  doc.line(x+logoW+centerW,y,x+logoW+centerW,y+h);
+  doc.line(x+logoW,y+12,x+logoW+centerW,y+12);
+  if(logo)pdfDrawContainedImage(doc,logo,x+1,y+1,logoW-2,h-2,.4);
+  doc.setFont('helvetica','bold');doc.setTextColor(0);doc.setFontSize(7.8);
+  doc.text('SIG - SSOMAC',x+logoW+centerW/2,y+7.2,{align:'center'});
+  doc.setFillColor(192,0,0);doc.rect(x+logoW,y+12,centerW,h-12,'F');
+  doc.setTextColor(255);doc.setFontSize(7.4);
+  doc.text('REPORTE DE ACTOS Y CONDICIONES',x+logoW+centerW/2,y+20.1,{align:'center'});
+  doc.setTextColor(0);
+  const rx=x+logoW+centerW,labelW=19,rowH=h/4;
+  const labels=['CÓDIGO:','N°:','Versión:','Fecha Act:'];
+  const values=['EDP-SIG-SSOMAC-RE-EA-191','2','5','Jul-25'];
+  for(let i=1;i<4;i++)doc.line(rx,y+i*rowH,x+w,y+i*rowH);
+  doc.line(rx+labelW,y,rx+labelW,y+h);
+  for(let i=0;i<4;i++){
+    doc.setFont('helvetica','bold');doc.setFontSize(i===0?5.6:6.1);doc.text(labels[i],rx+1,y+i*rowH+4.25);
+    doc.setFont('helvetica',i===0?'normal':'bold');doc.setFontSize(i===0?4.7:6.4);doc.text(values[i],rx+labelW+(rightW-labelW)/2,y+i*rowH+4.25,{align:'center'});
+  }
+}
+
+function pdfDrawVerticalBand(doc,x,y,w,h,label){
+  doc.setFillColor(90,90,90);doc.setDrawColor(0);doc.rect(x,y,w,h,'FD');
+  doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(6.8);
+  const letters=label.split('');
+  const total=(letters.length-1)*4.4;
+  let yy=y+(h-total)/2;
+  for(const ch of letters){doc.text(ch,x+w/2,yy,{align:'center'});yy+=4.4;}
+  doc.setTextColor(0);
+}
+
+function pdfDrawTopReporterSection(doc,o,reporter,reportTime,hallazgoImages){
+  const x=4,mainX=18,right=206,w=right-mainX,startY=29.5,endY=159.5;
+  pdfDrawVerticalBand(doc,x,startY,14,endY-startY,'REPORTANTE');
+  const rows=[10,10,10,13.5,13.5,11.5];
+  let y=startY;
+  const labels=['REPORTANTE:','LUGAR DE OCURRENCIA:','FECHA:','FIRMA:','REPORTADO:','CATEGORÍA DEL REPORTE:'];
+  for(let i=0;i<rows.length;i++){
+    doc.setDrawColor(0);doc.setLineWidth(.35);doc.rect(mainX,y,w,rows[i]);
+    doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text(labels[i],mainX+1.2,y+3.4);
+    if(i===0){doc.setFont('helvetica','bold');doc.setFontSize(7.2);doc.text(pdfSafeText(reporter,'-'),mainX+27,y+6.4);}
+    if(i===1){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfSafeText(o.lugar_hallazgo,'-'),mainX+31,y+6.4);}
+    if(i===2){
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfFormatDate(o.fecha),mainX+16,y+6.4);
+      doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text('HORA:',mainX+74,y+3.4);
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfSafeText(reportTime,'-'),mainX+88,y+6.4);
+    }
+    if(i===4){doc.setFont('helvetica','italic');doc.setFontSize(5.2);doc.text('(Completar sólo en caso de Acto Subestándar)',mainX+1.2,y+7.0);}
+    if(i===5){
+      pdfDrawCheckbox(doc,mainX+60,y+7.2,'Seguridad',false);
+      pdfDrawCheckbox(doc,mainX+96,y+7.2,'Medio ambiente',false);
+      pdfDrawCheckbox(doc,mainX+143,y+7.2,'Salud',false);
+    }
+    y+=rows[i];
+  }
+  const descY=y,descH=endY-descY;
+  doc.setDrawColor(0);doc.rect(mainX,descY,w,descH);
+  doc.setFont('helvetica','normal');doc.setFontSize(5.9);
+  doc.text('DESCRIPCIÓN: (Qué se observó) (Ver reverso de la hoja)',mainX+1.2,descY+3.6);
+  const descLines=doc.splitTextToSize(pdfSafeText(o.descripcion,'Sin descripción registrada.'),w-4).slice(0,5);
+  doc.setFont('helvetica','bold');doc.setFontSize(6.7);doc.text(descLines,mainX+2,descY+7.2);
+  const textH=Math.max(8,descLines.length*3.0+5);
+  const photoY=descY+textH;
+  const photoH=Math.max(8,descY+descH-photoY-1.5);
+  pdfDrawPhotoGrid(doc,hallazgoImages,mainX+2,photoY,w-4,photoH);
+}
+
+function pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftImages){
+  const x=4,mainX=18,right=206,w=right-mainX,startY=159.5,endY=293;
+  pdfDrawVerticalBand(doc,x,startY,14,endY-startY,'SUPERVISOR');
+  let y=startY;
+  doc.setDrawColor(0);doc.setLineWidth(.35);doc.rect(mainX,y,w,5.5);
+  doc.setFont('helvetica','italic');doc.setFontSize(5.2);doc.text('Será completado por el responsable quien cumplirá la acción propuesta',mainX+1.2,y+3.6);y+=5.5;
+  doc.rect(mainX,y,w,10);
+  const isAct=String(o.tipo?.codigo||o.tipo?.nombre||'').toUpperCase().includes('ACTO');
+  const isCond=String(o.tipo?.codigo||o.tipo?.nombre||'').toUpperCase().includes('COND');
+  pdfDrawCheckbox(doc,mainX+28,y+6.4,'Acto Subestándar',isAct);
+  pdfDrawCheckbox(doc,mainX+95,y+6.4,'Condición Subestándar',isCond);y+=10;
+  doc.rect(mainX,y,w,10);
+  doc.setFont('helvetica','bold');doc.setFontSize(6.3);doc.text('Potencial de Pérdida:',mainX+1.2,y+6.3);
+  const pot=String(o.potencial?.nombre||'').toUpperCase();
+  pdfDrawCheckbox(doc,mainX+70,y+6.4,'Alto',pot.includes('ALTO'));
+  pdfDrawCheckbox(doc,mainX+96,y+6.4,'Medio',pot.includes('MEDIO'));
+  pdfDrawCheckbox(doc,mainX+132,y+6.4,'Bajo',pot.includes('BAJO'));y+=10;
+  const smallRows=[10,10,10,10];
+  const labels=['NOMBRE:','FECHA RECIBIDO:','FECHA CORREGIDO:','FECHA CONTESTADO:'];
+  const values=[pdfSafeText(o.responsable_correccion,'-'),pdfSafeText(assignmentDate,'-'),pdfSafeText(pdfFormatDate(o.fecha_ejecutada),'-'),pdfSafeText(pdfFormatDate(o.fecha_validacion),'-')];
+  for(let i=0;i<smallRows.length;i++){
+    doc.rect(mainX,y,w,smallRows[i]);
+    doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text(labels[i],mainX+1.2,y+3.5);
+    doc.setFont('helvetica','bold');doc.setFontSize(6.7);doc.text(values[i],mainX+36,y+6.4);
+    y+=smallRows[i];
+  }
+  const actionBottom=endY-7;
+  const actionH=actionBottom-y;
+  doc.rect(mainX,y,w,actionH);
+  doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text('QUE SE HIZO O QUE SE DEBE HACER PARA CORREGIR:',mainX+1.2,y+3.5);
+  doc.setFont('helvetica','italic');doc.setFontSize(5.1);doc.text('(Adjuntar foto y evidencia)',mainX+1.2,y+6.3);
+  const actionText=latestLiftComment||o.acciones_implementar||'Sin acción de levantamiento registrada.';
+  const actionLines=doc.splitTextToSize(actionText,w-4).slice(0,5);
+  doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.text(actionLines,mainX+2,y+10);
+  const textH=Math.max(14,actionLines.length*2.9+9);
+  const photoY=y+textH;
+  const photoH=Math.max(7,actionBottom-photoY-1.2);
+  pdfDrawPhotoGrid(doc,liftImages,mainX+2,photoY,w-4,photoH);
+  doc.rect(mainX,actionBottom,w,7);
+  doc.setFont('helvetica','normal');doc.setFontSize(5.8);doc.text('FIRMA: ........................................................',mainX+1.2,actionBottom+4.7);
+}
+
+function pdfDrawAnnexPage(doc,logo,title,items,occCode){
+  doc.addPage('a4','portrait');
+  pdfDrawCorporateHeader(doc,logo);
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(192,0,0);
+  doc.text(`ANEXO FOTOGRÁFICO - ${title}`,105,38,{align:'center'});
+  doc.setTextColor(0);doc.setFontSize(7);doc.text(`Registro: ${occCode}`,105,43,{align:'center'});
+  const x=12,y=48,w=186,h=232,gap=5,cellW=(w-gap)/2,cellH=(h-gap)/2;
+  items.slice(0,4).forEach((item,i)=>{
+    const c=i%2,r=Math.floor(i/2),px=x+c*(cellW+gap),py=y+r*(cellH+gap);
+    doc.setDrawColor(120);doc.setLineWidth(.3);doc.rect(px,py,cellW,cellH);
+    pdfDrawContainedImage(doc,item.image,px+1,py+1,cellW-2,cellH-12,.8);
+    doc.setFont('helvetica','normal');doc.setFontSize(5.8);doc.setTextColor(60);
+    const cap=doc.splitTextToSize(item.caption||title,cellW-4).slice(0,3);
+    doc.text(cap,px+2,py+cellH-9);
+  });
+  doc.setFont('helvetica','italic');doc.setFontSize(5.5);doc.setTextColor(100);
+  doc.text('Documento generado desde SSOMAC Digital - Explo Drilling Perú',105,290,{align:'center'});
+  doc.setTextColor(0);
+}
+
+async function downloadOccurrenceReportPdf({occurrence:o,reporter,occurrenceId}){
+  const jsPDFClass=window.jspdf?.jsPDF;
+  if(!jsPDFClass)throw new Error('No se cargó el generador PDF. Actualiza la página e inténtalo nuevamente.');
+  const [evidences,history,logo]=await Promise.all([
+    fetchEvidenceForPdf(occurrenceId),
+    fetchHistoryForPdf(occurrenceId),
+    pdfLoadLogo()
+  ]);
+  const hallazgo=evidences.filter(e=>String(e.tipo_evidencia||'').toUpperCase()==='HALLAZGO');
+  const lifts=evidences.filter(e=>String(e.tipo_evidencia||'').toUpperCase()==='LEVANTAMIENTO');
+  const allImageEvidence=[...hallazgo,...lifts].filter(e=>e.signed_url);
+  const imageMap=new Map();
+  for(const e of allImageEvidence){
+    try{imageMap.set(e.id,await urlToPdfImage(e.signed_url));}
+    catch(err){console.warn('No se pudo cargar evidencia para PDF',e.id,err);}
+  }
+  const hallazgoImages=hallazgo.map(e=>imageMap.get(e.id)).filter(Boolean);
+  const liftImages=lifts.map(e=>imageMap.get(e.id)).filter(Boolean);
+  const registeredEvent=history.find(h=>h.tipo_evento==='OCURRENCIA_REGISTRADA');
+  const assignedEvent=history.find(h=>h.tipo_evento==='RESPONSABLE_ASIGNADO');
+  const reportTime=registeredEvent?pdfFormatTime(registeredEvent.creado_en):'';
+  const assignmentDate=assignedEvent?pdfFormatDate(assignedEvent.creado_en):pdfFormatDate(o.fecha);
+  const latestLiftComment=[...lifts].reverse().find(e=>pdfSafeText(e.comentario))?.comentario||'';
+  const doc=new jsPDFClass({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+  doc.setProperties({
+    title:`Reporte de Actos y Condiciones - OC-${String(o.numero).padStart(6,'0')}`,
+    subject:'Reporte individual SSOMAC',
+    author:'Explo Drilling Perú - SSOMAC Digital'
+  });
+  pdfDrawCorporateHeader(doc,logo);
+  pdfDrawTopReporterSection(doc,o,reporter,reportTime,hallazgoImages);
+  pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftImages);
+  const occCode=`OC-${String(o.numero).padStart(6,'0')}`;
+  doc.setFont('helvetica','normal');doc.setFontSize(5.4);doc.setTextColor(90);
+  doc.text(`Registro digital: ${occCode} | Proyecto: ${pdfSafeText(o.proyecto?.nombre,'-')}`,105,296,{align:'center'});
+  // Mantener todas las fotos: si existen más de cuatro por tipo, se agregan anexos.
+  const annex=[];
+  hallazgo.forEach((e,i)=>{
+    const img=imageMap.get(e.id);if(img)annex.push({kind:'HALLAZGO',image:img,caption:`Hallazgo ${i+1} - ${pdfFormatDate(e.creado_en)}${e.comentario?' - '+e.comentario:''}`});
+  });
+  lifts.forEach((e,i)=>{
+    const img=imageMap.get(e.id);if(img)annex.push({kind:'LEVANTAMIENTO',image:img,caption:`Levantamiento ${i+1} - ${pdfFormatDate(e.creado_en)}${e.comentario?' - '+e.comentario:''}`});
+  });
+  // Las primeras cuatro de cada tipo ya se muestran en el formato principal. Los excedentes van como anexos.
+  const extra=[...annex.filter(x=>x.kind==='HALLAZGO').slice(4),...annex.filter(x=>x.kind==='LEVANTAMIENTO').slice(4)];
+  for(let i=0;i<extra.length;i+=4){pdfDrawAnnexPage(doc,logo,'EVIDENCIAS ADICIONALES',extra.slice(i,i+4),occCode);}
+  doc.save(`REPORTE_ACTOS_CONDICIONES_${occCode}.pdf`);
 }
 
 // ============================================================

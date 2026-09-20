@@ -459,3 +459,21 @@ small{color:var(--muted)}.message{min-height:20px;color:#b42318}
 .qr-modal-open{overflow:hidden}.qr-modal{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:22px}.qr-modal.hidden{display:none}.qr-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(3px)}.qr-modal-card{position:relative;z-index:1;width:min(920px,100%);max-height:calc(100vh - 44px);overflow:auto;background:#fff;border:1px solid #e4e7ec;border-radius:20px;padding:24px;box-shadow:0 30px 90px rgba(0,0,0,.3)}.qr-modal-close{position:absolute;right:16px;top:14px;width:38px;height:38px;padding:0;border-radius:50%;background:#f2f4f7;color:#344054;font-size:25px;line-height:1}.qr-modal-close:hover{background:#e4e7ec}.qr-modal-brand{display:flex;align-items:center;gap:18px;padding-right:45px;margin-bottom:20px}.qr-modal-brand>img{width:128px;height:82px;object-fit:contain}.qr-modal-brand h2{margin:3px 0 3px;font-size:25px}.qr-modal-brand p{margin:0}.qr-modal-layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:28px;align-items:center}.qr-preview-panel{border:1px solid #e4e7ec;border-radius:16px;background:#f9fafb;padding:22px;text-align:center}.qr-code-box{width:250px;height:250px;display:grid;place-items:center;margin:0 auto 14px;background:#fff;border-radius:12px;padding:10px}.qr-code-box canvas,.qr-code-box img{max-width:230px!important;max-height:230px!important}.qr-project-name{font-weight:800;color:#101828;font-size:20px;line-height:1.2}.qr-project-code{color:#667085;font-size:13px;margin-top:5px}.qr-modal-info .qr-yo-reporto{width:135px;height:135px;object-fit:contain;float:right;margin:0 0 8px 16px}.qr-modal-info h3{margin:0 0 7px;font-size:24px;color:#101828}.qr-modal-info>p{color:#667085;line-height:1.55}.qr-modal-info label{display:block;font-weight:700;margin:16px 0 7px}.qr-modal-info input{width:100%;box-sizing:border-box}.qr-modal-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.qr-modal-actions>*{flex:0 0 auto}.qr-poster-btn{background:#101828}.qr-poster-btn:hover{background:#344054}
 @media(max-width:900px){.project-qr-card{align-items:flex-start}.project-qr-actions{min-width:0}.qr-modal-layout{grid-template-columns:1fr}.qr-preview-panel{max-width:360px;margin:0 auto;width:100%;box-sizing:border-box}.qr-modal-info .qr-yo-reporto{float:none;display:block;margin:0 auto 12px}.qr-modal-info{text-align:center}.qr-modal-info label{text-align:left}.qr-modal-actions{justify-content:center}}
 @media(max-width:620px){.qr-modal{padding:10px}.qr-modal-card{padding:18px;border-radius:16px;max-height:calc(100vh - 20px)}.qr-modal-brand{align-items:flex-start;gap:10px}.qr-modal-brand>img{width:92px;height:58px}.qr-modal-brand h2{font-size:20px}.qr-code-box{width:230px;height:230px}.qr-code-box canvas,.qr-code-box img{max-width:210px!important;max-height:210px!important}.qr-modal-actions{display:grid;grid-template-columns:1fr}.qr-modal-actions>*{width:100%;box-sizing:border-box;text-align:center}.project-qr-actions{width:100%;justify-content:flex-start}}
+
+/* ============================================================
+   ETAPA 38 - Descarga individual del reporte PDF
+   ============================================================ */
+.report-download-btn{
+  background:#c00000;
+  border:1px solid #c00000;
+  color:#fff;
+  font-weight:800;
+  border-radius:10px;
+  padding:10px 14px;
+  cursor:pointer;
+}
+.report-download-btn:hover{background:#a90000;border-color:#a90000}
+.report-download-btn:disabled{opacity:.55;cursor:wait}
+@media (max-width:760px){
+  .report-download-btn{width:100%}
+}

@@ -5,8 +5,9 @@
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=10.9">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="config.js"></script>
 
 </head>
@@ -15,6 +16,7 @@
     <div><strong>SSOMAC Digital</strong><span>Detalle de ocurrencia</span></div>
     <div class="top-actions">
       <a class="button-link secondary-link" href="ocurrencias.html">← Ocurrencias</a>
+      <button id="downloadOccurrencePdfBtn" type="button" class="report-download-btn" disabled>Descargar reporte PDF</button>
       <a class="button-link secondary-link" href="dashboard.html">Dashboard</a>
       <a class="button-link secondary-link" href="app.html">Inicio</a>
       <button id="logoutBtn" class="secondary">Cerrar sesión</button>
@@ -60,6 +62,6 @@
       <div id="occurrenceHistory">Cargando historial...</div>
     </section>
   </main>
-  <script src="app.js"></script>
+  <script src="app.js?v=10.9"></script>
 </body>
 </html>

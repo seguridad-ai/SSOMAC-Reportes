@@ -1,0 +1,41 @@
+ETAPA 38 - DESCARGA INDIVIDUAL PDF
+SSOMAC Digital v10.9
+
+NO REQUIERE SQL.
+
+Reemplazar en GitHub:
+- app.js
+- styles.css
+- detalle-ocurrencia.html
+
+NO reemplazar config.js.
+
+Funcionamiento:
+1. Ir a Ocurrencias > Ver detalle.
+2. Pulsar "Descargar reporte PDF".
+3. Se genera un PDF A4 con el encabezado corporativo del formato
+   EDP-SIG-SSOMAC-RE-EA-191, N° 2, Versión 5, Fecha Act Jul-25.
+4. La descripción incluye las fotografías HALLAZGO.
+5. El bloque de corrección incluye las fotografías LEVANTAMIENTO.
+6. Si existen más de 4 fotos de un mismo tipo, las adicionales se
+   conservan en páginas anexas del mismo PDF.
+
+Mapeo actual:
+- Reportante: usuario interno o trabajador externo que reportó.
+- Lugar: lugar del hallazgo.
+- Fecha: fecha de ocurrencia.
+- Hora: se toma del evento OCURRENCIA_REGISTRADA si existe trazabilidad.
+- Acto/Condición: según tipo de hallazgo.
+- Potencial: Alto / Medio / Bajo.
+- Nombre: responsable de corrección.
+- Fecha recibido: evento RESPONSABLE_ASIGNADO si existe.
+- Fecha corregido: fecha_ejecutada.
+- Fecha contestado: fecha_validacion.
+- Qué se hizo / debe hacer: último comentario de levantamiento o acción a implementar.
+
+Campos que hoy no existen en la base de datos y por tanto quedan en blanco:
+- FIRMA.
+- REPORTADO (persona observada en caso de acto subestándar).
+- CATEGORÍA DEL REPORTE (Seguridad / Medio ambiente / Salud).
+
+Para completar esos tres campos automáticamente habría que agregarlos al formulario/base de datos en una etapa posterior.
