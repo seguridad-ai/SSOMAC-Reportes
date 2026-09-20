@@ -272,3 +272,181 @@ small{color:var(--muted)}.message{min-height:20px;color:#b42318}
 @media(max-width:1180px){.analytics-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-span-2{grid-column:span 2}.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.analytics-head,.analytics-filter-head{flex-direction:column;align-items:stretch}.analytics-result-chip{width:100%}.analytics-filters{grid-template-columns:1fr}.analytics-grid{grid-template-columns:1fr}.analytics-span-2{grid-column:span 1}.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-chart-wrap,.analytics-chart-wrap.tall{height:285px}.analytics-chart-wrap.pareto{height:360px}}
 @media(max-width:480px){.analytics-kpis{grid-template-columns:1fr}.analytics-head h1{font-size:28px}}
+
+/* ============================================================
+   ETAPA 36 - IDENTIDAD VISUAL CORPORATIVA
+   ============================================================ */
+
+/* Logo corporativo en todos los encabezados internos existentes */
+.topbar>div:first-child:not(.top-actions){
+  position:relative;
+  padding-left:82px;
+  min-height:56px;
+  justify-content:center;
+}
+.topbar>div:first-child:not(.top-actions)::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:50%;
+  transform:translateY(-50%);
+  width:70px;
+  height:54px;
+  background:url('assets/img/logo-corporativo.jpg') center/contain no-repeat;
+}
+.topbar>div:first-child:not(.top-actions)>strong{
+  font-size:16px;
+  color:#101828;
+}
+
+/* Inicio - bloque institucional + Yo Reporto */
+.home-brand-hero-v36{
+  display:grid;
+  grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr);
+  gap:18px;
+  margin-bottom:20px;
+}
+.home-brand-copy-v36{
+  min-height:250px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:28px 30px;
+  overflow:hidden;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.98) 0%,rgba(255,255,255,.88) 48%,rgba(255,255,255,.18) 78%,rgba(255,255,255,.05) 100%),
+    url('assets/img/fondo-2.png') center 45%/cover no-repeat;
+  box-shadow:0 8px 30px rgba(0,0,0,.05);
+}
+.home-brand-copy-v36 h2{
+  max-width:560px;
+  margin:8px 0 8px;
+  font-size:32px;
+  line-height:1.08;
+  color:#101828;
+}
+.home-brand-copy-v36>p:not(.eyebrow){
+  max-width:500px;
+  margin:0;
+  color:#475467;
+  line-height:1.55;
+}
+.home-brand-line-v36{width:44px;height:4px;border-radius:999px;background:var(--red);margin:18px 0 10px}
+.home-brand-copy-v36>strong{color:#667085;font-size:14px}
+.home-report-card-v36{
+  min-height:250px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#fff;
+  padding:18px;
+  display:grid;
+  grid-template-columns:145px minmax(0,1fr);
+  gap:16px;
+  align-items:center;
+  box-shadow:0 8px 30px rgba(0,0,0,.05);
+}
+.home-report-card-v36 img{width:145px;max-height:210px;object-fit:contain;display:block}
+.home-report-card-v36 h3{margin:0 0 7px;font-size:21px;color:#101828}
+.home-report-card-v36 p{margin:0 0 14px;color:#667085;font-size:14px;line-height:1.5}
+.home-report-card-v36 .button-link{padding:10px 14px}
+
+/* Login institucional con fotografías rotativas */
+.login-page-v36{min-height:100vh;background:#111827;overflow-x:hidden;position:relative}
+.login-bg-v36{
+  position:fixed;
+  inset:0;
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  opacity:0;
+  transform:scale(1.015);
+  transition:opacity 1.15s ease;
+  z-index:0;
+}
+.login-bg-v36.is-visible{opacity:1}
+.login-shade-v36{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  background:
+    linear-gradient(90deg,rgba(8,15,28,.62) 0%,rgba(8,15,28,.34) 45%,rgba(8,15,28,.48) 100%),
+    linear-gradient(0deg,rgba(0,0,0,.22),rgba(0,0,0,.06));
+}
+.login-shell-v36{
+  position:relative;
+  z-index:2;
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 460px;
+  align-items:center;
+  gap:64px;
+  width:min(1180px,calc(100% - 40px));
+  margin:0 auto;
+  padding:42px 0;
+}
+.login-card-v36{
+  grid-column:2;
+  background:rgba(255,255,255,.97);
+  border:1px solid rgba(255,255,255,.85);
+  border-radius:22px;
+  padding:28px 30px 24px;
+  box-shadow:0 24px 70px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px);
+}
+.login-corporate-v36{text-align:center;margin-bottom:12px}
+.login-corporate-logo-v36{width:min(235px,78%);max-height:105px;object-fit:contain}
+.login-title-v36{text-align:center;margin-bottom:20px}
+.login-title-v36 .eyebrow{font-size:11px;margin-bottom:6px}
+.login-title-v36 h1{margin:0;font-size:29px;color:#101828}
+.login-title-v36>p:last-child{margin:5px 0 0;color:#667085}
+.login-button-v36{margin-top:5px;width:100%;font-size:16px}
+.login-report-badge-v36{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid #eaecf0;
+}
+.login-report-badge-v36 img{width:66px;height:66px;object-fit:contain;flex:0 0 auto}
+.login-report-badge-v36 strong{display:block;color:#101828;font-size:15px}
+.login-report-badge-v36 span{display:block;color:#667085;font-size:12px;line-height:1.35;margin-top:3px}
+.login-message-v36{
+  grid-column:1;
+  grid-row:1;
+  align-self:end;
+  padding:34px 0;
+  color:#fff;
+  text-shadow:0 2px 12px rgba(0,0,0,.45);
+  max-width:570px;
+}
+.login-message-v36 span{font-weight:800;font-size:13px;letter-spacing:.055em}
+.login-message-v36 strong{display:block;font-size:38px;line-height:1.08;margin:10px 0 12px;max-width:560px}
+.login-message-v36 p{margin:0;font-size:15px;color:rgba(255,255,255,.86)}
+
+@media(max-width:1180px){
+  .topbar{align-items:flex-start;flex-wrap:wrap}
+  .top-actions{flex-wrap:wrap;justify-content:flex-end}
+  .home-brand-hero-v36{grid-template-columns:1fr}
+  .home-report-card-v36{grid-template-columns:125px 1fr;min-height:0}
+  .home-report-card-v36 img{width:125px;max-height:160px}
+}
+@media(max-width:860px){
+  .login-shell-v36{display:flex;justify-content:center;width:min(100% - 28px,480px);padding:26px 0}
+  .login-card-v36{width:100%}
+  .login-message-v36{display:none}
+  .login-shade-v36{background:rgba(8,15,28,.5)}
+}
+@media(max-width:620px){
+  .topbar>div:first-child:not(.top-actions){padding-left:66px;min-height:48px}
+  .topbar>div:first-child:not(.top-actions)::before{width:56px;height:44px}
+  .home-brand-copy-v36{min-height:220px;padding:22px;background:linear-gradient(90deg,rgba(255,255,255,.97),rgba(255,255,255,.82)),url('assets/img/fondo-2.png') center/cover no-repeat}
+  .home-brand-copy-v36 h2{font-size:26px}
+  .home-report-card-v36{grid-template-columns:1fr;text-align:center}
+  .home-report-card-v36 img{margin:0 auto;width:130px}
+  .login-card-v36{padding:23px 20px 20px;border-radius:18px}
+  .login-corporate-logo-v36{width:min(220px,82%)}
+}
