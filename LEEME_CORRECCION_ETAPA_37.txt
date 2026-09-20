@@ -1,0 +1,13 @@
+CORRECCIÓN ETAPA 37 - QR NO VISIBLE
+
+El HTML nuevo sí estaba cargando, pero la pantalla mostraba el renderizado del app.js anterior.
+Esta corrección fuerza al navegador/GitHub Pages a cargar la versión nueva de app.js y styles.css mediante versionado de URL.
+
+Reemplazar en GitHub:
+- app.js
+- styles.css
+- proyectos.html
+
+No modificar config.js.
+
+Después del commit esperar el despliegue y hacer Ctrl+F5.
