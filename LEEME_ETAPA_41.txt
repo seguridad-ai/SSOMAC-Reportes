@@ -1,0 +1,22 @@
+ETAPA 41 - DASHBOARD INDIVIDUAL POR PROYECTO / SEDE
+
+NO REQUIERE SQL.
+
+Subir/reemplazar en GitHub:
+- app.js
+- styles.css
+- proyectos.html
+- proyecto-dashboard.html (nuevo)
+
+No reemplazar config.js.
+
+Funciones principales:
+- Botón Ver dashboard en Proyectos / sedes.
+- Proyectos autorizados del Inicio ahora son clicables.
+- Dashboard individual por código: proyecto-dashboard.html?p=CV
+- Filtros por año, mes, área y estado.
+- KPI de cierre, vencimientos, cumplimiento de plazo y tiempo promedio.
+- Gráficos de tendencia, estado, tipo, área, potencial, origen y Pareto de causas.
+- Últimas ocurrencias y carga activa por responsable.
+- QR Yo Reporto del proyecto y conteo de reportes públicos.
+- Botón Ver ocurrencias abre Ocurrencias con el proyecto prefiltrado.

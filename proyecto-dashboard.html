@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Dashboard de proyecto</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.2">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="project-dashboard" class="project-dashboard-body">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Dashboard de proyecto / sede</span></div>
+    <div class="top-actions">
+      <a class="button-link" href="nueva-ocurrencia.html">+ Nueva ocurrencia</a>
+      <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+      <a class="button-link secondary-link" href="dashboard.html">Dashboard</a>
+      <a class="button-link secondary-link" href="reporte-diario.html">Reporte mensual</a>
+      <a class="button-link secondary-link is-active" href="proyectos.html">Proyectos / sedes</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container project-dashboard-container">
+    <section id="pdHero" class="pd-hero">
+      <div class="pd-hero-main">
+        <p id="pdEyebrow" class="eyebrow">PROYECTO</p>
+        <h1 id="pdTitle">Cargando...</h1>
+        <p id="pdClient" class="pd-hero-client"></p>
+        <div class="pd-hero-actions">
+          <a id="pdOccurrencesLink" class="button-link" href="ocurrencias.html">Ver ocurrencias</a>
+          <a id="pdMonthlyLink" class="button-link secondary-link" href="reporte-diario.html">Reporte mensual</a>
+          <a id="pdManageProject" class="button-link secondary-link" href="proyectos.html">Administrar proyecto</a>
+        </div>
+      </div>
+      <span id="pdStatus" class="badge CERRADO pd-hero-status">ACTIVO</span>
+      <aside class="pd-qr-card">
+        <img src="assets/img/logo-yo-reporto.png" alt="Yo Reporto">
+        <h3>QR del proyecto</h3>
+        <p>Acceso público al reporte con proyecto preseleccionado.</p>
+        <div id="pdQr" class="pd-qr-box"></div>
+        <div class="pd-public-controls"><input id="pdPublicLink" type="text" readonly><button id="pdCopyPublic" class="secondary" type="button">Copiar</button></div>
+        <a id="pdOpenPublic" class="button-link secondary-link" href="#" target="_blank" rel="noopener" style="margin-top:8px;width:100%">Abrir formulario</a>
+        <div class="pd-worker-chip"><span>Reportes públicos recibidos</span><strong id="pdWorkerReports">—</strong></div>
+      </aside>
+    </section>
+
+    <section class="card pd-filter-card">
+      <div class="pd-filter-head"><div><p class="eyebrow">PERÍODO Y SEGMENTACIÓN</p><h2>Filtros del proyecto</h2><p class="muted">Todos los indicadores, gráficos y listados se recalculan automáticamente.</p></div><div class="analytics-result-chip"><span>Registros filtrados</span><strong id="pdFilteredCount">—</strong></div></div>
+      <div class="pd-filters">
+        <div class="field"><label for="pdYear">Año</label><select id="pdYear"></select></div>
+        <div class="field"><label for="pdMonth">Mes</label><select id="pdMonth"><option value="">Todos</option></select></div>
+        <div class="field"><label for="pdArea">Área responsable</label><select id="pdArea"><option value="">Todas</option></select></div>
+        <div class="field"><label for="pdFilterStatus">Estado</label><select id="pdFilterStatus"><option value="">Todos</option></select></div>
+      </div>
+      <div class="form-actions" style="margin-top:12px"><button id="pdReset" type="button" class="secondary">Restablecer filtros</button></div>
+    </section>
+
+    <section class="pd-kpis">
+      <article class="pd-kpi"><span>Total ocurrencias</span><strong id="pdKpiTotal">—</strong><small>según filtros</small></article>
+      <article class="pd-kpi"><span>Abiertas / proceso</span><strong id="pdKpiOpen">—</strong><small>requieren seguimiento</small></article>
+      <article class="pd-kpi info"><span>Por validar</span><strong id="pdKpiPending">—</strong><small>levantamientos enviados</small></article>
+      <article class="pd-kpi danger"><span>Vencidas</span><strong id="pdKpiOverdue">—</strong><small>fuera de plazo</small></article>
+      <article class="pd-kpi success"><span>Cerradas</span><strong id="pdKpiClosed">—</strong><small>ocurrencias cerradas</small></article>
+      <article class="pd-kpi"><span>% de cierre</span><strong id="pdKpiClosure">—</strong><small>cerradas / total</small></article>
+      <article class="pd-kpi"><span>Dentro del plazo</span><strong id="pdKpiOnTime">—</strong><small>levantadas con fecha</small></article>
+      <article class="pd-kpi"><span>Tiempo promedio</span><strong id="pdKpiAvg">—</strong><small>días calendario</small></article>
+    </section>
+
+    <section class="pd-grid">
+      <article class="card pd-chart-card wide"><div class="pd-section-head"><div><p class="eyebrow">TENDENCIA</p><h2>Ocurrencias por mes</h2></div></div><div class="pd-chart-wrap tall"><canvas id="pdChartMonthly"></canvas></div></article>
+      <article class="card pd-chart-card"><div class="pd-section-head"><div><p class="eyebrow">ESTADO</p><h2>Situación actual</h2></div></div><div class="pd-chart-wrap"><canvas id="pdChartStatus"></canvas></div></article>
+      <article class="card pd-chart-card"><div class="pd-section-head"><div><p class="eyebrow">CLASIFICACIÓN</p><h2>Actos y condiciones</h2></div></div><div class="pd-chart-wrap"><canvas id="pdChartType"></canvas></div></article>
+      <article class="card pd-chart-card half"><div class="pd-section-head"><div><p class="eyebrow">ÁREAS</p><h2>Hallazgos por área responsable</h2></div></div><div class="pd-chart-wrap tall"><canvas id="pdChartArea"></canvas></div></article>
+      <article class="card pd-chart-card"><div class="pd-section-head"><div><p class="eyebrow">POTENCIAL</p><h2>Potencial de pérdida</h2></div></div><div class="pd-chart-wrap"><canvas id="pdChartPotential"></canvas></div></article>
+      <article class="card pd-chart-card"><div class="pd-section-head"><div><p class="eyebrow">ORIGEN</p><h2>Origen del hallazgo</h2></div></div><div class="pd-chart-wrap"><canvas id="pdChartOrigin"></canvas></div></article>
+      <article class="card pd-chart-card half"><div class="pd-section-head"><div><p class="eyebrow">PARETO</p><h2>Causas inmediatas</h2></div></div><div class="pd-chart-wrap pareto"><canvas id="pdChartImmediate"></canvas></div></article>
+      <article class="card pd-chart-card half"><div class="pd-section-head"><div><p class="eyebrow">PARETO</p><h2>Causas básicas</h2></div></div><div class="pd-chart-wrap pareto"><canvas id="pdChartBasic"></canvas></div></article>
+
+      <article class="card pd-recent-card"><div class="pd-section-head"><div><p class="eyebrow">SEGUIMIENTO</p><h2>Últimas ocurrencias</h2></div><a id="pdOccurrencesLink2" class="button-link secondary-link" href="ocurrencias.html">Ver todas</a></div><div id="pdRecentOccurrences" class="pd-recent-list">Cargando...</div></article>
+      <article class="card pd-responsible-card"><div class="pd-section-head"><div><p class="eyebrow">RESPONSABLES</p><h2>Carga activa</h2></div></div><div class="pd-table-scroll"><table class="pd-table"><thead><tr><th>Responsable</th><th>Activas</th><th>Vencidas</th><th>Por validar</th></tr></thead><tbody id="pdResponsibleBody"><tr><td colspan="4">Cargando...</td></tr></tbody></table></div></article>
+    </section>
+
+    <p id="projectDashboardMessage" class="message"></p>
+  </main>
+  <script src="app.js?v=11.2"></script>
+</body>
+</html>

@@ -303,10 +303,17 @@ async function initApp(){
       document.getElementById('responsiblesCardLink')?.classList.remove('hidden');
     }
 
-    const {data:links,error:perr}=await sb.from('usuario_proyectos').select('proyecto_id,proyectos(nombre,cliente)').eq('usuario_id',session.user.id);
+    const {data:links,error:perr}=await sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,codigo,nombre,cliente)').eq('usuario_id',session.user.id);
     if(perr)throw perr;
     const box=document.getElementById('projectsList'); box.innerHTML='';
-    (links||[]).forEach(r=>{ const d=document.createElement('div'); d.className='list-item'; d.innerHTML=`<strong>${escapeHtml(r.proyectos?.nombre||'')}</strong><span>${escapeHtml(r.proyectos?.cliente||'')}</span>`; box.appendChild(d); });
+    (links||[]).forEach(r=>{
+      const p=r.proyectos||{};
+      const a=document.createElement('a');
+      a.className='list-item home-project-link-v41';
+      a.href=p.codigo?`proyecto-dashboard.html?p=${encodeURIComponent(p.codigo)}`:'proyectos.html';
+      a.innerHTML=`<span><strong>${escapeHtml(p.nombre||'')}</strong><small>${escapeHtml(p.cliente||'')}</small></span><b>→</b>`;
+      box.appendChild(a);
+    });
 
     const {data:occ,error:oerr}=await sb.from('ocurrencias').select('id,fecha_levantamiento,estado:estados_ocurrencia(codigo)');
     if(oerr)throw oerr;
@@ -580,6 +587,8 @@ async function initOccurrences(){
     const params=new URLSearchParams(location.search);
     const requestedStatus=params.get('estado');
     const requestedDeadline=params.get('plazo');
+    const requestedProject=params.get('proyecto');
+    if(requestedProject&&[...fp.options].some(o=>o.value===requestedProject))fp.value=requestedProject;
     if(requestedStatus&&[...fs.options].some(o=>o.value===requestedStatus))fs.value=requestedStatus;
     if(requestedDeadline&&[...fd.options].some(o=>o.value===requestedDeadline))fd.value=requestedDeadline;
 
@@ -2312,6 +2321,7 @@ async function initProjectsAdmin(){
           <small class="project-public-link">${escapeHtml(publicUrl)}</small>
         </div>
         <div class="responsible-actions project-qr-actions">
+          <a class="button-link secondary-link" href="proyecto-dashboard.html?p=${encodeURIComponent(r.codigo||'')}">Ver dashboard</a>
           ${r.activo?`<button type="button" class="project-qr-open" data-id="${r.id}">Ver QR</button>
           <button type="button" class="secondary project-copy-link" data-id="${r.id}">Copiar enlace</button>
           <a class="button-link secondary-link" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">Abrir formulario</a>`:'<span class="project-qr-disabled">QR deshabilitado mientras la unidad esté inactiva.</span>'}
@@ -2784,3 +2794,159 @@ async function initAnalyticsDashboard(){
 }
 
 if(page==='analytics-dashboard')initAnalyticsDashboard();
+
+
+// ============================================================
+// ETAPA 41 - DASHBOARD INDIVIDUAL POR PROYECTO / SEDE (V11.2)
+// ============================================================
+async function initProjectDashboardV41(){
+  const session=await requireSession();if(!session)return;
+  document.getElementById('logoutBtn')?.addEventListener('click',logout);
+  const msg=document.getElementById('projectDashboardMessage');
+  const code=String(new URLSearchParams(location.search).get('p')||'').trim().toUpperCase();
+  if(!code){showMessage(msg,'Falta el código del proyecto o sede.');return;}
+
+  try{
+    if(typeof Chart==='undefined')throw new Error('No se pudo cargar el motor de gráficos. Actualiza la página e inténtalo nuevamente.');
+    Chart.defaults.font.family='Arial, Helvetica, sans-serif';Chart.defaults.color='#475467';
+
+    const profile=await getProfile(session.user.id);
+    const {data:links,error:linksError}=await sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,codigo,nombre,cliente,tipo_unidad,activo)').eq('usuario_id',session.user.id);
+    if(linksError)throw linksError;
+    let project=(links||[]).map(x=>x.proyectos).find(p=>String(p?.codigo||'').trim().toUpperCase()===code);
+
+    if(!project&&['ADMIN','SIG'].includes(profile.rol)){
+      const {data:units,error:unitsError}=await sb.rpc('admin_listar_unidades');
+      if(!unitsError)project=(units||[]).find(p=>String(p?.codigo||'').trim().toUpperCase()===code)||null;
+    }
+    if(!project)throw new Error('No tienes acceso a este proyecto/sede o el código no existe.');
+
+    const projectId=project.id;
+    const unitLabel=(project.tipo_unidad||'PROYECTO')==='SEDE'?'SEDE':'PROYECTO';
+    document.title=`SSOMAC Digital | ${project.nombre}`;
+    document.getElementById('pdEyebrow').textContent=`${unitLabel} · ${project.codigo||''}`;
+    document.getElementById('pdTitle').textContent=project.nombre||'Proyecto / sede';
+    document.getElementById('pdClient').textContent=project.cliente||'Explo Drilling Perú';
+    document.getElementById('pdStatus').textContent=project.activo===false?'INACTIVO':'ACTIVO';
+    document.getElementById('pdStatus').className=`badge ${project.activo===false?'ABIERTO':'CERRADO'}`;
+    const hero=document.getElementById('pdHero');
+    const bgIndex=(String(project.codigo||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)%6)+1;
+    if(hero)hero.style.setProperty('--pd-bg',`url('assets/img/fondo-${bgIndex}.${bgIndex===2?'png':bgIndex>=5?'jpeg':'jpg'}')`);
+
+    const publicUrl=`${getPublicAppBaseUrl()}/reportar.html?p=${encodeURIComponent(project.codigo||'')}`;
+    document.getElementById('pdPublicLink').value=publicUrl;
+    document.getElementById('pdOpenPublic').href=publicUrl;
+    document.getElementById('pdOccurrencesLink').href=`ocurrencias.html?proyecto=${encodeURIComponent(projectId)}`;
+    document.getElementById('pdOccurrencesLink2').href=`ocurrencias.html?proyecto=${encodeURIComponent(projectId)}`;
+    document.getElementById('pdMonthlyLink').href='reporte-diario.html';
+    document.getElementById('pdManageProject').href='proyectos.html';
+
+    const qrBox=document.getElementById('pdQr');
+    if(qrBox&&typeof QRCode!=='undefined'){
+      qrBox.innerHTML='';
+      new QRCode(qrBox,{text:publicUrl,width:152,height:152,colorDark:'#101828',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    }
+    document.getElementById('pdCopyPublic')?.addEventListener('click',async e=>{
+      const btn=e.currentTarget;const original=btn.textContent;
+      const ok=await (async()=>{try{await navigator.clipboard.writeText(publicUrl);return true;}catch(_){const i=document.getElementById('pdPublicLink');i.select();return document.execCommand('copy');}})();
+      btn.textContent=ok?'Copiado ✓':'No se pudo copiar';setTimeout(()=>btn.textContent=original,1500);
+    });
+
+    async function fetchProjectRows(table,select,projectColumn='proyecto_id'){
+      const rows=[];const size=1000;let from=0;
+      while(true){
+        let q=sb.from(table).select(select).eq(projectColumn,projectId).range(from,from+size-1);
+        const {data,error}=await q;if(error)throw error;
+        rows.push(...(data||[]));if(!data||data.length<size)break;from+=size;
+      }
+      return rows;
+    }
+
+    const occurrences=await fetchProjectRows('ocurrencias',`id,numero,fecha,lugar_hallazgo,descripcion,fecha_levantamiento,fecha_levantamiento_original,fecha_ejecutada,modalidad_levantamiento,responsable_correccion,numero_ampliaciones,
+      origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
+    let workerReports=[];
+    try{workerReports=await fetchProjectRows('reportes_trabajadores','id,fecha,estado_revision,creado_en');}catch(e){console.warn('No se pudieron contar reportes públicos:',e.message);}
+
+    const rows=(occurrences||[]).map(o=>{
+      const d=parseYmdLocal(o.fecha);const good=o.origen?.nombre==='BUENA PRACTICA';
+      return {...o,_year:d?String(d.getFullYear()):'',_month:d?String(d.getMonth()+1).padStart(2,'0'):'',_typeLabel:good?'BUENA PRÁCTICA':(o.tipo?.nombre||'N.A.')};
+    });
+    const occurrenceIds=rows.map(r=>r.id);
+    let immediateCauses=[],basicCauses=[];
+    if(occurrenceIds.length){
+      const [ir,br]=await Promise.all([
+        sb.from('ocurrencia_causas_inmediatas').select('ocurrencia_id,causas_inmediatas(id,nombre)').in('ocurrencia_id',occurrenceIds),
+        sb.from('ocurrencia_causas_basicas').select('ocurrencia_id,causas_basicas(id,nombre,grupo_nombre,subgrupo_nombre)').in('ocurrencia_id',occurrenceIds)
+      ]);
+      if(!ir.error)immediateCauses=ir.data||[];if(!br.error)basicCauses=br.data||[];
+    }
+
+    const yearEl=document.getElementById('pdYear'),monthEl=document.getElementById('pdMonth'),areaEl=document.getElementById('pdArea'),statusEl=document.getElementById('pdFilterStatus');
+    const years=[...new Set(rows.map(r=>r._year).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
+    yearEl.innerHTML='<option value="">Todos los años</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    ANALYTICS_MONTHS.forEach((m,i)=>monthEl.insertAdjacentHTML('beforeend',`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`));
+    analyticsFillSelect(areaEl,analyticsUniqueOptions(rows,r=>r.area?.id,r=>r.area?.nombre||''),'Todas');
+    analyticsFillSelect(statusEl,analyticsUniqueOptions(rows,r=>r.estado?.codigo,r=>r.estado?.nombre||''),'Todos');
+    const currentYear=String(new Date().getFullYear());yearEl.value=years.includes(currentYear)?currentYear:(years[0]||'');
+
+    document.getElementById('pdWorkerReports').textContent=String(workerReports.length);
+
+    function filteredRows(){
+      return rows.filter(r=>(!yearEl.value||r._year===yearEl.value)&&(!monthEl.value||r._month===monthEl.value)&&(!areaEl.value||String(r.area?.id||'')===areaEl.value)&&(!statusEl.value||String(r.estado?.codigo||'')===statusEl.value));
+    }
+
+    function render(){
+      const filtered=filteredRows();const idSet=new Set(filtered.map(r=>r.id));const total=filtered.length;
+      const open=filtered.filter(r=>r.estado?.codigo==='ABIERTO').length;
+      const process=filtered.filter(r=>r.estado?.codigo==='EN_PROCESO').length;
+      const pending=filtered.filter(r=>r.estado?.codigo==='PENDIENTE_VALIDACION').length;
+      const closed=filtered.filter(r=>r.estado?.codigo==='CERRADO').length;
+      const overdue=filtered.filter(r=>getDeadlineInfo(r).code==='VENCIDO').length;
+      const lifted=filtered.filter(r=>r.fecha_ejecutada&&r.fecha_levantamiento);
+      const onTime=lifted.filter(r=>String(r.fecha_ejecutada)<=String(r.fecha_levantamiento)).length;
+      const executionDays=filtered.map(r=>analyticsDiffDays(r.fecha,r.fecha_ejecutada)).filter(v=>v!==null);
+      const avgDays=executionDays.length?executionDays.reduce((a,b)=>a+b,0)/executionDays.length:null;
+
+      document.getElementById('pdFilteredCount').textContent=String(total);
+      document.getElementById('pdKpiTotal').textContent=total;
+      document.getElementById('pdKpiOpen').textContent=open+process;
+      document.getElementById('pdKpiPending').textContent=pending;
+      document.getElementById('pdKpiOverdue').textContent=overdue;
+      document.getElementById('pdKpiClosed').textContent=closed;
+      document.getElementById('pdKpiClosure').textContent=total?`${Math.round((closed/total)*100)}%`:'—';
+      document.getElementById('pdKpiOnTime').textContent=lifted.length?`${Math.round((onTime/lifted.length)*100)}%`:'—';
+      document.getElementById('pdKpiAvg').textContent=avgDays===null?'—':(Math.round(avgDays*10)/10).toLocaleString('es-PE');
+
+      analyticsDestroyCharts();
+      const monthly=ANALYTICS_MONTHS.map((m,i)=>[m,filtered.filter(r=>Number(r._month)===i+1).length]);
+      analyticsMakeChart('pdChartMonthly',{type:'line',data:{labels:monthly.map(x=>x[0]),datasets:[{label:'Ocurrencias',data:monthly.map(x=>x[1]),borderColor:'#C00000',backgroundColor:'rgba(192,0,0,.10)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#C00000'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}});
+      analyticsDoughnut('pdChartStatus',analyticsCountBy(filtered,r=>r.estado?.nombre||'N.A.'));
+      analyticsDoughnut('pdChartType',analyticsCountBy(filtered,r=>r._typeLabel));
+      analyticsBar('pdChartArea',analyticsCountBy(filtered,r=>r.area?.nombre||'N.A.'),{horizontal:true,maxItems:10});
+      analyticsDoughnut('pdChartPotential',analyticsCountBy(filtered,r=>r.potencial?.nombre,{excludeBlank:true}));
+      analyticsBar('pdChartOrigin',analyticsCountBy(filtered,r=>r.origen?.nombre||'N.A.'),{horizontal:false,maxItems:8});
+      analyticsPareto('pdChartImmediate',analyticsCountBy(immediateCauses.filter(c=>idSet.has(c.ocurrencia_id)),c=>c.causas_inmediatas?.nombre,{excludeBlank:true}).slice(0,8));
+      analyticsPareto('pdChartBasic',analyticsCountBy(basicCauses.filter(c=>idSet.has(c.ocurrencia_id)),c=>c.causas_basicas?.nombre,{excludeBlank:true}).slice(0,8));
+
+      const recent=[...filtered].sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))||Number(b.numero||0)-Number(a.numero||0)).slice(0,6);
+      const recentBox=document.getElementById('pdRecentOccurrences');
+      recentBox.innerHTML=recent.length?recent.map(r=>{
+        const dl=getDeadlineInfo(r);const code=`OC-${String(r.numero||0).padStart(6,'0')}`;
+        return `<a class="pd-recent-row" href="detalle-ocurrencia.html?id=${encodeURIComponent(r.id)}"><span class="pd-recent-code">${escapeHtml(code)}</span><span class="pd-recent-main"><strong>${escapeHtml(r.descripcion||'Sin descripción')}</strong><small>${escapeHtml(r.fecha||'')} · ${escapeHtml(r.area?.nombre||'Sin área')}</small></span><span class="pd-recent-state"><b class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</b>${dl.code!=='CERRADO'?`<small class="deadline-badge ${dl.code}">${escapeHtml(dl.label)}</small>`:''}</span></a>`;
+      }).join(''):'<div class="pd-empty">No hay ocurrencias con los filtros seleccionados.</div>';
+
+      const active=filtered.filter(r=>r.estado?.codigo!=='CERRADO');const responsibleMap=new Map();
+      active.forEach(r=>{const name=(r.responsable_correccion||'Sin responsable asignado').trim()||'Sin responsable asignado';if(!responsibleMap.has(name))responsibleMap.set(name,{name,total:0,overdue:0,pending:0});const x=responsibleMap.get(name);x.total++;if(getDeadlineInfo(r).code==='VENCIDO')x.overdue++;if(r.estado?.codigo==='PENDIENTE_VALIDACION')x.pending++;});
+      const resRows=[...responsibleMap.values()].sort((a,b)=>b.total-a.total||b.overdue-a.overdue).slice(0,8);
+      document.getElementById('pdResponsibleBody').innerHTML=resRows.length?resRows.map(x=>`<tr><td>${escapeHtml(x.name)}</td><td><strong>${x.total}</strong></td><td class="danger-number">${x.overdue}</td><td class="info-number">${x.pending}</td></tr>`).join(''):'<tr><td colspan="4">No hay seguimiento activo con los filtros seleccionados.</td></tr>';
+
+      showMessage(msg,total?'':'No hay ocurrencias que coincidan con los filtros seleccionados.',total>0);
+    }
+
+    [yearEl,monthEl,areaEl,statusEl].forEach(el=>el?.addEventListener('change',render));
+    document.getElementById('pdReset')?.addEventListener('click',()=>{yearEl.value=years.includes(currentYear)?currentYear:(years[0]||'');monthEl.value='';areaEl.value='';statusEl.value='';render();});
+    render();
+  }catch(err){console.error(err);showMessage(msg,'No se pudo cargar el dashboard del proyecto: '+(err.message||err));}
+}
+
+if(page==='project-dashboard')initProjectDashboardV41();
