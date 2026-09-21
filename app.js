@@ -1226,15 +1226,16 @@ async function initDailyReport(){
   document.getElementById('logoutBtn').addEventListener('click',logout);
 
   const projectEl=document.getElementById('reportProject');
-  const dateEl=document.getElementById('reportDate');
+  const monthEl=document.getElementById('reportMonth');
   const bodyEl=document.getElementById('dailyReportBody');
   const countEl=document.getElementById('reportCount');
   const msgEl=document.getElementById('reportMessage');
   const exportBtn=document.getElementById('exportExcelBtn');
 
-  dateEl.value=today();
+  monthEl.value=today().slice(0,7);
   let rows=[];
   let projectName='TODOS LOS PROYECTOS';
+  let reportPeriodLabel='';
 
   const {data:links,error:le}=await sb.from('usuario_proyectos')
     .select('proyecto_id,proyectos(id,nombre,cliente)')
@@ -1246,15 +1247,29 @@ async function initDailyReport(){
   projectEl.value='ALL';
 
   projectEl.addEventListener('change',loadReport);
-  dateEl.addEventListener('change',loadReport);
+  monthEl.addEventListener('change',loadReport);
   exportBtn.addEventListener('click',exportExcelCorporate);
+
+  function getMonthRange(value){
+    const [year,month]=String(value||'').split('-').map(Number);
+    if(!year||!month)return null;
+    const mm=String(month).padStart(2,'0');
+    const lastDay=new Date(year,month,0).getDate();
+    return {
+      start:`${year}-${mm}-01`,
+      end:`${year}-${mm}-${String(lastDay).padStart(2,'0')}`,
+      label:`${MONTHS_ES_V6[month-1]} ${year}`
+    };
+  }
 
   async function loadReport(){
     rows=[];countEl.textContent='0';exportBtn.disabled=true;showMessage(msgEl,'');
-    if(!dateEl.value) return;
+    const period=getMonthRange(monthEl.value);
+    if(!period)return;
 
+    reportPeriodLabel=period.label;
     projectName=projectEl.value==='ALL'?'TODOS LOS PROYECTOS':projectEl.options[projectEl.selectedIndex].text;
-    bodyEl.innerHTML='<tr><td colspan="19" class="empty-cell">Cargando reporte...</td></tr>';
+    bodyEl.innerHTML='<tr><td colspan="19" class="empty-cell">Cargando consolidado mensual...</td></tr>';
 
     let query=sb.from('ocurrencias').select(`
       id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,
@@ -1262,14 +1277,14 @@ async function initDailyReport(){
       proyecto:proyectos(nombre),origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(nombre),potencial:potenciales_perdida(nombre),
       area:areas(nombre),estado:estados_ocurrencia(nombre,codigo)
-    `).eq('fecha',dateEl.value).order('numero',{ascending:true});
+    `).gte('fecha',period.start).lte('fecha',period.end).order('fecha',{ascending:true}).order('numero',{ascending:true});
 
     if(projectEl.value!=='ALL') query=query.eq('proyecto_id',projectEl.value);
 
     const {data:occurrences,error}=await query;
-    if(error){showMessage(msgEl,'No se pudo generar el reporte: '+error.message);return;}
+    if(error){showMessage(msgEl,'No se pudo generar el resumen mensual: '+error.message);return;}
     if(!occurrences?.length){
-      bodyEl.innerHTML='<tr><td colspan="19" class="empty-cell">No hay ocurrencias registradas para esta fecha.</td></tr>';
+      bodyEl.innerHTML='<tr><td colspan="19" class="empty-cell">No hay ocurrencias registradas para este mes.</td></tr>';
       return;
     }
 
@@ -1331,12 +1346,12 @@ async function initDailyReport(){
       const wb=new ExcelJS.Workbook();
       wb.creator='SSOMAC Digital - Explo Drilling Perú';
       wb.created=new Date();
-      const ws=wb.addWorksheet('REPORTE DIARIO',{views:[{state:'frozen',ySplit:6}]});
+      const ws=wb.addWorksheet('REPORTE MENSUAL',{views:[{state:'frozen',ySplit:6}]});
 
       const widths=[6,17,11,20,12,20,22,20,28,22,22,25,15,22,22,17,15,13,26];
       widths.forEach((w,i)=>ws.getColumn(i+1).width=w);
 
-      // Encabezado corporativo basado en EDP-SIG-SSOMAC-RE-EA-211-03.
+      // Se conserva el encabezado del formato controlado EDP-SIG-SSOMAC-RE-EA-211.
       ws.mergeCells('A1:C4');
       ws.mergeCells('D1:P2');
       ws.mergeCells('D3:P4');
@@ -1352,7 +1367,7 @@ async function initDailyReport(){
       ws.getCell('D3').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFC00000'}};
       ws.getCell('D3').alignment={horizontal:'center',vertical:'middle'};
 
-      ws.getCell('A5').value='Llenar en base a todas las ocurrencias suscitadas diariamente en las inspecciones visuales diarias, reportes de actos y condiciones identificados, o buenas prácticas en temas relacionados a la seguridad, salud ocupacional, medio ambiente y calidad operacional';
+      ws.getCell('A5').value=`Consolidado mensual: ${reportPeriodLabel} · ${projectName}. Llenar en base a todas las ocurrencias suscitadas en inspecciones visuales, reportes de actos y condiciones identificados, o buenas prácticas en seguridad, salud ocupacional, medio ambiente y calidad operacional.`;
       ws.getCell('A5').font={size:9,name:'Arial'};
       ws.getCell('A5').alignment={horizontal:'left',vertical:'middle',wrapText:true};
 
@@ -1362,12 +1377,11 @@ async function initDailyReport(){
         ws.getCell(vc).value=value;ws.getCell(vc).font={size:10,name:'Arial'};ws.getCell(vc).alignment={horizontal:'center',vertical:'middle'};
       }
 
-      // Bordes del bloque superior.
       for(let r=1;r<=5;r++){for(let c=1;c<=19;c++){
         const cell=ws.getCell(r,c);cell.border={top:{style:'thin',color:{argb:'FF000000'}},left:{style:'thin',color:{argb:'FF000000'}},bottom:{style:'thin',color:{argb:'FF000000'}},right:{style:'thin',color:{argb:'FF000000'}}};
       }}
 
-      ws.getRow(1).height=18;ws.getRow(2).height=18;ws.getRow(3).height=20;ws.getRow(4).height=20;ws.getRow(5).height=20;
+      ws.getRow(1).height=18;ws.getRow(2).height=18;ws.getRow(3).height=20;ws.getRow(4).height=20;ws.getRow(5).height=28;
 
       const logoId=wb.addImage({base64:EXPLO_LOGO_BASE64,extension:'png'});
       ws.addImage(logoId,{tl:{col:0.18,row:0.15},ext:{width:150,height:72}});
@@ -1415,17 +1429,17 @@ async function initDailyReport(){
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;
       const safe=projectName.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'');
-      a.download=`EDP-SIG-SSOMAC-RE-EA-211_${safe}_${dateEl.value}.xlsx`;
+      a.download=`EDP-SIG-SSOMAC-RE-EA-211_${safe}_${monthEl.value}.xlsx`;
       document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-      showMessage(msgEl,'Excel generado con el formato corporativo.',true);
+      showMessage(msgEl,`Excel mensual de ${reportPeriodLabel} generado correctamente.`,true);
     } catch(err) {
       console.error(err);showMessage(msgEl,'No se pudo generar el Excel: '+(err.message||err));
     } finally {
-      exportBtn.disabled=false;exportBtn.textContent='Exportar Excel';
+      exportBtn.disabled=false;exportBtn.textContent='Exportar Excel mensual';
     }
   }
 
-  // Al abrir el módulo muestra automáticamente el consolidado del día.
+  // Al abrir el módulo muestra automáticamente el consolidado del mes actual.
   await loadReport();
 }
 

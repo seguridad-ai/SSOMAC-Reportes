@@ -514,3 +514,41 @@ small{color:var(--muted)}.message{min-height:20px;color:#b42318}
   .signature-head{align-items:flex-start;flex-direction:column}
   .signature-pad{height:170px}
 }
+
+
+/* ============================================================
+   V11.0 - ETAPA 39: TARJETAS CENTRADAS + CONSOLIDADO MENSUAL
+   ============================================================ */
+/* Centrado visual de las tarjetas KPI del inicio. */
+.dashboard-kpis .kpi{
+  min-height:128px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.dashboard-kpis .kpi span,
+.dashboard-kpis .kpi strong,
+.dashboard-kpis .kpi small{
+  width:100%;
+  text-align:center;
+}
+
+/* Centrado consistente de los botones/tarjetas del menú superior. */
+.top-actions .button-link,
+.top-actions button{
+  text-align:center;
+  justify-content:center;
+  line-height:1.12;
+  white-space:normal;
+}
+
+/* Selector mensual del consolidado. */
+.report-period-note{
+  margin:-4px 0 18px;
+  color:#667085;
+  font-size:13px;
+}
+.report-filters .field.month-field{min-width:210px}
+.report-count label{text-align:center}

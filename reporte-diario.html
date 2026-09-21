@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SSOMAC Digital | Reporte diario</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>SSOMAC Digital | Resumen mensual</title>
+  <link rel="stylesheet" href="styles.css?v=11.0">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="config.js"></script>
@@ -13,11 +13,16 @@
 <header class="topbar">
   <div>
     <strong>SSOMAC Digital</strong>
-    <span>Reporte diario de ocurrencias</span>
+    <span>Explo Drilling Perú</span>
   </div>
   <div class="top-actions">
-    <a class="button-link secondary-link" href="app.html">Inicio</a>
+    <a class="button-link" href="nueva-ocurrencia.html">+ Nueva ocurrencia</a>
     <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
+    <a class="button-link secondary-link" href="dashboard.html">Dashboard</a>
+    <a class="button-link secondary-link" href="reporte-diario.html">Reporte mensual</a>
+    <a class="button-link secondary-link" href="reportes-trabajadores.html">Reportes trabajadores</a>
+    <a class="button-link secondary-link" href="proyectos.html">Proyectos / sedes</a>
+    <a class="button-link secondary-link" href="responsables.html">Responsables</a>
     <button id="logoutBtn" class="secondary">Cerrar sesión</button>
   </div>
 </header>
@@ -27,22 +32,24 @@
   <div class="page-head">
     <div>
       <p class="eyebrow">EDP-SIG-SSOMAC-RE-EA-211</p>
-      <h1>Resumen de reporte de ocurrencias diarias</h1>
+      <h1>Resumen mensual de reporte de ocurrencias</h1>
     </div>
-    <button id="exportExcelBtn" disabled>Exportar Excel</button>
+    <button id="exportExcelBtn" disabled>Exportar Excel mensual</button>
   </div>
+
+  <p class="report-period-note">El resumen y el archivo Excel consolidan todas las ocurrencias registradas durante el mes seleccionado.</p>
 
   <div class="filters report-filters">
     <div class="field">
       <label for="reportProject">Proyecto</label>
       <select id="reportProject"></select>
     </div>
-    <div class="field">
-      <label for="reportDate">Fecha *</label>
-      <input id="reportDate" type="date">
+    <div class="field month-field">
+      <label for="reportMonth">Mes *</label>
+      <input id="reportMonth" type="month">
     </div>
     <div class="field report-count">
-      <label>Ocurrencias</label>
+      <label>Ocurrencias del mes</label>
       <div id="reportCount" class="counter-box">0</div>
     </div>
   </div>
@@ -76,9 +83,7 @@
       </thead>
       <tbody id="dailyReportBody">
         <tr>
-          <td colspan="19" class="empty-cell">
-            Selecciona proyecto y fecha.
-          </td>
+          <td colspan="19" class="empty-cell">Selecciona proyecto y mes.</td>
         </tr>
       </tbody>
     </table>
@@ -86,6 +91,6 @@
 </section>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v=11.0"></script>
 </body>
 </html>

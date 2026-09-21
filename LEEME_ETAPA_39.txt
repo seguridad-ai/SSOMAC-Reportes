@@ -1,0 +1,18 @@
+ETAPA 39 - TARJETAS CENTRADAS + RESUMEN MENSUAL
+
+NO REQUIERE SQL.
+
+Reemplazar en GitHub:
+- app.js
+- styles.css
+- reporte-diario.html
+
+Cambios:
+1. Centra textos y valores de las tarjetas KPI del inicio.
+2. Centra el contenido de los botones/tarjetas del menú superior.
+3. El reporte deja de filtrar por un solo día y ahora filtra por MES.
+4. Al abrir, carga automáticamente el mes actual.
+5. TODOS LOS PROYECTOS sigue disponible.
+6. El Excel se genera con todas las ocurrencias del mes seleccionado.
+7. Se conserva el encabezado corporativo del formato EDP-SIG-SSOMAC-RE-EA-211.
+8. El nombre del archivo incluye proyecto y YYYY-MM.
