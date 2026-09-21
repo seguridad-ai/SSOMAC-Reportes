@@ -223,6 +223,70 @@ async function initLogin(){
   });
 }
 
+// ============================================================
+// ETAPA 40 - INTERFAZ SSOMAC 2.0
+// Header compacto + Inicio bento + Actividad reciente
+// ============================================================
+function relativeTimeEsV40(value){
+  if(!value)return 'Sin fecha';
+  const d=new Date(value);if(Number.isNaN(d.getTime()))return 'Sin fecha';
+  const diff=Math.max(0,Date.now()-d.getTime());
+  const min=Math.floor(diff/60000);
+  if(min<1)return 'Ahora';
+  if(min<60)return `Hace ${min} min`;
+  const h=Math.floor(min/60);if(h<24)return `Hace ${h} h`;
+  const days=Math.floor(h/24);if(days<7)return `Hace ${days} día${days===1?'':'s'}`;
+  return new Intl.DateTimeFormat('es-PE',{day:'2-digit',month:'short'}).format(d);
+}
+
+function activityToneV40(type=''){
+  if(['OCURRENCIA_CERRADA','BUENA_PRACTICA_REGISTRADA'].includes(type))return 'success';
+  if(['LEVANTAMIENTO_DEVUELTO','PLAZO_AMPLIADO','FECHA_LIMITE_MODIFICADA'].includes(type))return 'warning';
+  if(['LEVANTAMIENTO_ENVIADO','RESPONSABLE_ASIGNADO','RESPONSABLE_MODIFICADO'].includes(type))return 'info';
+  return 'neutral';
+}
+
+async function renderRecentActivityV40(container){
+  if(!container)return;
+  const {data,error}=await sb.from('historial_ocurrencias').select(`
+    id,tipo_evento,titulo,detalle,actor_nombre,creado_en,
+    ocurrencia:ocurrencias(id,numero,proyecto:proyectos(nombre))
+  `).order('creado_en',{ascending:false}).limit(7);
+  if(error){
+    console.warn('No se pudo cargar actividad reciente:',error.message);
+    container.innerHTML='<div class="home-activity-empty-v40">No se pudo cargar la actividad reciente.</div>';
+    return;
+  }
+  const rows=data||[];
+  if(!rows.length){
+    container.innerHTML='<div class="home-activity-empty-v40">Aún no hay movimientos registrados.</div>';
+    return;
+  }
+  container.innerHTML=rows.map(r=>{
+    const occ=r.ocurrencia||{};const project=occ.proyecto?.nombre||'Sin proyecto';
+    const code=occ.numero?`OC-${String(occ.numero).padStart(6,'0')}`:'Ocurrencia';
+    return `<a class="home-activity-row-v40" href="${occ.id?`detalle-ocurrencia.html?id=${encodeURIComponent(occ.id)}`:'ocurrencias.html'}">
+      <span class="home-activity-dot-v40 ${activityToneV40(r.tipo_evento)}" aria-hidden="true"></span>
+      <span class="home-activity-main-v40">
+        <strong>${escapeHtml(r.titulo||r.tipo_evento||'Movimiento')}</strong>
+        <small>${escapeHtml(code)} · ${escapeHtml(project)}${r.actor_nombre?` · ${escapeHtml(r.actor_nombre)}`:''}</small>
+      </span>
+      <span class="home-activity-time-v40">${escapeHtml(relativeTimeEsV40(r.creado_en))}</span>
+    </a>`;
+  }).join('');
+}
+
+function initGlobalShellV40(){
+  const topbar=document.querySelector('.topbar');if(!topbar)return;
+  topbar.classList.add('topbar-v40');
+  document.querySelectorAll('.topbar a[href="reporte-diario.html"]').forEach(a=>a.textContent='Reporte mensual');
+  const current=(location.pathname.split('/').pop()||'app.html').toLowerCase();
+  document.querySelectorAll('.topbar .top-actions a[href]').forEach(a=>{
+    const href=(a.getAttribute('href')||'').split('?')[0].toLowerCase();
+    if(href===current)a.classList.add('is-active');
+  });
+}
+
 async function initApp(){
   const session=await requireSession(); if(!session)return;
   document.getElementById('logoutBtn').addEventListener('click',logout);
@@ -260,6 +324,9 @@ async function initApp(){
     document.getElementById('kpiDueSoon').textContent=dueSoon;
     document.getElementById('kpiOverdue').textContent=overdue;
     document.getElementById('kpiClosed').textContent=counts.CERRADO;
+    const totalOccurrences=(occ||[]).length;
+    const closureRate=totalOccurrences?Math.round((counts.CERRADO/totalOccurrences)*100):0;
+    if(document.getElementById('kpiClosureRate'))document.getElementById('kpiClosureRate').textContent=`${closureRate}%`;
 
     let workerPending=0;
     const {data:workerRows,error:workerErr}=await sb.from('reportes_trabajadores').select('id,estado_revision').in('estado_revision',['NUEVO','EN_REVISION']);
@@ -272,6 +339,8 @@ async function initApp(){
       pendingValidation:counts.PENDIENTE_VALIDACION,
       workerPending
     });
+
+    await renderRecentActivityV40(document.getElementById('recentActivityList'));
   }catch(err){ showMessage(msg,err.message); }
 }
 
@@ -1164,6 +1233,8 @@ async function optimizeImage(file){
 }
 function loadImage(file){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(file);i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=rej;i.src=u;});}
 function canvasToBlob(c,q){return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('No se pudo procesar la imagen.')),'image/webp',q));}
+
+initGlobalShellV40();
 
 if(page==='login')initLogin();
 if(page==='app')initApp();

@@ -1,0 +1,36 @@
+ETAPA 40 - INTERFAZ SSOMAC 2.0
+Versión: v11.1
+
+OBJETIVO
+- Header superior más compacto y fijo.
+- Inicio tipo bento con mayor jerarquía visual.
+- Actividad reciente desde historial_ocurrencias.
+- Accesos rápidos reorganizados.
+- Mantener Centro de alertas y KPIs existentes.
+- Renombrar visualmente "Reporte diario" a "Reporte mensual" en el menú.
+
+NO REQUIERE SQL.
+
+ARCHIVOS A REEMPLAZAR EN GITHUB
+1. app.html
+2. app.js
+3. styles.css
+
+NO REEMPLAZAR config.js.
+
+VALIDACIÓN
+1. Esperar el deployment de GitHub Pages.
+2. Hacer Ctrl + F5.
+3. Revisar Inicio:
+   - hero institucional
+   - Yo Reporto
+   - Estado general
+   - Centro de alertas
+   - Actividad reciente
+   - Accesos rápidos
+   - Proyectos autorizados
+4. Navegar a otras pantallas y verificar el header compacto/fijo.
+
+NOTA
+La actividad reciente usa la tabla historial_ocurrencias creada en ETAPA 33.
+Si todavía no hay eventos disponibles, mostrará un mensaje informativo sin afectar el resto del Inicio.

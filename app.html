@@ -2,22 +2,20 @@
 <html lang="es">
 <head>
   <title>SSOMAC Digital | Inicio</title>
-
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=11.1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-
 </head>
-<body data-page="app">
+<body data-page="app" class="home-v40-body">
   <header class="topbar">
     <div><strong>SSOMAC Digital</strong><span>Explo Drilling Perú</span></div>
     <div class="top-actions">
       <a class="button-link" href="nueva-ocurrencia.html">+ Nueva ocurrencia</a>
       <a class="button-link secondary-link" href="ocurrencias.html">Ocurrencias</a>
       <a class="button-link secondary-link" href="dashboard.html">Dashboard</a>
-      <a class="button-link secondary-link" href="reporte-diario.html">Reporte diario</a>
+      <a class="button-link secondary-link" href="reporte-diario.html">Reporte mensual</a>
       <a class="button-link secondary-link" href="reportes-trabajadores.html">Reportes trabajadores</a>
       <a id="projectsNav" class="button-link secondary-link hidden" href="proyectos.html">Proyectos / sedes</a>
       <a id="responsiblesNav" class="button-link secondary-link hidden" href="responsables.html">Responsables</a>
@@ -25,75 +23,121 @@
     </div>
   </header>
 
-  <main class="container">
-    <section class="welcome">
-      <p class="eyebrow">Usuario conectado</p>
-      <h1 id="userName">Cargando...</h1>
-      <p id="userMeta"></p>
+  <main class="container home-v40-container">
+    <section class="home-welcome-v40">
+      <div>
+        <p class="eyebrow">Centro operativo SSOMAC</p>
+        <h1>Hola, <span id="userName">Cargando...</span></h1>
+        <p id="userMeta" class="muted"></p>
+      </div>
+      <div class="home-welcome-chip-v40">
+        <span class="home-live-dot-v40" aria-hidden="true"></span>
+        Sistema operativo
+      </div>
     </section>
 
-    <section class="home-brand-hero-v36">
-      <div class="home-brand-copy-v36">
-        <p class="eyebrow">Seguridad · Salud · Medio Ambiente · Calidad</p>
-        <h2>Trabajamos hoy por un mañana más seguro</h2>
-        <p>En Explo Drilling Perú, la seguridad forma parte de nuestra manera de trabajar.</p>
-        <div class="home-brand-line-v36"></div>
-        <strong>SSOMAC Digital</strong>
-      </div>
-      <div class="home-report-card-v36">
-        <img src="assets/img/logo-yo-reporto.png" alt="Yo Reporto">
-        <div>
-          <h3>Tu reporte hace la diferencia</h3>
-          <p>Reporta actos, condiciones o situaciones de riesgo y contribuye a un entorno de trabajo más seguro.</p>
-          <a class="button-link" href="reportar.html">Reportar ahora</a>
+    <section class="home-bento-v40">
+      <article class="home-hero-v40">
+        <div class="home-hero-copy-v40">
+          <p class="eyebrow">Seguridad · Salud · Medio Ambiente · Calidad</p>
+          <h2>Trabajamos hoy por un mañana más seguro</h2>
+          <p>Gestiona reportes, levantamientos, plazos y tendencias desde un solo lugar.</p>
+          <div class="home-hero-actions-v40">
+            <a class="button-link" href="nueva-ocurrencia.html">+ Registrar ocurrencia</a>
+            <a class="button-link secondary-link" href="ocurrencias.html">Ver seguimiento</a>
+          </div>
         </div>
-      </div>
-    </section>
-
-    <section class="kpi-grid dashboard-kpis">
-      <article class="kpi"><span>Abiertas</span><strong id="kpiOpen">—</strong></article>
-      <article class="kpi"><span>En proceso</span><strong id="kpiProcess">—</strong></article>
-      <article class="kpi kpi-info"><span>Por validar</span><strong id="kpiPending">—</strong></article>
-      <article class="kpi kpi-warning"><span>Por vencer</span><strong id="kpiDueSoon">—</strong><small>0–3 días</small></article>
-      <article class="kpi kpi-danger"><span>Vencidas</span><strong id="kpiOverdue">—</strong></article>
-      <article class="kpi"><span>Cerradas</span><strong id="kpiClosed">—</strong></article>
-    </section>
-
-    <section class="card alerts-card">
-      <div class="alerts-head">
-        <div>
-          <p class="eyebrow">Seguimiento SSOMAC</p>
-          <h2>Centro de alertas</h2>
-          <p class="muted">Prioriza vencimientos, próximos vencimientos y revisiones pendientes sin consumir correos.</p>
-        </div>
-        <span class="alerts-counter"><span aria-hidden="true">●</span> <strong id="alertsCount">—</strong> tipos de alerta</span>
-      </div>
-      <div id="alertsList" class="internal-alerts">Cargando alertas...</div>
-    </section>
-
-    <section class="grid">
-      <article class="card">
-        <h2>Proyectos autorizados</h2>
-        <div id="projectsList" class="list">Cargando...</div>
+        <div class="home-hero-tag-v40">SSOMAC Digital</div>
       </article>
 
-      <article class="card">
-        <h2>Gestión de ocurrencias</h2>
-        <p>Registra hallazgos, revisa pendientes, carga levantamientos y valida cierres.</p>
-        <div class="stack-actions">
-          <a class="button-link" href="nueva-ocurrencia.html">Nueva ocurrencia</a>
-          <a class="button-link secondary-link" href="ocurrencias.html">Ver ocurrencias</a>
-          <a class="button-link secondary-link" href="dashboard.html">Dashboard analítico</a>
-          <a class="button-link secondary-link" href="reporte-diario.html">Reporte diario</a>
-      <a class="button-link secondary-link" href="reportes-trabajadores.html">Reportes trabajadores</a>
-          <a id="projectsCardLink" class="button-link secondary-link hidden" href="proyectos.html">Administrar proyectos / sedes</a>
-          <a id="responsiblesCardLink" class="button-link secondary-link hidden" href="responsables.html">Administrar responsables</a>
+      <article class="home-report-v40">
+        <div class="home-report-visual-v40">
+          <img src="assets/img/logo-yo-reporto.png" alt="Yo Reporto">
         </div>
+        <div class="home-report-copy-v40">
+          <p class="eyebrow">Participación activa</p>
+          <h2>Tu reporte hace la diferencia</h2>
+          <p>Reporta actos, condiciones o situaciones de riesgo sin usuario ni contraseña.</p>
+          <a class="button-link" href="reportar.html">Reportar ahora</a>
+        </div>
+      </article>
+
+      <article class="home-status-v40">
+        <div class="home-card-head-v40">
+          <div>
+            <p class="eyebrow">Estado general</p>
+            <h2>Seguimiento de ocurrencias</h2>
+          </div>
+          <div class="home-status-summary-v40">
+            <strong id="kpiClosureRate">—</strong>
+            <span>cierre</span>
+          </div>
+        </div>
+        <div class="home-mini-kpis-v40">
+          <div class="home-mini-kpi-v40 neutral"><span>Abiertas</span><strong id="kpiOpen">—</strong></div>
+          <div class="home-mini-kpi-v40 neutral"><span>En proceso</span><strong id="kpiProcess">—</strong></div>
+          <div class="home-mini-kpi-v40 info"><span>Por validar</span><strong id="kpiPending">—</strong></div>
+          <div class="home-mini-kpi-v40 warning"><span>Por vencer</span><strong id="kpiDueSoon">—</strong><small>0–3 días</small></div>
+          <div class="home-mini-kpi-v40 danger"><span>Vencidas</span><strong id="kpiOverdue">—</strong></div>
+          <div class="home-mini-kpi-v40 success"><span>Cerradas</span><strong id="kpiClosed">—</strong></div>
+        </div>
+      </article>
+
+      <article class="card home-alerts-v40">
+        <div class="home-card-head-v40">
+          <div>
+            <p class="eyebrow">Prioridades</p>
+            <h2>Centro de alertas</h2>
+            <p class="muted">Vencimientos y revisiones que requieren atención.</p>
+          </div>
+          <span class="alerts-counter"><span aria-hidden="true">●</span> <strong id="alertsCount">—</strong> tipos</span>
+        </div>
+        <div id="alertsList" class="internal-alerts">Cargando alertas...</div>
+      </article>
+
+      <article class="card home-activity-v40">
+        <div class="home-card-head-v40">
+          <div>
+            <p class="eyebrow">Trazabilidad</p>
+            <h2>Actividad reciente</h2>
+            <p class="muted">Últimos movimientos registrados en el sistema.</p>
+          </div>
+          <a class="home-text-link-v40" href="ocurrencias.html">Ver todas →</a>
+        </div>
+        <div id="recentActivityList" class="home-activity-list-v40">Cargando actividad...</div>
+      </article>
+
+      <article class="card home-quick-v40">
+        <div class="home-card-head-v40">
+          <div>
+            <p class="eyebrow">Accesos rápidos</p>
+            <h2>Herramientas principales</h2>
+          </div>
+        </div>
+        <div class="home-quick-grid-v40">
+          <a href="nueva-ocurrencia.html" class="home-quick-item-v40 primary"><span>+</span><strong>Nueva ocurrencia</strong><small>Registrar hallazgo</small></a>
+          <a href="ocurrencias.html" class="home-quick-item-v40"><span>≡</span><strong>Ocurrencias</strong><small>Seguimiento y cierre</small></a>
+          <a href="dashboard.html" class="home-quick-item-v40"><span>▥</span><strong>Dashboard</strong><small>Análisis y tendencias</small></a>
+          <a href="reporte-diario.html" class="home-quick-item-v40"><span>▦</span><strong>Reporte mensual</strong><small>Consolidado y Excel</small></a>
+          <a href="reportes-trabajadores.html" class="home-quick-item-v40"><span>◎</span><strong>Reportes</strong><small>Revisión de trabajadores</small></a>
+          <a id="projectsCardLink" href="proyectos.html" class="home-quick-item-v40 hidden"><span>⌂</span><strong>Proyectos / sedes</strong><small>Configuración y QR</small></a>
+          <a id="responsiblesCardLink" href="responsables.html" class="home-quick-item-v40 hidden"><span>♙</span><strong>Responsables</strong><small>Asignaciones y correos</small></a>
+        </div>
+      </article>
+
+      <article class="card home-projects-v40">
+        <div class="home-card-head-v40">
+          <div>
+            <p class="eyebrow">Cobertura</p>
+            <h2>Proyectos autorizados</h2>
+          </div>
+        </div>
+        <div id="projectsList" class="list home-project-list-v40">Cargando...</div>
       </article>
     </section>
 
     <p id="appMessage" class="message"></p>
   </main>
-  <script src="app.js"></script>
+  <script src="app.js?v=11.1"></script>
 </body>
 </html>
