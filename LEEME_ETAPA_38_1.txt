@@ -1,0 +1,49 @@
+SSOMAC DIGITAL - V10.9.1
+ETAPA 38.1 - AJUSTE DEL REPORTE PDF + FIRMA DIGITAL DE LEVANTAMIENTO
+
+CAMBIOS DEL FORMATO PDF
+- Se mantiene sin cambios el encabezado corporativo:
+  SIG - SSOMAC / REPORTE DE ACTOS Y CONDICIONES
+  Código: EDP-SIG-SSOMAC-RE-EA-191
+  N°: 2 / Versión: 5 / Fecha Act: Jul-25
+- Se elimina del bloque REPORTANTE:
+  * HORA
+  * FIRMA DEL REPORTANTE
+  * CATEGORÍA DEL REPORTE
+- Se mantienen REPORTANTE, LUGAR, FECHA, REPORTADO y DESCRIPCIÓN.
+- La fotografía del hallazgo se mantiene dentro de DESCRIPCIÓN.
+- La fotografía del levantamiento se mantiene dentro del bloque SUPERVISOR.
+- Al final del formato se agrega:
+  FIRMA DE QUIEN REALIZA EL LEVANTAMIENTO
+  + firma dibujada con dedo/lápiz/mouse
+  + nombre del firmante.
+
+FIRMA DIGITAL
+La firma es obligatoria para nuevos levantamientos en:
+1. Levantamiento mediante link público por token.
+2. Levantamiento desde el detalle de una ocurrencia por usuario autenticado.
+3. Levantamiento inmediato al crear una ocurrencia.
+4. Levantamiento inmediato al validar un reporte de trabajador.
+
+La firma se guarda como evidencia:
+  FIRMA_LEVANTAMIENTO
+
+INSTALACIÓN
+1. Supabase > SQL Editor > New query.
+2. Ejecutar TODO el archivo:
+   ETAPA_38_1_FIRMA_LEVANTAMIENTO.sql
+3. Después reemplazar en GitHub:
+   - app.js
+   - styles.css
+   - detalle-ocurrencia.html
+   - levantamiento.html
+   - nueva-ocurrencia.html
+   - reportes-trabajadores.html
+4. NO reemplazar config.js.
+5. Esperar GitHub Pages y hacer Ctrl + F5.
+
+IMPORTANTE
+- Los levantamientos antiguos seguirán generando PDF.
+- Si fueron registrados antes de esta etapa y no tienen firma almacenada,
+  el PDF mostrará: "Sin firma digital registrada".
+- A partir de esta actualización, los nuevos levantamientos exigirán firma.

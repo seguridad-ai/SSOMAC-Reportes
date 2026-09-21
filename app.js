@@ -126,6 +126,78 @@ function renderInternalAlerts(container,counts){
   container.innerHTML=items.map(a=>`<a class="internal-alert ${a.level}" href="${a.href}"><span class="alert-dot" aria-hidden="true"></span><span class="alert-copy"><strong>${escapeHtml(a.title)}</strong><small>${escapeHtml(a.text)}</small></span><span class="alert-arrow">→</span></a>`).join('');
 }
 function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`); }
+
+
+// ============================================================
+// FIRMA DIGITAL CON DEDO / MOUSE
+// ============================================================
+function createSignaturePad(canvas,clearButton){
+  if(!canvas)return null;
+  const ctx=canvas.getContext('2d');
+  let drawing=false;
+  let empty=true;
+
+  function reset(){
+    ctx.save();
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.restore();
+    empty=true;
+  }
+  function point(e){
+    const r=canvas.getBoundingClientRect();
+    return {
+      x:(e.clientX-r.left)*(canvas.width/r.width),
+      y:(e.clientY-r.top)*(canvas.height/r.height)
+    };
+  }
+  function start(e){
+    e.preventDefault();
+    drawing=true;
+    empty=false;
+    const p=point(e);
+    canvas.setPointerCapture?.(e.pointerId);
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+    ctx.lineTo(p.x+.1,p.y+.1);
+    ctx.stroke();
+  }
+  function move(e){
+    if(!drawing)return;
+    e.preventDefault();
+    const p=point(e);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+  }
+  function end(e){
+    if(!drawing)return;
+    e?.preventDefault?.();
+    drawing=false;
+    ctx.closePath();
+  }
+
+  ctx.lineWidth=4;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  ctx.strokeStyle='#111827';
+  reset();
+
+  canvas.addEventListener('pointerdown',start);
+  canvas.addEventListener('pointermove',move);
+  canvas.addEventListener('pointerup',end);
+  canvas.addEventListener('pointercancel',end);
+  canvas.addEventListener('pointerleave',e=>{if(drawing)end(e);});
+  clearButton?.addEventListener('click',reset);
+
+  return {
+    isEmpty:()=>empty,
+    clear:reset,
+    toBlob:()=>new Promise((resolve,reject)=>canvas.toBlob(
+      blob=>blob?resolve(blob):reject(new Error('No se pudo procesar la firma digital.')),
+      'image/webp',0.92
+    ))
+  };
+}
 async function requireSession(){ const {data}=await sb.auth.getSession(); if(!data.session){location.href='index.html'; return null;} return data.session; }
 async function logout(){ await sb.auth.signOut(); location.href='index.html'; }
 
@@ -211,6 +283,8 @@ async function initNewOccurrence(){
   const classificationSection=document.getElementById('classificationSection'),causesSection=document.getElementById('causesSection'),correctiveSection=document.getElementById('correctiveSection');
   const potentialEl=document.getElementById('potential'),areaEl=document.getElementById('area'),responsibleEl=document.getElementById('responsibleId'),responsibleInfo=document.getElementById('responsibleInfo'),photoEl=document.getElementById('photo'),preview=document.getElementById('photoPreview'),descriptionLabel=document.getElementById('descriptionLabel');
   const immediateLiftFields=document.getElementById('immediateLiftFields'),immediateLiftComment=document.getElementById('immediateLiftComment'),immediateLiftPhoto=document.getElementById('immediateLiftPhoto'),immediateLiftPreview=document.getElementById('immediateLiftPreview');
+  const immediateLiftSigner=document.getElementById('immediateLiftSigner'),immediateLiftSignature=document.getElementById('immediateLiftSignature'),immediateLiftClearSignature=document.getElementById('immediateLiftClearSignature');
+  const immediateSignaturePad=createSignaturePad(immediateLiftSignature,immediateLiftClearSignature);
   dateEl.value=today();
 
   function isImmediateLift(){
@@ -225,6 +299,8 @@ async function initNewOccurrence(){
       if(immediateLiftComment) immediateLiftComment.value='';
       if(immediateLiftPhoto) immediateLiftPhoto.value='';
       if(immediateLiftPreview){immediateLiftPreview.src='';immediateLiftPreview.classList.add('hidden');}
+      if(immediateLiftSigner) immediateLiftSigner.value='';
+      immediateSignaturePad?.clear();
     }
   }
   document.querySelectorAll('input[name="immediateLift"]').forEach(x=>x.addEventListener('change',syncImmediateLiftUI));
@@ -267,6 +343,11 @@ async function initNewOccurrence(){
   }
 
   projectEl.addEventListener('change',renderResponsibles);
+  responsibleEl.addEventListener('change',()=>{
+    if(!isImmediateLift()||!immediateLiftSigner)return;
+    const r=responsibles.find(x=>x.id===responsibleEl.value);
+    if(r&&!immediateLiftSigner.value.trim())immediateLiftSigner.value=`${r.nombres||''} ${r.apellidos||''}`.trim();
+  });
   renderResponsibles();
 
   originEl.addEventListener('change',()=>{
@@ -299,7 +380,7 @@ async function initNewOccurrence(){
     const selectedResponsible=responsibles.find(r=>r.id===responsibleEl.value);
     const immediate=!good&&isImmediateLift();
     if(!originEl.value||!projectEl.value||(!good&&!classificationEl.value)||(!good&&!selectedResponsible)){showMessage(msg,'Completa los campos obligatorios, incluido el responsable de corrección.');return;}
-    if(immediate&&(!immediateLiftComment.value.trim()||!immediateLiftPhoto.files?.[0])){showMessage(msg,'Para un levantamiento inmediato debes registrar la acción correctiva realizada y su fotografía.');return;}
+    if(immediate&&(!immediateLiftComment.value.trim()||!immediateLiftPhoto.files?.[0]||!immediateLiftSigner?.value.trim()||immediateSignaturePad?.isEmpty())){showMessage(msg,'Para un levantamiento inmediato debes registrar la acción, la fotografía, el nombre de quien levanta y su firma digital.');return;}
     saveBtn.disabled=true;saveBtn.textContent='Guardando...';
     try{
       const payload={
@@ -336,6 +417,18 @@ async function initNewOccurrence(){
             creado_por_id:session.user.id
           });
           if(liftEvidenceError)throw liftEvidenceError;
+          const signatureBlob=await immediateSignaturePad.toBlob();
+          const signaturePath=`ocurrencias/${occ.id}/levantamiento/firma_${Date.now()}_${uid()}.webp`;
+          const {error:signatureUploadError}=await sb.storage.from('evidencias-ssomac').upload(signaturePath,signatureBlob,{contentType:'image/webp',upsert:false});
+          if(signatureUploadError)throw signatureUploadError;
+          const {error:signatureEvidenceError}=await sb.from('evidencias').insert({
+            ocurrencia_id:occ.id,
+            tipo_evidencia:'FIRMA_LEVANTAMIENTO',
+            ruta_archivo:signaturePath,
+            comentario:immediateLiftSigner.value.trim(),
+            creado_por_id:session.user.id
+          });
+          if(signatureEvidenceError)throw signatureEvidenceError;
           const statuses=await getStatuses();
           const {error:liftOccError}=await sb.from('ocurrencias').update({
             estado_id:statuses.PENDIENTE_VALIDACION.id,
@@ -385,7 +478,7 @@ async function initNewOccurrence(){
           }
         }
       }
-      showMessage(msg,`Ocurrencia N.° ${occ.numero} registrada correctamente.${assignmentEmailNote}${assignmentWarning}`,true);form.reset();dateEl.value=today();classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');preview.classList.add('hidden');if(immediateLiftPreview){immediateLiftPreview.src='';immediateLiftPreview.classList.add('hidden');}syncImmediateLiftUI();renderResponsibles();window.scrollTo({top:0,behavior:'smooth'});
+      showMessage(msg,`Ocurrencia N.° ${occ.numero} registrada correctamente.${assignmentEmailNote}${assignmentWarning}`,true);form.reset();dateEl.value=today();classificationSection.classList.add('hidden');causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');preview.classList.add('hidden');if(immediateLiftPreview){immediateLiftPreview.src='';immediateLiftPreview.classList.add('hidden');}immediateSignaturePad?.clear();syncImmediateLiftUI();renderResponsibles();window.scrollTo({top:0,behavior:'smooth'});
     }catch(err){console.error(err);showMessage(msg,'No se pudo guardar: '+(err.message||err));}
     finally{saveBtn.disabled=false;saveBtn.textContent='Guardar ocurrencia';}
   });
@@ -443,7 +536,7 @@ async function initOccurrenceDetail(){
   try{
     const profile=await getProfile(session.user.id),statuses=await getStatuses();
     const {data:o,error}=await sb.from('ocurrencias').select(`
-      id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_levantamiento_original,numero_ampliaciones,fecha_ultima_ampliacion,fecha_ejecutada,modalidad_levantamiento,reportado_por_id,reportado_por_externo,levantado_por_id,validado_por_id,fecha_validacion,observacion_validacion,
+      id,numero,fecha,lugar_hallazgo,descripcion,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_levantamiento_original,numero_ampliaciones,fecha_ultima_ampliacion,fecha_ejecutada,modalidad_levantamiento,reportado_por_id,reportado_por_externo,levantado_por_id,levantado_por_externo,validado_por_id,fecha_validacion,observacion_validacion,
       proyecto:proyectos(nombre,cliente),
       origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(codigo,nombre),
@@ -682,35 +775,26 @@ function pdfDrawVerticalBand(doc,x,y,w,h,label){
   doc.setTextColor(0);
 }
 
-function pdfDrawTopReporterSection(doc,o,reporter,reportTime,hallazgoImages){
+function pdfDrawTopReporterSection(doc,o,reporter,hallazgoImages){
   const x=4,mainX=18,right=206,w=right-mainX,startY=29.5,endY=159.5;
   pdfDrawVerticalBand(doc,x,startY,14,endY-startY,'REPORTANTE');
-  const rows=[10,10,10,13.5,13.5,11.5];
+  const rows=[11,11,11,12];
   let y=startY;
-  const labels=['REPORTANTE:','LUGAR DE OCURRENCIA:','FECHA:','FIRMA:','REPORTADO:','CATEGORÍA DEL REPORTE:'];
+  const labels=['REPORTANTE:','LUGAR DE OCURRENCIA:','FECHA:','REPORTADO:'];
   for(let i=0;i<rows.length;i++){
     doc.setDrawColor(0);doc.setLineWidth(.35);doc.rect(mainX,y,w,rows[i]);
     doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text(labels[i],mainX+1.2,y+3.4);
-    if(i===0){doc.setFont('helvetica','bold');doc.setFontSize(7.2);doc.text(pdfSafeText(reporter,'-'),mainX+27,y+6.4);}
-    if(i===1){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfSafeText(o.lugar_hallazgo,'-'),mainX+31,y+6.4);}
-    if(i===2){
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfFormatDate(o.fecha),mainX+16,y+6.4);
-      doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text('HORA:',mainX+74,y+3.4);
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfSafeText(reportTime,'-'),mainX+88,y+6.4);
-    }
-    if(i===4){doc.setFont('helvetica','italic');doc.setFontSize(5.2);doc.text('(Completar sólo en caso de Acto Subestándar)',mainX+1.2,y+7.0);}
-    if(i===5){
-      pdfDrawCheckbox(doc,mainX+60,y+7.2,'Seguridad',false);
-      pdfDrawCheckbox(doc,mainX+96,y+7.2,'Medio ambiente',false);
-      pdfDrawCheckbox(doc,mainX+143,y+7.2,'Salud',false);
-    }
+    if(i===0){doc.setFont('helvetica','bold');doc.setFontSize(7.2);doc.text(pdfSafeText(reporter,'-'),mainX+27,y+6.7);}
+    if(i===1){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfSafeText(o.lugar_hallazgo,'-'),mainX+31,y+6.7);}
+    if(i===2){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(pdfFormatDate(o.fecha),mainX+16,y+6.7);}
+    if(i===3){doc.setFont('helvetica','italic');doc.setFontSize(5.2);doc.text('(Completar sólo en caso de Acto Subestándar)',mainX+1.2,y+8.0);}
     y+=rows[i];
   }
   const descY=y,descH=endY-descY;
   doc.setDrawColor(0);doc.rect(mainX,descY,w,descH);
   doc.setFont('helvetica','normal');doc.setFontSize(5.9);
-  doc.text('DESCRIPCIÓN: (Qué se observó) (Ver reverso de la hoja)',mainX+1.2,descY+3.6);
-  const descLines=doc.splitTextToSize(pdfSafeText(o.descripcion,'Sin descripción registrada.'),w-4).slice(0,5);
+  doc.text('DESCRIPCIÓN: (Qué se observó)',mainX+1.2,descY+3.6);
+  const descLines=doc.splitTextToSize(pdfSafeText(o.descripcion,'Sin descripción registrada.'),w-4).slice(0,6);
   doc.setFont('helvetica','bold');doc.setFontSize(6.7);doc.text(descLines,mainX+2,descY+7.2);
   const textH=Math.max(8,descLines.length*3.0+5);
   const photoY=descY+textH;
@@ -718,7 +802,7 @@ function pdfDrawTopReporterSection(doc,o,reporter,reportTime,hallazgoImages){
   pdfDrawPhotoGrid(doc,hallazgoImages,mainX+2,photoY,w-4,photoH);
 }
 
-function pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftImages){
+function pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftImages,signatureImage,signerName){
   const x=4,mainX=18,right=206,w=right-mainX,startY=159.5,endY=293;
   pdfDrawVerticalBand(doc,x,startY,14,endY-startY,'SUPERVISOR');
   let y=startY;
@@ -744,8 +828,9 @@ function pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftIma
     doc.setFont('helvetica','bold');doc.setFontSize(6.7);doc.text(values[i],mainX+36,y+6.4);
     y+=smallRows[i];
   }
-  const actionBottom=endY-7;
-  const actionH=actionBottom-y;
+  const signatureH=20;
+  const signatureY=endY-signatureH;
+  const actionH=signatureY-y;
   doc.rect(mainX,y,w,actionH);
   doc.setFont('helvetica','normal');doc.setFontSize(5.9);doc.text('QUE SE HIZO O QUE SE DEBE HACER PARA CORREGIR:',mainX+1.2,y+3.5);
   doc.setFont('helvetica','italic');doc.setFontSize(5.1);doc.text('(Adjuntar foto y evidencia)',mainX+1.2,y+6.3);
@@ -754,10 +839,23 @@ function pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftIma
   doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.text(actionLines,mainX+2,y+10);
   const textH=Math.max(14,actionLines.length*2.9+9);
   const photoY=y+textH;
-  const photoH=Math.max(7,actionBottom-photoY-1.2);
+  const photoH=Math.max(7,signatureY-photoY-1.2);
   pdfDrawPhotoGrid(doc,liftImages,mainX+2,photoY,w-4,photoH);
-  doc.rect(mainX,actionBottom,w,7);
-  doc.setFont('helvetica','normal');doc.setFontSize(5.8);doc.text('FIRMA: ........................................................',mainX+1.2,actionBottom+4.7);
+
+  doc.rect(mainX,signatureY,w,signatureH);
+  doc.setFont('helvetica','bold');doc.setFontSize(5.8);
+  doc.text('FIRMA DE QUIEN REALIZA EL LEVANTAMIENTO:',mainX+1.2,signatureY+3.7);
+  if(signatureImage){
+    pdfDrawContainedImage(doc,signatureImage,mainX+3,signatureY+4.5,58,11.5,.6);
+  }else{
+    doc.setFont('helvetica','italic');doc.setFontSize(5.5);doc.setTextColor(120);
+    doc.text('Sin firma digital registrada',mainX+3,signatureY+10.5);
+    doc.setTextColor(0);
+  }
+  doc.setFont('helvetica','normal');doc.setFontSize(5.7);
+  doc.text('Nombre:',mainX+66,signatureY+8.2);
+  doc.setFont('helvetica','bold');doc.setFontSize(6.3);
+  doc.text(pdfSafeText(signerName,'-'),mainX+82,signatureY+8.2);
 }
 
 function pdfDrawAnnexPage(doc,logo,title,items,occCode){
@@ -790,7 +888,8 @@ async function downloadOccurrenceReportPdf({occurrence:o,reporter,occurrenceId})
   ]);
   const hallazgo=evidences.filter(e=>String(e.tipo_evidencia||'').toUpperCase()==='HALLAZGO');
   const lifts=evidences.filter(e=>String(e.tipo_evidencia||'').toUpperCase()==='LEVANTAMIENTO');
-  const allImageEvidence=[...hallazgo,...lifts].filter(e=>e.signed_url);
+  const signatures=evidences.filter(e=>String(e.tipo_evidencia||'').toUpperCase()==='FIRMA_LEVANTAMIENTO');
+  const allImageEvidence=[...hallazgo,...lifts,...signatures].filter(e=>e.signed_url);
   const imageMap=new Map();
   for(const e of allImageEvidence){
     try{imageMap.set(e.id,await urlToPdfImage(e.signed_url));}
@@ -798,11 +897,12 @@ async function downloadOccurrenceReportPdf({occurrence:o,reporter,occurrenceId})
   }
   const hallazgoImages=hallazgo.map(e=>imageMap.get(e.id)).filter(Boolean);
   const liftImages=lifts.map(e=>imageMap.get(e.id)).filter(Boolean);
-  const registeredEvent=history.find(h=>h.tipo_evento==='OCURRENCIA_REGISTRADA');
   const assignedEvent=history.find(h=>h.tipo_evento==='RESPONSABLE_ASIGNADO');
-  const reportTime=registeredEvent?pdfFormatTime(registeredEvent.creado_en):'';
   const assignmentDate=assignedEvent?pdfFormatDate(assignedEvent.creado_en):pdfFormatDate(o.fecha);
   const latestLiftComment=[...lifts].reverse().find(e=>pdfSafeText(e.comentario))?.comentario||'';
+  const latestSignature=[...signatures].reverse().find(e=>imageMap.get(e.id));
+  const signatureImage=latestSignature?imageMap.get(latestSignature.id):null;
+  const signerName=pdfSafeText(latestSignature?.comentario||o.levantado_por_externo||o.responsable_correccion,'-');
   const doc=new jsPDFClass({orientation:'portrait',unit:'mm',format:'a4',compress:true});
   doc.setProperties({
     title:`Reporte de Actos y Condiciones - OC-${String(o.numero).padStart(6,'0')}`,
@@ -810,8 +910,8 @@ async function downloadOccurrenceReportPdf({occurrence:o,reporter,occurrenceId})
     author:'Explo Drilling Perú - SSOMAC Digital'
   });
   pdfDrawCorporateHeader(doc,logo);
-  pdfDrawTopReporterSection(doc,o,reporter,reportTime,hallazgoImages);
-  pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftImages);
+  pdfDrawTopReporterSection(doc,o,reporter,hallazgoImages);
+  pdfDrawSupervisorSection(doc,o,assignmentDate,latestLiftComment,liftImages,signatureImage,signerName);
   const occCode=`OC-${String(o.numero).padStart(6,'0')}`;
   doc.setFont('helvetica','normal');doc.setFontSize(5.4);doc.setTextColor(90);
   doc.text(`Registro digital: ${occCode} | Proyecto: ${pdfSafeText(o.proyecto?.nombre,'-')}`,105,296,{align:'center'});
@@ -1033,16 +1133,23 @@ function renderWorkflow(o,profile,statuses,session,box,msg,occId){
     box.innerHTML='<div class="list-item">Ocurrencia cerrada. No requiere acciones adicionales.</div>';
   }
 }
-function liftForm(){return `<div class="workflow-box"><h3>Registrar levantamiento</h3><label for="liftComment">Acción realizada *</label><textarea id="liftComment" rows="3" placeholder="Describa la corrección ejecutada..."></textarea><label for="liftPhoto">Evidencia de levantamiento *</label><input id="liftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"><div class="workflow-actions"><button id="sendValidationBtn">Enviar para validación</button></div></div>`;}
+function liftForm(){return `<div class="workflow-box"><h3>Registrar levantamiento</h3><label for="liftComment">Acción realizada *</label><textarea id="liftComment" rows="3" placeholder="Describa la corrección ejecutada..."></textarea><label for="liftPhoto">Evidencia de levantamiento *</label><input id="liftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"><label for="liftSignerName">Nombre de quien realiza el levantamiento *</label><input id="liftSignerName" type="text" maxlength="180" placeholder="Nombres y apellidos"><div class="signature-box"><div class="signature-head"><div><strong>Firma digital *</strong><small>Firma con el dedo, lápiz táctil o mouse.</small></div><button id="liftClearSignature" type="button" class="secondary signature-clear">Limpiar firma</button></div><canvas id="liftSignature" class="signature-pad" width="900" height="260"></canvas></div><div class="workflow-actions"><button id="sendValidationBtn">Enviar para validación</button></div></div>`;}
 function bindLiftForm(occId,session,statuses,msg){
+  const signerEl=document.getElementById('liftSignerName');
+  const signaturePad=createSignaturePad(document.getElementById('liftSignature'),document.getElementById('liftClearSignature'));
+  getProfile(session.user.id).then(p=>{if(signerEl&&!signerEl.value)signerEl.value=`${p.nombres||''} ${p.apellidos||''}`.trim();}).catch(()=>{});
   document.getElementById('sendValidationBtn').addEventListener('click',async()=>{
-    const comment=document.getElementById('liftComment').value.trim(),file=document.getElementById('liftPhoto').files?.[0];
-    if(!comment||!file){showMessage(msg,'Debes registrar la acción realizada y la fotografía de levantamiento.');return;}
+    const comment=document.getElementById('liftComment').value.trim(),file=document.getElementById('liftPhoto').files?.[0],signerName=signerEl?.value.trim();
+    if(!comment||!file||!signerName||signaturePad?.isEmpty()){showMessage(msg,'Debes registrar la acción, la fotografía, el nombre de quien levanta y su firma digital.');return;}
     const btn=document.getElementById('sendValidationBtn');btn.disabled=true;btn.textContent='Enviando...';
     try{
       const blob=await optimizeImage(file),path=`ocurrencias/${occId}/levantamiento/${Date.now()}_${uid()}.webp`;
       const {error:ue}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});if(ue)throw ue;
       const {error:ee}=await sb.from('evidencias').insert({ocurrencia_id:occId,tipo_evidencia:'LEVANTAMIENTO',ruta_archivo:path,comentario:comment,creado_por_id:session.user.id});if(ee)throw ee;
+      const signatureBlob=await signaturePad.toBlob();
+      const signaturePath=`ocurrencias/${occId}/levantamiento/firma_${Date.now()}_${uid()}.webp`;
+      const {error:sue}=await sb.storage.from('evidencias-ssomac').upload(signaturePath,signatureBlob,{contentType:'image/webp',upsert:false});if(sue)throw sue;
+      const {error:see}=await sb.from('evidencias').insert({ocurrencia_id:occId,tipo_evidencia:'FIRMA_LEVANTAMIENTO',ruta_archivo:signaturePath,comentario:signerName,creado_por_id:session.user.id});if(see)throw see;
       const {error:oe}=await sb.from('ocurrencias').update({estado_id:statuses.PENDIENTE_VALIDACION.id,fecha_ejecutada:today(),levantado_por_id:session.user.id}).eq('id',occId);if(oe)throw oe;
       location.reload();
     }catch(err){showMessage(msg,'No se pudo registrar el levantamiento: '+(err.message||err));btn.disabled=false;btn.textContent='Enviar para validación';}
@@ -1717,6 +1824,8 @@ async function initWorkerReportsAdmin(){
   const reviewImmediateComment=document.getElementById('reviewImmediateLiftComment');
   const reviewImmediatePhoto=document.getElementById('reviewImmediateLiftPhoto');
   const reviewImmediatePreview=document.getElementById('reviewImmediateLiftPreview');
+  const reviewImmediateSigner=document.getElementById('reviewImmediateLiftSigner');
+  const reviewImmediateSignaturePad=createSignaturePad(document.getElementById('reviewImmediateLiftSignature'),document.getElementById('reviewImmediateLiftClearSignature'));
   function isReviewImmediateLift(){return document.querySelector('input[name="reviewImmediateLift"]:checked')?.value==='SI';}
   function syncReviewImmediateLiftUI(){
     const immediate=isReviewImmediateLift();
@@ -1727,6 +1836,8 @@ async function initWorkerReportsAdmin(){
       if(reviewImmediateComment)reviewImmediateComment.value='';
       if(reviewImmediatePhoto)reviewImmediatePhoto.value='';
       if(reviewImmediatePreview){reviewImmediatePreview.src='';reviewImmediatePreview.classList.add('hidden');}
+      if(reviewImmediateSigner)reviewImmediateSigner.value='';
+      reviewImmediateSignaturePad?.clear();
     }
   }
   document.querySelectorAll('input[name="reviewImmediateLift"]').forEach(x=>x.addEventListener('change',syncReviewImmediateLiftUI));
@@ -1748,6 +1859,11 @@ async function initWorkerReportsAdmin(){
   searchEl.addEventListener('input',renderList);
   document.getElementById('workerCloseReviewBtn').addEventListener('click',()=>{reviewCard.classList.add('hidden');current=null;showMessage(reviewMsg,'');});
   document.getElementById('reviewProject').addEventListener('change',()=>renderReviewResponsibles());
+  document.getElementById('reviewResponsible').addEventListener('change',()=>{
+    if(!isReviewImmediateLift()||!reviewImmediateSigner)return;
+    const r=responsibles.find(x=>x.id===document.getElementById('reviewResponsible').value);
+    if(r&&!reviewImmediateSigner.value.trim())reviewImmediateSigner.value=`${r.nombres||''} ${r.apellidos||''}`.trim();
+  });
   document.getElementById('reviewType').addEventListener('change',async()=>{await loadReviewCauses(document.getElementById('reviewType').value);});
 
   async function loadRows(){
@@ -1824,6 +1940,8 @@ async function initWorkerReportsAdmin(){
     if(reviewImmediateComment)reviewImmediateComment.value='';
     if(reviewImmediatePhoto)reviewImmediatePhoto.value='';
     if(reviewImmediatePreview){reviewImmediatePreview.src='';reviewImmediatePreview.classList.add('hidden');}
+    if(reviewImmediateSigner)reviewImmediateSigner.value='';
+    reviewImmediateSignaturePad?.clear();
     syncReviewImmediateLiftUI();
 
     renderReviewResponsibles(current.responsable_propuesto_id);
@@ -1891,7 +2009,7 @@ async function initWorkerReportsAdmin(){
     const basicIds=[...document.querySelectorAll('input[name="reviewBasicCause"]:checked')].map(x=>x.value);
     const immediateLift=isReviewImmediateLift();
     if(!immediateIds.length||!basicIds.length){showMessage(reviewMsg,'Selecciona al menos una causa inmediata y una causa básica.');return;}
-    if(immediateLift&&(!reviewImmediateComment.value.trim()||!reviewImmediatePhoto.files?.[0])){showMessage(reviewMsg,'Para un levantamiento inmediato debes registrar la acción correctiva realizada y adjuntar su fotografía.');return;}
+    if(immediateLift&&(!reviewImmediateComment.value.trim()||!reviewImmediatePhoto.files?.[0]||!reviewImmediateSigner?.value.trim()||reviewImmediateSignaturePad?.isEmpty())){showMessage(reviewMsg,'Para un levantamiento inmediato debes registrar la acción, la fotografía, el nombre de quien levanta y su firma digital.');return;}
     const validateBtn=document.getElementById('workerValidateBtn');validateBtn.disabled=true;validateBtn.textContent='Validando...';
     try{
       const {data,error}=await sb.rpc('validar_reporte_trabajador_v2',{
@@ -1931,6 +2049,18 @@ async function initWorkerReportsAdmin(){
             creado_por_id:session.user.id
           });
           if(liftEvidenceError)throw liftEvidenceError;
+          const signatureBlob=await reviewImmediateSignaturePad.toBlob();
+          const signaturePath=`ocurrencias/${out.ocurrencia_id}/levantamiento/firma_${Date.now()}_${uid()}.webp`;
+          const {error:signatureUploadError}=await sb.storage.from('evidencias-ssomac').upload(signaturePath,signatureBlob,{contentType:'image/webp',upsert:false});
+          if(signatureUploadError)throw signatureUploadError;
+          const {error:signatureEvidenceError}=await sb.from('evidencias').insert({
+            ocurrencia_id:out.ocurrencia_id,
+            tipo_evidencia:'FIRMA_LEVANTAMIENTO',
+            ruta_archivo:signaturePath,
+            comentario:reviewImmediateSigner.value.trim(),
+            creado_por_id:session.user.id
+          });
+          if(signatureEvidenceError)throw signatureEvidenceError;
           const statuses=await getStatuses();
           const {error:liftOccError}=await sb.from('ocurrencias').update({
             estado_id:statuses.PENDIENTE_VALIDACION.id,
@@ -2315,6 +2445,8 @@ async function initPublicLift(){
   const photo=document.getElementById('publicLiftPhoto');
   const preview=document.getElementById('publicLiftPhotoPreview');
   const submitBtn=document.getElementById('publicLiftSubmitBtn');
+  const signerEl=document.getElementById('publicLiftSigner');
+  const signaturePad=createSignaturePad(document.getElementById('publicLiftSignature'),document.getElementById('publicLiftClearSignature'));
 
   if(!token){
     loading.classList.add('hidden');
@@ -2347,6 +2479,7 @@ async function initPublicLift(){
   document.getElementById('liftAction').textContent=row.accion||'—';
   document.getElementById('liftDue').textContent=row.fecha_limite?formatDateEsV6(row.fecha_limite):'Sin fecha definida';
   document.getElementById('liftResponsible').textContent=row.nombre_responsable||'—';
+  if(signerEl)signerEl.value=row.nombre_responsable||'';
   document.getElementById('liftStatus').textContent=(row.estado_asignacion||'').replaceAll('_',' ');
   card.classList.remove('hidden');
 
@@ -2382,18 +2515,27 @@ async function initPublicLift(){
     e.preventDefault();showMessage(msg,'');
     const comment=document.getElementById('publicLiftComment').value.trim();
     const file=photo.files?.[0];
+    const signerName=signerEl?.value.trim();
     if(comment.length<5){showMessage(msg,'Describe la acción correctiva realizada.');return;}
     if(!file){showMessage(msg,'Adjunta una fotografía del levantamiento.');return;}
+    if(!signerName){showMessage(msg,'Indica el nombre de quien realiza el levantamiento.');return;}
+    if(signaturePad?.isEmpty()){showMessage(msg,'Registra la firma digital de quien realiza el levantamiento.');return;}
     submitBtn.disabled=true;submitBtn.textContent='Enviando levantamiento...';
     try{
       const blob=await optimizeImage(file);
       const path=`levantamientos/${token}/evidencia/${Date.now()}_${uid()}.webp`;
       const {error:uploadError}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});
       if(uploadError)throw uploadError;
+      const signatureBlob=await signaturePad.toBlob();
+      const signaturePath=`levantamientos/${token}/evidencia/firma_${Date.now()}_${uid()}.webp`;
+      const {error:signatureUploadError}=await sb.storage.from('evidencias-ssomac').upload(signaturePath,signatureBlob,{contentType:'image/webp',upsert:false});
+      if(signatureUploadError)throw signatureUploadError;
       const {data:done,error:rpcError}=await sb.rpc('public_registrar_levantamiento',{
         p_token:token,
         p_comentario:comment,
-        p_ruta_foto:path
+        p_ruta_foto:path,
+        p_ruta_firma:signaturePath,
+        p_firmante_nombre:signerName
       });
       if(rpcError)throw rpcError;
       form.classList.add('hidden');

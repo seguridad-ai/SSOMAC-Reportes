@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SSOMAC Digital | Reportes de trabajadores</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=10.9.1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -157,6 +157,15 @@
             <input id="reviewImmediateLiftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
             <small>El reporte pasará directamente a pendiente de validación y no consumirá un envío de EmailJS.</small>
             <img id="reviewImmediateLiftPreview" class="photo-preview hidden" alt="Vista previa del levantamiento inmediato">
+            <label for="reviewImmediateLiftSigner">Nombre de quien realiza el levantamiento *</label>
+            <input id="reviewImmediateLiftSigner" type="text" maxlength="180" placeholder="Nombres y apellidos">
+            <div class="signature-box">
+              <div class="signature-head">
+                <div><strong>Firma digital *</strong><small>Firma con el dedo, lápiz táctil o mouse.</small></div>
+                <button id="reviewImmediateLiftClearSignature" type="button" class="secondary signature-clear">Limpiar firma</button>
+              </div>
+              <canvas id="reviewImmediateLiftSignature" class="signature-pad" width="900" height="260"></canvas>
+            </div>
           </div>
 
           <div class="field full">
@@ -174,6 +183,6 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=10.9.1"></script>
 </body>
 </html>

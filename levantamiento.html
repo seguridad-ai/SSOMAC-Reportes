@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Explo Drilling Perú | Levantamiento de observación</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=10.9.1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -71,6 +71,22 @@
             <img id="publicLiftPhotoPreview" class="photo-preview hidden" alt="Vista previa">
           </div>
 
+          <div class="field">
+            <label for="publicLiftSigner">Nombre de quien realiza el levantamiento *</label>
+            <input id="publicLiftSigner" type="text" maxlength="180" required placeholder="Nombres y apellidos">
+          </div>
+
+          <div class="field signature-box">
+            <div class="signature-head">
+              <div>
+                <strong>Firma digital *</strong>
+                <small>Firma directamente con el dedo, lápiz táctil o mouse.</small>
+              </div>
+              <button id="publicLiftClearSignature" type="button" class="secondary signature-clear">Limpiar firma</button>
+            </div>
+            <canvas id="publicLiftSignature" class="signature-pad" width="900" height="260"></canvas>
+          </div>
+
           <div class="public-submit-row">
             <button id="publicLiftSubmitBtn" type="submit">Enviar levantamiento</button>
           </div>
@@ -80,6 +96,6 @@
       </div>
     </section>
   </main>
-  <script src="app.js"></script>
+  <script src="app.js?v=10.9.1"></script>
 </body>
 </html>
