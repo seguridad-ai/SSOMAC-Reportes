@@ -1,0 +1,32 @@
+SSOMAC DIGITAL V11.3 - ETAPA 42
+EXPERIENCIA MOVIL + YO REPORTO + MICROINTERACCIONES
+
+NO REQUIERE SQL.
+
+REEMPLAZAR EN GITHUB:
+- app.js
+- styles.css
+
+NO REEMPLAZAR:
+- config.js
+
+CAMBIOS:
+1. Menú hamburguesa real en pantallas <= 900 px.
+2. Drawer lateral con navegación y cierre por X, fondo, ESC o selección.
+3. Botón flotante "Yo Reporto" en páginas internas.
+   - En Dashboard de proyecto conserva ?p=CODIGO.
+   - En otras páginas abre el formulario general.
+4. Botón flotante "volver arriba" después de hacer scroll.
+5. Animación sutil de aparición para tarjetas/listados.
+6. Hover/focus más claros y accesibles.
+7. Inputs a 16 px en móvil para evitar zoom automático en iPhone.
+8. Mejoras táctiles y de espaciado en móvil.
+9. Respeta prefers-reduced-motion.
+
+PRUEBAS RECOMENDADAS:
+- Escritorio: verificar que el header permanezca igual y Yo Reporto flote abajo a la derecha.
+- Celular / F12 responsive: verificar menú hamburguesa, navegación y cierre.
+- Dashboard de proyecto: verificar que Yo Reporto abra reportar.html?p=CODIGO.
+- Ocurrencias/Detalle/Reporte mensual: verificar navegación móvil.
+
+Después de subir los archivos: esperar GitHub Pages y hacer Ctrl+F5.

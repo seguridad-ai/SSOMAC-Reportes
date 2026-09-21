@@ -1243,7 +1243,123 @@ async function optimizeImage(file){
 function loadImage(file){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(file);i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=rej;i.src=u;});}
 function canvasToBlob(c,q){return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('No se pudo procesar la imagen.')),'image/webp',q));}
 
+
+// ============================================================
+// V11.3 - ETAPA 42
+// Experiencia móvil + menú responsive + Yo Reporto flotante
+// + microinteracciones accesibles
+// ============================================================
+function closeMobileNavV42(){
+  document.body.classList.remove('v42-nav-open');
+  const btn=document.querySelector('.mobile-menu-toggle-v42');
+  if(btn){btn.setAttribute('aria-expanded','false');btn.setAttribute('aria-label','Abrir menú');}
+}
+
+function openMobileNavV42(){
+  document.body.classList.add('v42-nav-open');
+  const btn=document.querySelector('.mobile-menu-toggle-v42');
+  if(btn){btn.setAttribute('aria-expanded','true');btn.setAttribute('aria-label','Cerrar menú');}
+}
+
+function contextualReportUrlV42(){
+  const code=new URLSearchParams(location.search).get('p');
+  return code?`reportar.html?p=${encodeURIComponent(code)}`:'reportar.html';
+}
+
+function initResponsiveShellV42(){
+  const topbar=document.querySelector('.topbar');
+  if(!topbar)return;
+  topbar.classList.add('topbar-v42');
+  const actions=topbar.querySelector('.top-actions');
+  if(!actions)return;
+
+  if(!document.querySelector('.mobile-menu-toggle-v42')){
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='mobile-menu-toggle-v42';
+    toggle.setAttribute('aria-label','Abrir menú');
+    toggle.setAttribute('aria-expanded','false');
+    toggle.innerHTML='<span></span><span></span><span></span>';
+    topbar.insertBefore(toggle,actions);
+    toggle.addEventListener('click',()=>document.body.classList.contains('v42-nav-open')?closeMobileNavV42():openMobileNavV42());
+  }
+
+  if(!actions.querySelector('.mobile-nav-head-v42')){
+    const head=document.createElement('div');
+    head.className='mobile-nav-head-v42';
+    head.innerHTML=`<div><img src="assets/img/logo-corporativo.jpg" alt="Explo Drilling Perú"><span><strong>SSOMAC Digital</strong><small>Navegación</small></span></div><button type="button" class="mobile-nav-close-v42" aria-label="Cerrar menú">×</button>`;
+    actions.prepend(head);
+    head.querySelector('.mobile-nav-close-v42').addEventListener('click',closeMobileNavV42);
+  }
+
+  if(!document.querySelector('.mobile-nav-backdrop-v42')){
+    const backdrop=document.createElement('div');
+    backdrop.className='mobile-nav-backdrop-v42';
+    backdrop.setAttribute('aria-hidden','true');
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener('click',closeMobileNavV42);
+  }
+
+  actions.querySelectorAll('a,button:not(.mobile-nav-close-v42)').forEach(el=>el.addEventListener('click',()=>{
+    if(window.matchMedia('(max-width: 900px)').matches)closeMobileNavV42();
+  }));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileNavV42();});
+  window.addEventListener('resize',()=>{if(window.innerWidth>900)closeMobileNavV42();},{passive:true});
+}
+
+function initFloatingReportV42(){
+  if(['login','public-worker-report','public-lift'].includes(page))return;
+  if(document.querySelector('.floating-report-v42'))return;
+  const a=document.createElement('a');
+  a.className='floating-report-v42';
+  a.href=contextualReportUrlV42();
+  a.setAttribute('aria-label','Abrir Yo Reporto');
+  a.innerHTML='<img src="assets/img/logo-yo-reporto.png" alt=""><span><strong>Yo Reporto</strong><small>Registrar hallazgo</small></span>';
+  document.body.appendChild(a);
+}
+
+function initScrollTopV42(){
+  if(document.querySelector('.scroll-top-v42'))return;
+  const b=document.createElement('button');
+  b.type='button';b.className='scroll-top-v42';b.setAttribute('aria-label','Volver arriba');b.textContent='↑';
+  document.body.appendChild(b);
+  const update=()=>b.classList.toggle('is-visible',window.scrollY>520);
+  window.addEventListener('scroll',update,{passive:true});update();
+  b.addEventListener('click',()=>window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}));
+}
+
+function initRevealAnimationsV42(){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const selector='.card,.kpi,.pd-kpi,.home-mini-kpi-v40,.occurrence-card,.project-qr-card,.responsible-card,.alert-row-v40,.home-activity-row-v40';
+  const seen=new WeakSet();
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){entry.target.classList.add('is-visible-v42');io.unobserve(entry.target);}
+    });
+  },{threshold:.08,rootMargin:'0px 0px -20px 0px'});
+  const add=(root=document)=>{
+    const els=[];
+    if(root.nodeType===1 && root.matches?.(selector))els.push(root);
+    root.querySelectorAll?.(selector).forEach(el=>els.push(el));
+    els.forEach((el,i)=>{
+      if(seen.has(el))return;seen.add(el);el.classList.add('ui-reveal-v42');
+      el.style.setProperty('--v42-delay',`${Math.min(i%8,7)*28}ms`);io.observe(el);
+    });
+  };
+  add(document);
+  const mo=new MutationObserver(muts=>muts.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1)add(n);}))); 
+  mo.observe(document.body,{childList:true,subtree:true});
+}
+
+function initStage42(){
+  initResponsiveShellV42();
+  initFloatingReportV42();
+  initScrollTopV42();
+  initRevealAnimationsV42();
+}
+
 initGlobalShellV40();
+initStage42();
 
 if(page==='login')initLogin();
 if(page==='app')initApp();
