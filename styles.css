@@ -810,3 +810,32 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}.ui-reveal-v42{opacity:1!important;transform:none!important;transition:none!important}.floating-report-v42,.scroll-top-v42,.mobile-menu-toggle-v42 span,.topbar.topbar-v42 .top-actions{transition:none!important}
 }
+
+/* ============================================================
+   V11.4 - ETAPA 43 · Usuarios, roles y acceso por proyecto
+   ============================================================ */
+.v43-project-lock-note{display:block;margin-top:6px;color:#667085;font-size:.82rem;font-weight:600}
+.users-v43-container{max-width:1240px}
+.users-v43-head{align-items:flex-start}
+.users-v43-help{display:flex;gap:14px;align-items:flex-start;border-left:4px solid #c00000;background:linear-gradient(135deg,#fff 0%,#fff8f8 100%)}
+.users-v43-help-icon{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:50%;background:#c00000;color:#fff;font-weight:800}
+.users-v43-help p{margin:5px 0 0;color:#667085;line-height:1.5}
+.users-v43-kpis{margin:18px 0}
+.users-v43-form-card{margin-bottom:18px}
+.users-v43-active-field{display:flex;flex-direction:column;justify-content:flex-end}
+.users-v43-switch{display:flex!important;align-items:center;gap:9px;min-height:45px;padding:0 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff;font-weight:700!important}
+.users-v43-switch input{width:18px;height:18px}
+.users-v43-list-head{display:flex;justify-content:space-between;gap:18px;align-items:end;margin-bottom:16px}
+.users-v43-list-head h2{margin:2px 0 0}
+.users-v43-filters{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.users-v43-filters input{min-width:280px}
+.user-access-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:18px;border:1px solid #e4e7ec;border-radius:14px;background:#fff}
+.user-access-card+.user-access-card{margin-top:10px}
+.user-access-card h3{margin:0}
+@media(max-width:760px){
+  .users-v43-list-head{align-items:stretch;flex-direction:column}
+  .users-v43-filters{justify-content:stretch;flex-direction:column}
+  .users-v43-filters input,.users-v43-filters select{width:100%;min-width:0}
+  .user-access-card{grid-template-columns:1fr}
+  .user-access-card .responsible-actions{justify-content:flex-start}
+}

@@ -1,0 +1,99 @@
+SSOMAC DIGITAL v11.4 - ETAPA 43
+USUARIOS, ROLES Y ACCESO POR PROYECTO
+
+OBJETIVO
+- ADMIN: control total y administracion del sistema.
+- GERENCIA: puede operar/consultar TODOS los proyectos, pero no administrar usuarios, responsables ni modificar la configuracion de proyectos.
+- PROYECTO: puede operar/consultar SOLO el proyecto asignado.
+
+PERMISOS OPERATIVOS
+ADMIN
+- Todos los proyectos.
+- Registrar, seguimiento, levantamiento, validar/cerrar, devolver, ampliar plazo.
+- Fotos, trazabilidad, PDF, Excel, dashboards.
+- Proyectos/sedes, responsables y usuarios/accesos.
+
+GERENCIA
+- Todos los proyectos.
+- Registrar ocurrencias.
+- Seguimiento, levantamiento, validar/cerrar, devolver y ampliar plazo.
+- Fotos, trazabilidad, PDF, Excel y dashboards.
+- Puede ver Proyectos/sedes y sus dashboards/QR.
+- NO crea/edita/desactiva proyectos.
+- NO administra responsables.
+- NO administra usuarios.
+
+PROYECTO
+- Solo su proyecto vinculado en usuario_proyectos.
+- Registrar ocurrencias internas.
+- Seguimiento, levantamiento, validar/cerrar, devolver y ampliar plazo de su proyecto.
+- Fotos, trazabilidad, PDF, Excel y dashboard solo de su proyecto.
+- Reportes de trabajadores solo de su proyecto.
+- El selector de proyecto queda bloqueado.
+- No puede acceder a otros proyectos aunque modifique la URL.
+
+INSTALACION
+1. SUPABASE
+   - SQL Editor > New query.
+   - Ejecutar TODO: ETAPA_43_USUARIOS_ROLES_ACCESOS.sql
+   - Debe finalizar sin errores.
+
+2. GITHUB
+   Reemplazar/subir estos archivos:
+   - app.js
+   - styles.css
+   - app.html
+   - nueva-ocurrencia.html
+   - ocurrencias.html
+   - detalle-ocurrencia.html
+   - dashboard.html
+   - reporte-diario.html
+   - reportes-trabajadores.html
+   - proyectos.html
+   - proyecto-dashboard.html
+   - responsables.html
+   - usuarios.html (NUEVO)
+
+   NO reemplazar config.js.
+
+3. CREAR UNA CUENTA PARA PROYECTO O GERENCIA
+   Por seguridad, el navegador NO recibe la Service Role Key y no crea usuarios Auth directamente.
+
+   A. En Supabase:
+      Authentication > Users > Add user
+      Crear correo y contraseña inicial.
+      Ejemplo: cerroverde@explodrillingperu.pe
+
+   B. Volver a SSOMAC Digital con la cuenta ADMIN:
+      Inicio > Usuarios y accesos
+      + Configurar usuario
+      Escribir el mismo correo creado en Authentication.
+      Elegir:
+        GERENCIA -> alcance todos los proyectos
+        PROYECTO -> seleccionar un proyecto
+      Guardar.
+
+4. PRUEBA RECOMENDADA
+   Abrir una ventana de incognito y entrar con el nuevo usuario.
+
+   PROYECTO debe comprobar:
+   - Nueva ocurrencia: solo aparece su proyecto y queda bloqueado.
+   - Ocurrencias: solo datos de su proyecto.
+   - Dashboard: abre su dashboard de proyecto.
+   - Reporte mensual: solo su proyecto; no aparece TODOS LOS PROYECTOS.
+   - Reportes trabajadores: solo su proyecto.
+   - URL manual de otro proyecto: acceso denegado/sin datos.
+   - PDF, fotos e historial: solo ocurrencias de su proyecto.
+
+   GERENCIA debe comprobar:
+   - Puede seleccionar todos los proyectos.
+   - Ve Dashboard corporativo y dashboards por proyecto.
+   - Puede operar ocurrencias de todos los proyectos.
+   - En Proyectos/sedes NO aparecen Editar / Desactivar / Agregar.
+   - No accede a Responsables ni Usuarios y accesos.
+
+NOTAS DE SEGURIDAD
+- Nunca colocar service_role ni claves privadas en config.js o GitHub.
+- Las restricciones no son solo visuales: ETAPA 43 refuerza las reglas RLS por proyecto.
+- El modulo Usuarios y accesos no muestra ni almacena contraseñas.
+- Solo la cuenta ADMIN actual puede conservar el rol ADMIN desde el aplicativo.

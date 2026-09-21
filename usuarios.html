@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Usuarios y accesos</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.4">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="users-access">
+<header class="topbar">
+  <div><strong>SSOMAC Digital</strong><span>Administración · Usuarios y accesos</span></div>
+  <div class="top-actions">
+    <a class="button-link secondary-link" href="app.html">← Inicio</a>
+    <a class="button-link secondary-link" href="proyectos.html">Proyectos / sedes</a>
+    <a class="button-link secondary-link" href="responsables.html">Responsables</a>
+    <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="container users-v43-container">
+  <section class="page-head users-v43-head">
+    <div>
+      <p class="eyebrow">CONTROL DE ACCESOS</p>
+      <h1>Usuarios y accesos</h1>
+      <p class="muted">ADMIN controla el sistema, GERENCIA opera todos los proyectos y PROYECTO opera únicamente la unidad asignada.</p>
+    </div>
+    <button id="newUserAccessBtn">+ Configurar usuario</button>
+  </section>
+
+  <section class="card users-v43-help">
+    <div class="users-v43-help-icon">1</div>
+    <div>
+      <strong>Primero crea la cuenta de inicio de sesión en Supabase</strong>
+      <p>Supabase → Authentication → Users → Add user. Define el correo y la contraseña inicial. Después vuelve aquí y configura su rol y alcance. El aplicativo no almacena ni muestra contraseñas.</p>
+    </div>
+  </section>
+
+  <section class="kpi-grid users-v43-kpis">
+    <article class="kpi"><span>Usuarios Auth</span><strong id="usersKpiTotal">—</strong></article>
+    <article class="kpi"><span>Gerencias activas</span><strong id="usersKpiGerencia">—</strong></article>
+    <article class="kpi"><span>Usuarios de proyecto</span><strong id="usersKpiProjects">—</strong></article>
+    <article class="kpi"><span>Perfiles inactivos</span><strong id="usersKpiInactive">—</strong></article>
+  </section>
+
+  <section id="userAccessFormCard" class="card hidden users-v43-form-card">
+    <p class="eyebrow">CONFIGURACIÓN</p>
+    <h2>Configurar acceso</h2>
+    <form id="userAccessForm" class="form-grid">
+      <div class="field full">
+        <label for="uaEmail">Correo del usuario creado en Supabase *</label>
+        <input id="uaEmail" type="email" required placeholder="proyecto@explodrillingperu.pe">
+        <small>Debe existir previamente en Authentication → Users.</small>
+      </div>
+      <div class="field">
+        <label for="uaNames">Nombres *</label>
+        <input id="uaNames" type="text" required maxlength="120">
+      </div>
+      <div class="field">
+        <label for="uaLastNames">Apellidos *</label>
+        <input id="uaLastNames" type="text" required maxlength="120">
+      </div>
+      <div class="field">
+        <label for="uaCargo">Cargo</label>
+        <input id="uaCargo" type="text" maxlength="150" placeholder="Ej. Administrador de proyecto">
+      </div>
+      <div class="field">
+        <label for="uaRole">Rol *</label>
+        <select id="uaRole" required>
+          <option value="GERENCIA">GERENCIA</option>
+          <option value="PROYECTO">PROYECTO</option>
+        </select>
+      </div>
+      <div id="uaProjectField" class="field">
+        <label for="uaProject">Proyecto / sede autorizada *</label>
+        <select id="uaProject"><option value="">Seleccione...</option></select>
+      </div>
+      <div class="field users-v43-active-field">
+        <label>Estado</label>
+        <label class="users-v43-switch"><input id="uaActive" type="checkbox" checked><span>Usuario activo</span></label>
+      </div>
+      <div class="full form-actions">
+        <button id="saveUserAccessBtn" type="submit">Guardar acceso</button>
+        <button id="cancelUserAccessBtn" type="button" class="secondary">Cancelar</button>
+      </div>
+      <p id="userFormMessage" class="message full"></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="users-v43-list-head">
+      <div>
+        <p class="eyebrow">USUARIOS DEL SISTEMA</p>
+        <h2>Accesos configurados</h2>
+      </div>
+      <div class="users-v43-filters">
+        <input id="usersSearch" type="search" placeholder="Buscar nombre, correo o proyecto...">
+        <select id="usersRoleFilter">
+          <option value="">Todos los roles</option>
+          <option value="ADMIN">ADMIN</option>
+          <option value="GERENCIA">GERENCIA</option>
+          <option value="PROYECTO">PROYECTO</option>
+        </select>
+      </div>
+    </div>
+    <div id="usersList" class="responsible-list">Cargando...</div>
+    <p id="usersMessage" class="message"></p>
+  </section>
+</main>
+
+<script src="app.js?v=11.4"></script>
+</body>
+</html>

@@ -205,6 +205,78 @@ async function getProfile(userId){
   const {data,error}=await sb.from('perfiles').select('nombres,apellidos,cargo,email,rol,activo').eq('id',userId).single();
   if(error) throw error; return data;
 }
+
+// ============================================================
+// ETAPA 43 - ROLES Y ALCANCE POR PROYECTO
+// ============================================================
+const V43_CORPORATE_ROLES=new Set(['ADMIN','GERENCIA','SIG']);
+const V43_PROJECT_ROLES=new Set(['PROYECTO','ING_SEGURIDAD']);
+let v43AccessCache=null;
+function normalizeRoleV43(role=''){return String(role||'').trim().toUpperCase();}
+function isAdminV43(profile){return normalizeRoleV43(profile?.rol)==='ADMIN';}
+function isCorporateV43(profile){return V43_CORPORATE_ROLES.has(normalizeRoleV43(profile?.rol));}
+function canOperateV43(profile){return isCorporateV43(profile)||V43_PROJECT_ROLES.has(normalizeRoleV43(profile?.rol));}
+
+async function getAccessibleProjectsV43(includeInactive=false){
+  const {data,error}=await sb.rpc('listar_proyectos_autorizados_actual',{p_incluir_inactivos:includeInactive});
+  if(error)throw error;
+  return data||[];
+}
+async function getAccessContextV43(session=null){
+  if(v43AccessCache)return v43AccessCache;
+  const sess=session||await requireSession();if(!sess)return null;
+  const profile=await getProfile(sess.user.id);
+  if(profile.activo===false){await sb.auth.signOut();location.href='index.html';throw new Error('Usuario desactivado.');}
+  const projects=await getAccessibleProjectsV43(false);
+  v43AccessCache={profile,projects,role:normalizeRoleV43(profile.rol),isAdmin:isAdminV43(profile),isCorporate:isCorporateV43(profile),isProject:normalizeRoleV43(profile.rol)==='PROYECTO'};
+  return v43AccessCache;
+}
+function v43ProjectCodeForContext(ctx){return ctx?.projects?.length===1?String(ctx.projects[0].codigo||'').trim():'';}
+function v43LockProjectSelect(el,ctx,helperText='Proyecto asignado a tu usuario.'){if(!el||!ctx?.isProject)return;if(ctx.projects.length===1){el.value=ctx.projects[0].id;el.disabled=true;el.setAttribute('aria-disabled','true');const note=document.createElement('small');note.className='v43-project-lock-note';note.textContent=helperText;el.insertAdjacentElement('afterend',note);}}
+
+async function initAccessShellV43(){
+  if(['login','public-worker-report','public-lift'].includes(page))return;
+  const {data}=await sb.auth.getSession();if(!data.session)return;
+  try{
+    const ctx=await getAccessContextV43(data.session);
+    const actions=document.querySelector('.topbar .top-actions');
+    if(actions){
+      // Administración del sistema: solo ADMIN.
+      if(ctx.isAdmin&&!actions.querySelector('[data-v43-users-nav]')){
+        const a=document.createElement('a');a.className='button-link secondary-link';a.href='usuarios.html';a.dataset.v43UsersNav='1';a.textContent='Usuarios y accesos';
+        const logoutEl=actions.querySelector('#logoutBtn');actions.insertBefore(a,logoutEl||null);
+      }
+      if(!ctx.isAdmin){
+        document.getElementById('responsiblesNav')?.classList.add('hidden');
+        document.getElementById('responsiblesCardLink')?.classList.add('hidden');
+        document.querySelectorAll('a[href="responsables.html"],a[href="usuarios.html"]').forEach(a=>a.classList.add('hidden'));
+      }
+      if(ctx.isAdmin||ctx.role==='GERENCIA'||ctx.role==='SIG'){
+        document.getElementById('projectsNav')?.classList.remove('hidden');
+        document.getElementById('projectsCardLink')?.classList.remove('hidden');
+      }else{
+        document.getElementById('projectsNav')?.classList.add('hidden');
+        document.getElementById('projectsCardLink')?.classList.add('hidden');
+      }
+      if(ctx.isProject&&ctx.projects.length===1){
+        const code=v43ProjectCodeForContext(ctx);
+        document.querySelectorAll('a[href="dashboard.html"]').forEach(a=>a.href=`proyecto-dashboard.html?p=${encodeURIComponent(code)}`);
+        document.querySelectorAll('a[href="proyectos.html"]').forEach(a=>a.classList.add('hidden'));
+        document.querySelectorAll('a[href="reportar.html"]').forEach(a=>a.href=`reportar.html?p=${encodeURIComponent(code)}`);
+      }
+    }
+    if(page==='app'&&ctx.isAdmin){
+      const grid=document.querySelector('.home-quick-grid-v40');
+      if(grid&&!grid.querySelector('[data-v43-users-card]')){
+        const a=document.createElement('a');a.href='usuarios.html';a.className='home-quick-item-v40';a.dataset.v43UsersCard='1';a.innerHTML='<span>♜</span><strong>Usuarios y accesos</strong><small>Roles y permisos</small>';grid.appendChild(a);
+      }
+    }
+    // Yo Reporto flotante contextualizado al proyecto.
+    if(ctx.isProject&&ctx.projects.length===1){
+      const code=v43ProjectCodeForContext(ctx);const floating=document.querySelector('.floating-report-v42');if(floating)floating.href=`reportar.html?p=${encodeURIComponent(code)}`;
+    }
+  }catch(err){console.error('Acceso V43:',err);}
+}
 async function getStatuses(){
   const {data,error}=await sb.from('estados_ocurrencia').select('id,codigo,nombre,orden').eq('activo',true).order('orden');
   if(error) throw error;
@@ -292,22 +364,23 @@ async function initApp(){
   document.getElementById('logoutBtn').addEventListener('click',logout);
   const msg=document.getElementById('appMessage');
   try{
-    const profile=await getProfile(session.user.id);
+    const ctx=await getAccessContextV43(session),profile=ctx.profile;
     document.getElementById('userName').textContent=`${profile.nombres||''} ${profile.apellidos||''}`.trim();
-    document.getElementById('userMeta').textContent=`${profile.cargo||''} · ${profile.rol||''}`;
+    const scopeLabel=ctx.isProject&&ctx.projects.length?ctx.projects.map(p=>p.nombre).join(', '):'Todos los proyectos';
+    document.getElementById('userMeta').textContent=`${profile.cargo||''} · ${ctx.role} · ${scopeLabel}`;
 
-    if(['ADMIN','SIG'].includes(profile.rol)){
+    if(ctx.isAdmin){
       document.getElementById('projectsNav')?.classList.remove('hidden');
       document.getElementById('projectsCardLink')?.classList.remove('hidden');
       document.getElementById('responsiblesNav')?.classList.remove('hidden');
       document.getElementById('responsiblesCardLink')?.classList.remove('hidden');
+    }else if(ctx.isCorporate){
+      document.getElementById('projectsNav')?.classList.remove('hidden');
+      document.getElementById('projectsCardLink')?.classList.remove('hidden');
     }
 
-    const {data:links,error:perr}=await sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,codigo,nombre,cliente)').eq('usuario_id',session.user.id);
-    if(perr)throw perr;
     const box=document.getElementById('projectsList'); box.innerHTML='';
-    (links||[]).forEach(r=>{
-      const p=r.proyectos||{};
+    (ctx.projects||[]).forEach(p=>{
       const a=document.createElement('a');
       a.className='list-item home-project-link-v41';
       a.href=p.codigo?`proyecto-dashboard.html?p=${encodeURIComponent(p.codigo)}`:'proyectos.html';
@@ -387,8 +460,9 @@ async function initNewOccurrence(){
   });
   syncImmediateLiftUI();
 
+  const accessCtx=await getAccessContextV43(session);
   const [projectsRes,originsRes,typesRes,potentialsRes,areasRes,responsiblesRes]=await Promise.all([
-    sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,nombre,cliente)').eq('usuario_id',session.user.id),
+    Promise.resolve({data:accessCtx.projects,error:null}),
     sb.from('origenes_hallazgo').select('id,nombre,orden').eq('activo',true).order('orden'),
     sb.from('tipos_hallazgo').select('id,codigo,nombre,orden').eq('activo',true).order('orden'),
     sb.from('potenciales_perdida').select('id,codigo,nombre,orden').eq('activo',true).order('orden'),
@@ -399,7 +473,9 @@ async function initNewOccurrence(){
   if(error){showMessage(msg,'No se pudieron cargar los catálogos: '+error.message);saveBtn.disabled=true;return;}
   const origins=originsRes.data||[],types=typesRes.data||[],responsibles=responsiblesRes.data||[];
 
-  projectEl.innerHTML='<option value="">Seleccione...</option>'+(projectsRes.data||[]).map(r=>`<option value="${r.proyectos.id}">${escapeHtml(r.proyectos.nombre)}</option>`).join('');
+  projectEl.innerHTML='<option value="">Seleccione...</option>'+(projectsRes.data||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+  v43LockProjectSelect(projectEl,accessCtx);
+  if(accessCtx.isProject&&accessCtx.projects.length===1)projectEl.dispatchEvent(new Event('change'));
   originEl.innerHTML='<option value="">Seleccione...</option>'+origins.map(o=>`<option value="${o.id}">${escapeHtml(o.nombre)}</option>`).join('');
   classificationEl.innerHTML='<option value="">Seleccione...</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
   potentialEl.innerHTML='<option value="">Seleccione...</option>'+(potentialsRes.data||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
@@ -528,7 +604,7 @@ async function initNewOccurrence(){
           assignmentWarning=' La ocurrencia fue creada, pero la asignación de levantamiento quedó pendiente: '+assignmentError.message;
         }else{
           const assignment=Array.isArray(assignmentData)?assignmentData[0]:assignmentData;
-          const project=(projectsRes.data||[]).map(x=>x.proyectos).find(p=>p?.id===projectEl.value);
+          const project=(projectsRes.data||[]).find(p=>p?.id===projectEl.value);
           const selectedType=types.find(t=>t.id===classificationEl.value);
           try{
             const reporter=await getProfile(session.user.id);
@@ -589,6 +665,8 @@ async function initOccurrences(){
     const requestedDeadline=params.get('plazo');
     const requestedProject=params.get('proyecto');
     if(requestedProject&&[...fp.options].some(o=>o.value===requestedProject))fp.value=requestedProject;
+    const occAccessCtx=await getAccessContextV43(session);
+    if(occAccessCtx.isProject&&projects.length===1){fp.value=projects[0].id;fp.disabled=true;fp.insertAdjacentHTML('afterend','<small class="v43-project-lock-note">Solo se muestran ocurrencias de tu proyecto.</small>');}
     if(requestedStatus&&[...fs.options].some(o=>o.value===requestedStatus))fs.value=requestedStatus;
     if(requestedDeadline&&[...fd.options].some(o=>o.value===requestedDeadline))fd.value=requestedDeadline;
 
@@ -1103,7 +1181,7 @@ async function renderDeadlineManagement(o,profile,occId,container,msg){
   const original=o.fecha_levantamiento_original||o.fecha_levantamiento||null;
   const current=o.fecha_levantamiento||null;
   const deadline=getDeadlineInfo(o);
-  const canExtend=['ADMIN','SIG','ING_SEGURIDAD'].includes(profile.rol)
+  const canExtend=['ADMIN','GERENCIA','PROYECTO','SIG','ING_SEGURIDAD'].includes(normalizeRoleV43(profile.rol))
     && ['ABIERTO','EN_PROCESO'].includes(o.estado?.codigo)
     && Boolean(current);
   const count=Math.max(Number(o.numero_ampliaciones||0),history.length);
@@ -1112,7 +1190,7 @@ async function renderDeadlineManagement(o,profile,occId,container,msg){
   if(!current)reason='La ocurrencia no tiene una fecha límite definida. La ampliación aplica únicamente sobre un plazo existente.';
   else if(o.estado?.codigo==='PENDIENTE_VALIDACION')reason='El levantamiento ya fue presentado y se encuentra pendiente de validación; el plazo ya no corresponde ampliarlo.';
   else if(o.estado?.codigo==='CERRADO')reason='La ocurrencia está cerrada y su plazo ya no puede modificarse.';
-  else if(!['ADMIN','SIG','ING_SEGURIDAD'].includes(profile.rol))reason='Tu perfil puede consultar el plazo, pero no autorizar ampliaciones.';
+  else if(!['ADMIN','GERENCIA','PROYECTO','SIG','ING_SEGURIDAD'].includes(normalizeRoleV43(profile.rol)))reason='Tu perfil puede consultar el plazo, pero no autorizar ampliaciones.';
 
   const historyHtml=history.length?`<details class="extension-history">
     <summary>Ver historial de ampliaciones (${history.length})</summary>
@@ -1201,7 +1279,7 @@ function renderWorkflow(o,profile,statuses,session,box,msg,occId){
   }else if(state==='EN_PROCESO'){
     box.innerHTML=liftForm();bindLiftForm(occId,session,statuses,msg);
   }else if(state==='PENDIENTE_VALIDACION'){
-    const canValidate=['ADMIN','SIG','ING_SEGURIDAD'].includes(profile.rol);
+    const canValidate=['ADMIN','GERENCIA','PROYECTO','SIG','ING_SEGURIDAD'].includes(normalizeRoleV43(profile.rol));
     box.innerHTML=canValidate?`<div class="workflow-box"><label for="validationNote">Observación de validación</label><textarea id="validationNote" rows="3" placeholder="Conformidad u observación...">${escapeHtml(o.observacion_validacion||'')}</textarea><div class="workflow-actions"><button id="closeBtn" class="success">Validar y cerrar</button><button id="rejectBtn" class="warning">Devolver a corrección</button></div></div>`:'<div class="list-item">Pendiente de validación por Seguridad / SIG.</div>';
     if(canValidate){
       document.getElementById('closeBtn').addEventListener('click',async()=>{const note=document.getElementById('validationNote').value.trim();const {error}=await sb.from('ocurrencias').update({estado_id:statuses.CERRADO.id,validado_por_id:session.user.id,fecha_validacion:new Date().toISOString(),observacion_validacion:note||null}).eq('id',occId);if(error){showMessage(msg,error.message);return;}location.reload();});
@@ -1360,6 +1438,7 @@ function initStage42(){
 
 initGlobalShellV40();
 initStage42();
+initAccessShellV43();
 
 if(page==='login')initLogin();
 if(page==='app')initApp();
@@ -1433,14 +1512,16 @@ async function initDailyReport(){
   let projectName='TODOS LOS PROYECTOS';
   let reportPeriodLabel='';
 
-  const {data:links,error:le}=await sb.from('usuario_proyectos')
-    .select('proyecto_id,proyectos(id,nombre,cliente)')
-    .eq('usuario_id',session.user.id);
-  if(le){showMessage(msgEl,'No se pudieron cargar los proyectos: '+le.message);return;}
-
-  projectEl.innerHTML='<option value="ALL">TODOS LOS PROYECTOS</option>'+
-    (links||[]).map(r=>`<option value="${r.proyectos.id}">${escapeHtml(r.proyectos.nombre)}</option>`).join('');
-  projectEl.value='ALL';
+  const accessCtx=await getAccessContextV43(session);
+  const availableProjects=accessCtx.projects||[];
+  projectEl.innerHTML=(accessCtx.isProject?'':'<option value="ALL">TODOS LOS PROYECTOS</option>')+
+    availableProjects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+  if(accessCtx.isProject&&availableProjects.length===1){projectEl.value=availableProjects[0].id;projectEl.disabled=true;projectEl.insertAdjacentHTML('afterend','<small class="v43-project-lock-note">Proyecto asignado a tu usuario.</small>');}
+  else {
+    projectEl.value='ALL';
+    const requestedProject=new URLSearchParams(location.search).get('proyecto');
+    if(requestedProject&&availableProjects.some(p=>p.id===requestedProject))projectEl.value=requestedProject;
+  }
 
   projectEl.addEventListener('change',loadReport);
   monthEl.addEventListener('change',loadReport);
@@ -1651,7 +1732,7 @@ async function initResponsibles(){
   document.getElementById('logoutBtn').addEventListener('click',logout);
 
   const profile=await getProfile(session.user.id);
-  const allowed=['ADMIN','SIG'].includes(profile.rol);
+  const allowed=isAdminV43(profile);
   const newBtn=document.getElementById('newResponsibleBtn');
   const formCard=document.getElementById('responsibleFormCard');
   const form=document.getElementById('responsibleForm');
@@ -1671,7 +1752,7 @@ async function initResponsibles(){
   if(!allowed){
     newBtn.classList.add('hidden');
     formCard.classList.add('hidden');
-    list.innerHTML='<div class="list-item">No tienes permisos para administrar responsables. Esta opción está reservada a ADMIN / SIG.</div>';
+    list.innerHTML='<div class="list-item">No tienes permisos para administrar responsables. Esta opción está reservada al ADMIN del sistema.</div>';
     return;
   }
 
@@ -2014,8 +2095,9 @@ async function initWorkerReportsAdmin(){
   let areas=[];
   let current=null;
 
+  const accessCtx=await getAccessContextV43(session);
   const [projectsRes,typesRes,responsiblesRes,potentialsRes,areasRes]=await Promise.all([
-    sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,nombre,cliente)').eq('usuario_id',session.user.id),
+    Promise.resolve({data:accessCtx.projects,error:null}),
     sb.from('tipos_hallazgo').select('id,codigo,nombre,orden').eq('activo',true).in('codigo',['ACTO','CONDICION']).order('orden'),
     sb.from('responsables_correccion').select('id,proyecto_id,sede,area_nombre,nombres,apellidos,cargo,email,aplica_todos_proyectos,activo').eq('activo',true).order('apellidos'),
     sb.from('potenciales_perdida').select('id,codigo,nombre,orden').eq('activo',true).order('orden'),
@@ -2024,7 +2106,7 @@ async function initWorkerReportsAdmin(){
   const catalogError=[projectsRes.error,typesRes.error,responsiblesRes.error,potentialsRes.error,areasRes.error].find(Boolean);
   if(catalogError){showMessage(listMsg,'No se pudieron cargar los catálogos: '+catalogError.message);return;}
 
-  projects=(projectsRes.data||[]).map(r=>r.proyectos).filter(Boolean);
+  projects=(projectsRes.data||[]).filter(Boolean);
   types=typesRes.data||[];
   responsibles=responsiblesRes.data||[];
   potentials=potentialsRes.data||[];
@@ -2058,8 +2140,9 @@ async function initWorkerReportsAdmin(){
   });
   syncReviewImmediateLiftUI();
 
-  projectFilter.innerHTML='<option value="ALL">Todos</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+  projectFilter.innerHTML=(accessCtx.isProject?'':'<option value="ALL">Todos</option>')+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   document.getElementById('reviewProject').innerHTML='<option value="">Seleccione...</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+  if(accessCtx.isProject&&projects.length===1){projectFilter.value=projects[0].id;projectFilter.disabled=true;const rp=document.getElementById('reviewProject');rp.value=projects[0].id;rp.disabled=true;}
   document.getElementById('reviewType').innerHTML='<option value="">Seleccione...</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
   document.getElementById('reviewPotential').innerHTML='<option value="">Seleccione...</option>'+potentials.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   document.getElementById('reviewArea').innerHTML='<option value="">Seleccione...</option>'+areas.map(a=>`<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('');
@@ -2329,7 +2412,9 @@ async function initProjectsAdmin(){
   document.getElementById('logoutBtn').addEventListener('click',logout);
 
   const profile=await getProfile(session.user.id);
-  const allowed=['ADMIN','SIG'].includes(profile.rol);
+  const accessCtx=await getAccessContextV43(session);
+  const allowed=['ADMIN','GERENCIA','SIG'].includes(accessCtx.role);
+  const canAdmin=accessCtx.isAdmin;
   const newBtn=document.getElementById('newProjectBtn');
   const formCard=document.getElementById('projectFormCard');
   const form=document.getElementById('projectForm');
@@ -2352,9 +2437,10 @@ async function initProjectsAdmin(){
 
   if(!allowed){
     newBtn.classList.add('hidden');
-    list.innerHTML='<div class="list-item">No tienes permisos para administrar proyectos o sedes.</div>';
+    list.innerHTML='<div class="list-item">No tienes acceso al módulo de proyectos o sedes.</div>';
     return;
   }
+  if(!canAdmin){newBtn.classList.add('hidden');formCard.classList.add('hidden');}
 
   function resetForm(){
     form.reset(); editId.value='';
@@ -2380,12 +2466,14 @@ async function initProjectsAdmin(){
     formCard.scrollIntoView({behavior:'smooth',block:'start'});
   }
 
-  newBtn.addEventListener('click',()=>openForm());
-  document.getElementById('cancelProjectBtn').addEventListener('click',()=>{resetForm();formCard.classList.add('hidden');});
+  if(canAdmin)newBtn.addEventListener('click',()=>openForm());
+  document.getElementById('cancelProjectBtn')?.addEventListener('click',()=>{resetForm();formCard.classList.add('hidden');});
 
   async function loadRecords(){
     list.innerHTML='Cargando...'; showMessage(listMsg,'');
-    const {data,error}=await sb.rpc('admin_listar_unidades');
+    let data,error;
+    if(canAdmin){({data,error}=await sb.rpc('admin_listar_unidades'));}
+    else{({data,error}=await sb.rpc('listar_proyectos_autorizados_actual',{p_incluir_inactivos:true}));}
     if(error){showMessage(listMsg,'No se pudieron cargar los proyectos: '+error.message);list.innerHTML='';return;}
     records=data||[];
 
@@ -2441,14 +2529,14 @@ async function initProjectsAdmin(){
           ${r.activo?`<button type="button" class="project-qr-open" data-id="${r.id}">Ver QR</button>
           <button type="button" class="secondary project-copy-link" data-id="${r.id}">Copiar enlace</button>
           <a class="button-link secondary-link" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">Abrir formulario</a>`:'<span class="project-qr-disabled">QR deshabilitado mientras la unidad esté inactiva.</span>'}
-          <button type="button" class="secondary project-edit" data-id="${r.id}">Editar</button>
-          <button type="button" class="${r.activo?'warning':'success'} project-toggle" data-id="${r.id}" data-active="${r.activo}">${r.activo?'Desactivar':'Reactivar'}</button>
+          ${canAdmin?`<button type="button" class="secondary project-edit" data-id="${r.id}">Editar</button>
+          <button type="button" class="${r.activo?'warning':'success'} project-toggle" data-id="${r.id}" data-active="${r.activo}">${r.activo?'Desactivar':'Reactivar'}</button>`:''}
         </div>
       </article>`;
     }).join('');
 
-    list.querySelectorAll('.project-edit').forEach(b=>b.addEventListener('click',()=>openForm(records.find(r=>r.id===b.dataset.id))));
-    list.querySelectorAll('.project-toggle').forEach(b=>b.addEventListener('click',()=>toggleState(b.dataset.id,b.dataset.active==='true')));
+    if(canAdmin){list.querySelectorAll('.project-edit').forEach(b=>b.addEventListener('click',()=>openForm(records.find(r=>r.id===b.dataset.id))));
+    list.querySelectorAll('.project-toggle').forEach(b=>b.addEventListener('click',()=>toggleState(b.dataset.id,b.dataset.active==='true')));}
     list.querySelectorAll('.project-qr-open').forEach(b=>b.addEventListener('click',()=>openQrModal(records.find(r=>r.id===b.dataset.id))));
     list.querySelectorAll('.project-copy-link').forEach(b=>b.addEventListener('click',async()=>{
       const r=records.find(x=>x.id===b.dataset.id); if(!r)return;
@@ -2473,7 +2561,7 @@ async function initProjectsAdmin(){
   }
 
   form.addEventListener('submit',async e=>{
-    e.preventDefault();showMessage(formMsg,'');
+    e.preventDefault();if(!canAdmin){showMessage(formMsg,'Solo ADMIN puede modificar proyectos.');return;}showMessage(formMsg,'');
     const btn=document.getElementById('saveProjectBtn');btn.disabled=true;btn.textContent='Guardando...';
     try{
       const id=editId.value||null;
@@ -2827,6 +2915,8 @@ function analyticsPareto(id,pairs){
 async function initAnalyticsDashboard(){
   const session=await requireSession();if(!session)return;
   document.getElementById('logoutBtn')?.addEventListener('click',logout);
+  const accessCtx=await getAccessContextV43(session);
+  if(accessCtx.isProject&&accessCtx.projects.length===1){location.replace(`proyecto-dashboard.html?p=${encodeURIComponent(accessCtx.projects[0].codigo||'')}`);return;}
   const msg=document.getElementById('analyticsMessage');
   const ids={year:'analyticsYear',month:'analyticsMonth',project:'analyticsProject',area:'analyticsArea',origin:'analyticsOrigin',type:'analyticsType',status:'analyticsStatus',potential:'analyticsPotential'};
   const els=Object.fromEntries(Object.entries(ids).map(([k,id])=>[k,document.getElementById(id)]));
@@ -2926,15 +3016,9 @@ async function initProjectDashboardV41(){
     if(typeof Chart==='undefined')throw new Error('No se pudo cargar el motor de gráficos. Actualiza la página e inténtalo nuevamente.');
     Chart.defaults.font.family='Arial, Helvetica, sans-serif';Chart.defaults.color='#475467';
 
-    const profile=await getProfile(session.user.id);
-    const {data:links,error:linksError}=await sb.from('usuario_proyectos').select('proyecto_id,proyectos(id,codigo,nombre,cliente,tipo_unidad,activo)').eq('usuario_id',session.user.id);
-    if(linksError)throw linksError;
-    let project=(links||[]).map(x=>x.proyectos).find(p=>String(p?.codigo||'').trim().toUpperCase()===code);
-
-    if(!project&&['ADMIN','SIG'].includes(profile.rol)){
-      const {data:units,error:unitsError}=await sb.rpc('admin_listar_unidades');
-      if(!unitsError)project=(units||[]).find(p=>String(p?.codigo||'').trim().toUpperCase()===code)||null;
-    }
+    const accessCtx=await getAccessContextV43(session),profile=accessCtx.profile;
+    const authorized=await getAccessibleProjectsV43(true);
+    let project=(authorized||[]).find(p=>String(p?.codigo||'').trim().toUpperCase()===code);
     if(!project)throw new Error('No tienes acceso a este proyecto/sede o el código no existe.');
 
     const projectId=project.id;
@@ -2954,8 +3038,9 @@ async function initProjectDashboardV41(){
     document.getElementById('pdOpenPublic').href=publicUrl;
     document.getElementById('pdOccurrencesLink').href=`ocurrencias.html?proyecto=${encodeURIComponent(projectId)}`;
     document.getElementById('pdOccurrencesLink2').href=`ocurrencias.html?proyecto=${encodeURIComponent(projectId)}`;
-    document.getElementById('pdMonthlyLink').href='reporte-diario.html';
+    document.getElementById('pdMonthlyLink').href=`reporte-diario.html?proyecto=${encodeURIComponent(projectId)}`;
     document.getElementById('pdManageProject').href='proyectos.html';
+    if(!accessCtx.isAdmin)document.getElementById('pdManageProject')?.classList.add('hidden');
 
     const qrBox=document.getElementById('pdQr');
     if(qrBox&&typeof QRCode!=='undefined'){
@@ -3066,3 +3151,58 @@ async function initProjectDashboardV41(){
 }
 
 if(page==='project-dashboard')initProjectDashboardV41();
+
+
+// ============================================================
+// ETAPA 43 - ADMINISTRACION DE USUARIOS Y ACCESOS
+// ============================================================
+async function initUsersAccessV43(){
+  const session=await requireSession();if(!session)return;
+  document.getElementById('logoutBtn')?.addEventListener('click',logout);
+  const ctx=await getAccessContextV43(session);
+  const msg=document.getElementById('usersMessage'),list=document.getElementById('usersList'),formCard=document.getElementById('userAccessFormCard'),form=document.getElementById('userAccessForm');
+  if(!ctx.isAdmin){showMessage(msg,'Solo el ADMIN del sistema puede gestionar usuarios y accesos.');list.innerHTML='<div class="list-item">Acceso restringido.</div>';return;}
+  const projects=await getAccessibleProjectsV43(false);
+  const projectEl=document.getElementById('uaProject');
+  projectEl.innerHTML='<option value="">Seleccione...</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+  let rows=[];
+  function syncRole(){const projectRole=document.getElementById('uaRole').value==='PROYECTO';document.getElementById('uaProjectField').classList.toggle('hidden',!projectRole);projectEl.required=projectRole;if(!projectRole)projectEl.value='';}
+  document.getElementById('uaRole').addEventListener('change',syncRole);syncRole();
+
+  function openForm(r=null){
+    form.reset();document.getElementById('uaEmail').readOnly=Boolean(r);document.getElementById('uaEmail').value=r?.email||'';document.getElementById('uaNames').value=r?.nombres||'';document.getElementById('uaLastNames').value=r?.apellidos||'';document.getElementById('uaCargo').value=r?.cargo||'';
+    const own=r?.user_id===session.user.id;
+    document.getElementById('uaRole').innerHTML=own?'<option value="ADMIN">ADMIN</option>':'<option value="GERENCIA">GERENCIA</option><option value="PROYECTO">PROYECTO</option>';
+    document.getElementById('uaRole').value=own?'ADMIN':(['GERENCIA','PROYECTO'].includes(r?.rol)?r.rol:'PROYECTO');document.getElementById('uaActive').checked=r?Boolean(r.activo):true;document.getElementById('uaActive').disabled=own;projectEl.value=r?.proyecto_id||'';syncRole();formCard.classList.remove('hidden');formCard.scrollIntoView({behavior:'smooth',block:'start'});showMessage(document.getElementById('userFormMessage'),'');
+  }
+  document.getElementById('newUserAccessBtn').addEventListener('click',()=>openForm());
+  document.getElementById('cancelUserAccessBtn').addEventListener('click',()=>formCard.classList.add('hidden'));
+
+  async function load(){
+    list.innerHTML='Cargando...';
+    const {data,error}=await sb.rpc('admin_listar_usuarios_accesos');
+    if(error){showMessage(msg,'No se pudieron cargar los usuarios: '+error.message);list.innerHTML='';return;}
+    rows=data||[];render();
+  }
+  function render(){
+    const q=(document.getElementById('usersSearch').value||'').trim().toLowerCase();const role=document.getElementById('usersRoleFilter').value;
+    const f=rows.filter(r=>(!q||`${r.email||''} ${r.nombres||''} ${r.apellidos||''} ${r.proyecto_nombre||''}`.toLowerCase().includes(q))&&(!role||r.rol===role));
+    document.getElementById('usersKpiTotal').textContent=rows.length;document.getElementById('usersKpiGerencia').textContent=rows.filter(r=>r.rol==='GERENCIA'&&r.activo).length;document.getElementById('usersKpiProjects').textContent=rows.filter(r=>r.rol==='PROYECTO'&&r.activo).length;document.getElementById('usersKpiInactive').textContent=rows.filter(r=>r.perfil_configurado&&!r.activo).length;
+    list.innerHTML=f.length?f.map(r=>`<article class="user-access-card"><div><div class="responsible-title"><h3>${escapeHtml((`${r.nombres||''} ${r.apellidos||''}`).trim()||r.email||'Usuario')}</h3><span class="badge ${r.activo?'CERRADO':'ABIERTO'}">${r.perfil_configurado?(r.activo?'ACTIVO':'INACTIVO'):'SIN CONFIGURAR'}</span></div><div class="responsible-meta"><span>${escapeHtml(r.email||'')}</span><span>Rol: <strong>${escapeHtml(r.rol||'SIN CONFIGURAR')}</strong></span><span>Alcance: ${escapeHtml(r.rol==='PROYECTO'?(r.proyecto_nombre||'Sin proyecto'):'Todos los proyectos')}</span>${r.cargo?`<span>${escapeHtml(r.cargo)}</span>`:''}</div></div><div class="responsible-actions"><button type="button" class="secondary" data-user-edit="${r.user_id}">${r.perfil_configurado?'Editar acceso':'Configurar'}</button></div></article>`).join(''):'<div class="list-item">No hay usuarios con esos filtros.</div>';
+    list.querySelectorAll('[data-user-edit]').forEach(b=>b.addEventListener('click',()=>openForm(rows.find(r=>r.user_id===b.dataset.userEdit))));
+  }
+  document.getElementById('usersSearch').addEventListener('input',render);document.getElementById('usersRoleFilter').addEventListener('change',render);
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();const btn=document.getElementById('saveUserAccessBtn'),local=document.getElementById('userFormMessage');showMessage(local,'');
+    const role=document.getElementById('uaRole').value;if(role==='PROYECTO'&&!projectEl.value){showMessage(local,'Selecciona el proyecto autorizado.');return;}
+    btn.disabled=true;btn.textContent='Guardando...';
+    try{
+      const {error}=await sb.rpc('admin_configurar_usuario_existente',{p_email:document.getElementById('uaEmail').value.trim(),p_nombres:document.getElementById('uaNames').value.trim(),p_apellidos:document.getElementById('uaLastNames').value.trim(),p_cargo:document.getElementById('uaCargo').value.trim(),p_rol:role,p_activo:document.getElementById('uaActive').checked,p_proyecto_id:role==='PROYECTO'?projectEl.value:null});
+      if(error)throw error;showMessage(local,'Acceso configurado correctamente.',true);v43AccessCache=null;await load();setTimeout(()=>formCard.classList.add('hidden'),500);
+    }catch(err){showMessage(local,'No se pudo configurar: '+(err.message||err));}
+    finally{btn.disabled=false;btn.textContent='Guardar acceso';}
+  });
+  await load();
+}
+
+if(page==='users-access')initUsersAccessV43();
