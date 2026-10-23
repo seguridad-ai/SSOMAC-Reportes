@@ -1,0 +1,59 @@
+SSOMAC DIGITAL - V11.5 - ETAPA 44
+======================================
+
+OBJETIVO
+--------
+Agregar eliminación controlada de ocurrencias y reportes de trabajadores usados en pruebas.
+La eliminación definitiva está disponible SOLO para el rol ADMIN.
+
+CAMBIOS
+-------
+- Botón ELIMINAR en la bandeja de Ocurrencias (solo ADMIN).
+- Botón ELIMINAR en el detalle de una ocurrencia (solo ADMIN).
+- Botón ELIMINAR en Reportes de trabajadores (solo ADMIN).
+- Confirmación escribiendo ELIMINAR.
+- Motivo obligatorio de eliminación.
+- Si un reporte ya generó una ocurrencia, se exige confirmar la eliminación conjunta.
+- Elimina causas, evidencias, asignaciones, ampliaciones e historial operativo relacionado.
+- Elimina del bucket las fotografías y firmas conocidas después de confirmar la eliminación en BD.
+- Conserva auditoría administrativa en public.auditoria_eliminaciones.
+- GERENCIA y PROYECTO no pueden ejecutar la eliminación.
+
+IMPORTANTE SOBRE LA NUMERACION
+-------------------------------
+Eliminar OC-000003 o REP-000003 NO reutiliza ese número. Esto es intencional para conservar integridad de auditoría.
+
+INSTALACION
+-----------
+1. Supabase > SQL Editor > New query.
+2. Ejecutar TODO el archivo ETAPA_44_ELIMINACION_CONTROLADA.sql.
+3. Confirmar que el resultado muestre las 4 funciones de ETAPA 44 y la tabla auditoria_eliminaciones.
+4. Subir/reemplazar en GitHub los archivos del ZIP.
+5. NO modificar config.js. Este ZIP no incluye config.js.
+6. Esperar GitHub Pages y hacer Ctrl+F5.
+7. Entrar con el usuario ADMIN y probar primero con un registro de prueba.
+
+PRUEBA RECOMENDADA
+------------------
+- Abrir Ocurrencias.
+- En un registro de prueba, pulsar Eliminar.
+- Motivo: Registro de prueba.
+- Escribir ELIMINAR.
+- Si aparece un registro vinculado, marcar la confirmación de eliminación conjunta.
+- Verificar que desaparezca de Ocurrencias/Dashboard/Reporte mensual.
+- Verificar en Supabase > Table Editor > auditoria_eliminaciones que quedó registrada la acción.
+
+ARCHIVOS MODIFICADOS
+--------------------
+- app.js
+- styles.css
+- Todos los HTML entregados cambian el cache-busting a v=11.5.
+
+ARCHIVO NUEVO
+-------------
+- ETAPA_44_ELIMINACION_CONTROLADA.sql
+- LEEME_ETAPA_44.txt
+
+BASE
+----
+Construido directamente sobre ssomac-app-v11.4-etapa43(1).zip compartido por el usuario.

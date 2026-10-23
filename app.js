@@ -277,6 +277,123 @@ async function initAccessShellV43(){
     }
   }catch(err){console.error('Acceso V43:',err);}
 }
+
+
+// ============================================================
+// ETAPA 44 - ELIMINACION CONTROLADA DE PRUEBAS
+// Solo ADMIN. El borrado real se ejecuta mediante RPC segura.
+// ============================================================
+function firstRpcRowV44(data){return Array.isArray(data)?data[0]:data;}
+
+async function removeStoragePathsV44(paths=[]){
+  const unique=[...new Set((paths||[]).filter(Boolean).map(x=>String(x).trim()).filter(Boolean))];
+  if(!unique.length)return null;
+  const {error}=await sb.storage.from('evidencias-ssomac').remove(unique);
+  return error||null;
+}
+
+function closeAdminDeleteModalV44(){
+  document.getElementById('adminDeleteOverlayV44')?.remove();
+}
+
+async function openAdminDeleteModalV44(kind,id){
+  try{
+    const ctx=await getAccessContextV43();
+    if(!ctx?.isAdmin){alert('Solo el ADMIN puede eliminar registros.');return;}
+
+    const isOccurrence=kind==='OCCURRENCE';
+    const previewRpc=isOccurrence?'admin_previsualizar_eliminacion_ocurrencia':'admin_previsualizar_eliminacion_reporte';
+    const previewParams=isOccurrence?{p_ocurrencia_id:id}:{p_reporte_id:id};
+    const {data,error}=await sb.rpc(previewRpc,previewParams);
+    if(error)throw error;
+    const row=firstRpcRowV44(data);
+    if(!row)throw new Error('No se encontró el registro.');
+
+    const linkedCode=isOccurrence?row.reporte_vinculado_codigo:row.ocurrencia_vinculada_codigo;
+    const linkedLabel=isOccurrence?'reporte de trabajador':'ocurrencia formal';
+    closeAdminDeleteModalV44();
+
+    const overlay=document.createElement('div');
+    overlay.id='adminDeleteOverlayV44';
+    overlay.className='admin-delete-overlay-v44';
+    overlay.innerHTML=`<div class="admin-delete-modal-v44" role="dialog" aria-modal="true" aria-labelledby="adminDeleteTitleV44">
+      <div class="admin-delete-eyebrow-v44">Administración · ETAPA 44</div>
+      <h2 id="adminDeleteTitleV44">Eliminar definitivamente</h2>
+      <div class="admin-delete-warning-v44"><strong>Esta acción no se puede deshacer.</strong><br>El registro se retirará de los indicadores, reportes, dashboard y trazabilidad operativa. La auditoría de la eliminación se conservará.</div>
+      <div class="admin-delete-record-v44">
+        <strong>${escapeHtml(row.codigo||'Registro')}</strong>
+        <span>Proyecto: ${escapeHtml(row.proyecto||'SIN PROYECTO')}</span>
+        ${isOccurrence?`<span>Evidencias registradas: ${Number(row.cantidad_evidencias||0)}</span>`:''}
+      </div>
+      ${linkedCode?`<label class="admin-delete-linked-v44"><input id="adminDeleteLinkedV44" type="checkbox"><span>Este registro está vinculado al <strong>${escapeHtml(linkedLabel)} ${escapeHtml(linkedCode)}</strong>. Confirmo que deseo eliminar ambos registros de prueba.</span></label>`:''}
+      <div class="admin-delete-field-v44"><label for="adminDeleteReasonV44">Motivo de eliminación *</label><textarea id="adminDeleteReasonV44" rows="3" maxlength="500">Registro de prueba</textarea><small>El motivo quedará registrado en la auditoría administrativa.</small></div>
+      <div class="admin-delete-field-v44"><label for="adminDeleteConfirmTextV44">Para confirmar escribe ELIMINAR *</label><input id="adminDeleteConfirmTextV44" type="text" autocomplete="off" placeholder="ELIMINAR"></div>
+      <p id="adminDeleteMessageV44" class="message admin-delete-message-v44"></p>
+      <div class="admin-delete-actions-v44"><button id="adminDeleteCancelV44" type="button" class="secondary">Cancelar</button><button id="adminDeleteConfirmV44" type="button" class="danger-button-v44" disabled>Eliminar definitivamente</button></div>
+    </div>`;
+    document.body.appendChild(overlay);
+
+    const reason=document.getElementById('adminDeleteReasonV44');
+    const confirmText=document.getElementById('adminDeleteConfirmTextV44');
+    const linked=document.getElementById('adminDeleteLinkedV44');
+    const confirmBtn=document.getElementById('adminDeleteConfirmV44');
+    const localMsg=document.getElementById('adminDeleteMessageV44');
+
+    const validate=()=>{
+      const reasonOk=(reason?.value.trim().length||0)>=5;
+      const wordOk=(confirmText?.value.trim().toUpperCase()||'')==='ELIMINAR';
+      const linkedOk=!linkedCode||linked?.checked===true;
+      confirmBtn.disabled=!(reasonOk&&wordOk&&linkedOk);
+    };
+    reason?.addEventListener('input',validate);
+    confirmText?.addEventListener('input',validate);
+    linked?.addEventListener('change',validate);
+    document.getElementById('adminDeleteCancelV44')?.addEventListener('click',closeAdminDeleteModalV44);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeAdminDeleteModalV44();});
+    const escHandler=e=>{if(e.key==='Escape'){closeAdminDeleteModalV44();document.removeEventListener('keydown',escHandler);}};
+    document.addEventListener('keydown',escHandler);
+
+    confirmBtn.addEventListener('click',async()=>{
+      confirmBtn.disabled=true;confirmBtn.textContent='Eliminando...';showMessage(localMsg,'');
+      try{
+        const deleteRpc=isOccurrence?'admin_eliminar_ocurrencia':'admin_eliminar_reporte';
+        const deleteParams=isOccurrence?{
+          p_ocurrencia_id:id,
+          p_motivo:reason.value.trim(),
+          p_confirmacion:confirmText.value.trim(),
+          p_eliminar_reporte_vinculado:Boolean(linkedCode&&linked?.checked)
+        }:{
+          p_reporte_id:id,
+          p_motivo:reason.value.trim(),
+          p_confirmacion:confirmText.value.trim(),
+          p_eliminar_ocurrencia_vinculada:Boolean(linkedCode&&linked?.checked)
+        };
+        const {data:deleted,error:deleteError}=await sb.rpc(deleteRpc,deleteParams);
+        if(deleteError)throw deleteError;
+        const out=firstRpcRowV44(deleted)||{};
+        const storageError=await removeStoragePathsV44(out.rutas_storage||[]);
+        if(storageError){
+          console.warn('El registro fue eliminado, pero algunos archivos físicos no pudieron borrarse:',storageError);
+          showMessage(localMsg,`${out.codigo||'Registro'} eliminado. Algunos archivos físicos no pudieron limpiarse; la auditoría conserva sus rutas.`,true);
+        }else{
+          showMessage(localMsg,`${out.codigo||'Registro'} eliminado correctamente.`,true);
+        }
+        setTimeout(()=>{
+          closeAdminDeleteModalV44();
+          if(page==='occurrence-detail')location.href='ocurrencias.html';
+          else location.reload();
+        },900);
+      }catch(err){
+        console.error(err);showMessage(localMsg,'No se pudo eliminar: '+(err.message||err));
+        confirmBtn.disabled=false;confirmBtn.textContent='Eliminar definitivamente';
+      }
+    });
+    confirmText?.focus();
+  }catch(err){
+    console.error(err);alert('No se pudo preparar la eliminación: '+(err.message||err));
+  }
+}
+
 async function getStatuses(){
   const {data,error}=await sb.from('estados_ocurrencia').select('id,codigo,nombre,orden').eq('activo',true).order('orden');
   if(error) throw error;
@@ -678,7 +795,7 @@ async function initOccurrences(){
       list.innerHTML=f.map(r=>{
         const deadline=r._deadline;
         const deadlineHtml=deadline.code==='CERRADO'?'':`<span class="deadline-badge ${deadline.code}">${escapeHtml(deadline.label)}</span>`;
-        return `<article class="occurrence-card deadline-card ${deadline.code}"><div><h3>Ocurrencia N.° ${r.numero} · ${escapeHtml(r.proyecto?.nombre||'')}</h3><div class="occurrence-meta"><span>${escapeHtml(r.fecha)}</span><span>${escapeHtml(r.origen?.nombre||'')}</span><span>${escapeHtml(r.tipo?.nombre||'BUENA PRACTICA')}</span>${r.fecha_levantamiento?`<span>Fecha límite: ${escapeHtml(formatDateEsV6(r.fecha_levantamiento))}</span>`:''}</div><p>${escapeHtml(r.descripcion||'')}</p></div><div class="occurrence-status-stack"><span class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</span>${deadlineHtml}<div><a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${r.id}">Ver detalle</a></div></div></article>`;
+        return `<article class="occurrence-card deadline-card ${deadline.code}"><div><h3>Ocurrencia N.° ${r.numero} · ${escapeHtml(r.proyecto?.nombre||'')}</h3><div class="occurrence-meta"><span>${escapeHtml(r.fecha)}</span><span>${escapeHtml(r.origen?.nombre||'')}</span><span>${escapeHtml(r.tipo?.nombre||'BUENA PRACTICA')}</span>${r.fecha_levantamiento?`<span>Fecha límite: ${escapeHtml(formatDateEsV6(r.fecha_levantamiento))}</span>`:''}</div><p>${escapeHtml(r.descripcion||'')}</p></div><div class="occurrence-status-stack"><span class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</span>${deadlineHtml}<div class="occurrence-actions-v44"><a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${r.id}">Ver detalle</a>${occAccessCtx.isAdmin?`<button type="button" class="danger-button-v44" onclick="openAdminDeleteModalV44('OCCURRENCE','${r.id}')">Eliminar</button>`:''}</div></div></article>`;
       }).join('');
     };
     fp.addEventListener('change',render);fs.addEventListener('change',render);fd.addEventListener('change',render);ft.addEventListener('input',render);render();
@@ -703,6 +820,11 @@ async function initOccurrenceDetail(){
     if(error)throw error;
     let reporter=o.reportado_por_externo||'—'; if(!o.reportado_por_externo&&o.reportado_por_id){const {data:p}=await sb.from('perfiles').select('nombres,apellidos').eq('id',o.reportado_por_id).single();if(p)reporter=`${p.nombres||''} ${p.apellidos||''}`.trim();}
     head.innerHTML=`<div class="detail-title"><div><p class="eyebrow">${escapeHtml(o.proyecto?.nombre||'')}</p><h1>Ocurrencia N.° ${o.numero}</h1><div class="occurrence-meta"><span>${escapeHtml(o.fecha)}</span><span>${escapeHtml(o.origen?.nombre||'')}</span><span>${escapeHtml(o.tipo?.nombre||'BUENA PRACTICA')}</span></div></div><span class="badge ${o.estado?.codigo||''}">${escapeHtml(o.estado?.nombre||'')}</span></div>`;
+    if(isAdminV43(profile)){
+      const deleteBar=document.createElement('div');deleteBar.className='detail-admin-actions-v44';
+      const deleteBtn=document.createElement('button');deleteBtn.type='button';deleteBtn.className='danger-button-v44';deleteBtn.textContent='Eliminar ocurrencia';
+      deleteBtn.addEventListener('click',()=>openAdminDeleteModalV44('OCCURRENCE',id));deleteBar.appendChild(deleteBtn);head.appendChild(deleteBar);
+    }
     body.innerHTML=`<div class="detail-grid">
       <div class="detail-item"><span>Lugar</span><strong>${escapeHtml(o.lugar_hallazgo||'—')}</strong></div>
       <div class="detail-item"><span>Reportado por</span><strong>${escapeHtml(reporter)}</strong></div>
@@ -2206,7 +2328,7 @@ async function initWorkerReportsAdmin(){
           ${r.ocurrencia_id?'<small>Convertido en ocurrencia formal.</small>':''}
         </div>
         <div class="worker-report-card-action">
-          <button type="button" class="secondary" data-review-id="${r.id}">${r.estado_revision==='VALIDADO'?'Ver':'Revisar'}</button>
+          <button type="button" class="secondary" data-review-id="${r.id}">${r.estado_revision==='VALIDADO'?'Ver':'Revisar'}</button>${accessCtx.isAdmin?`<button type="button" class="danger-button-v44" onclick="openAdminDeleteModalV44('REPORT','${r.id}')">Eliminar</button>`:''}
         </div>
       </article>`).join('');
     list.querySelectorAll('[data-review-id]').forEach(btn=>btn.addEventListener('click',()=>openReview(btn.dataset.reviewId)));
