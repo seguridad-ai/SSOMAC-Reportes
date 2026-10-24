@@ -63,6 +63,78 @@ async function markAssignmentEmailSent(assignmentId){
   if(error)console.warn('Correo enviado, pero no se pudo actualizar la asignación:',error.message);
 }
 
+
+// ============================================================
+// ETAPA 45 - FOTO SEGURA EN EL ENLACE PUBLICO DE LEVANTAMIENTO
+// ============================================================
+const PUBLIC_LIFT_PHOTO_TTL_V45=60*60*24*365; // 365 dias
+
+async function ensurePublicLiftPhotoV45(assignmentId,occurrenceId,fallbackPath=null){
+  if(!assignmentId||!occurrenceId)return null;
+  let path=fallbackPath||null;
+
+  if(!path){
+    const {data:evidence,error:evidenceError}=await sb.from('evidencias')
+      .select('ruta_archivo,creado_en')
+      .eq('ocurrencia_id',occurrenceId)
+      .eq('tipo_evidencia','HALLAZGO')
+      .order('creado_en',{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    if(evidenceError)throw evidenceError;
+    path=evidence?.ruta_archivo||null;
+  }
+
+  if(!path)return null;
+
+  const {data:signed,error:signError}=await sb.storage
+    .from('evidencias-ssomac')
+    .createSignedUrl(path,PUBLIC_LIFT_PHOTO_TTL_V45);
+  if(signError)throw signError;
+  if(!signed?.signedUrl)return null;
+
+  const expiresAt=new Date(Date.now()+PUBLIC_LIFT_PHOTO_TTL_V45*1000).toISOString();
+  const {error:updateError}=await sb.from('asignaciones_levantamiento').update({
+    url_foto_hallazgo_firmada:signed.signedUrl,
+    foto_hallazgo_url_expira_en:expiresAt
+  }).eq('id',assignmentId);
+  if(updateError)throw updateError;
+
+  return signed.signedUrl;
+}
+
+async function backfillPublicLiftPhotosV45(){
+  if(['login','public-worker-report','public-lift'].includes(page))return;
+  const {data:sessionData}=await sb.auth.getSession();
+  if(!sessionData?.session)return;
+
+  const {data:rows,error}=await sb.from('asignaciones_levantamiento')
+    .select('id,ocurrencia_id,url_foto_hallazgo_firmada,foto_hallazgo_url_expira_en,activo,fecha_asignacion')
+    .eq('activo',true)
+    .order('fecha_asignacion',{ascending:false})
+    .limit(50);
+
+  // Si el SQL de ETAPA 45 aun no se ejecuto, no bloqueamos el sistema.
+  if(error){
+    console.warn('ETAPA 45: no se pudo revisar las fotos publicas de levantamiento:',error.message);
+    return;
+  }
+
+  const refreshBefore=Date.now()+14*24*60*60*1000;
+  const pending=(rows||[]).filter(r=>{
+    const exp=r.foto_hallazgo_url_expira_en?new Date(r.foto_hallazgo_url_expira_en).getTime():0;
+    return !r.url_foto_hallazgo_firmada||!exp||exp<refreshBefore;
+  });
+
+  for(const r of pending){
+    try{
+      await ensurePublicLiftPhotoV45(r.id,r.ocurrencia_id);
+    }catch(err){
+      console.warn('ETAPA 45: no se pudo preparar foto para la asignacion',r.id,err?.message||err);
+    }
+  }
+}
+
 function showMessage(el, text, ok=false){ if(!el)return; el.textContent=text||''; el.style.color=ok?'#067647':'#b42318'; }
 function escapeHtml(v=''){ return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;"); }
 function today(){
@@ -724,14 +796,13 @@ async function initNewOccurrence(){
           const project=(projectsRes.data||[]).find(p=>p?.id===projectEl.value);
           const selectedType=types.find(t=>t.id===classificationEl.value);
           try{
-            const reporter=await getProfile(session.user.id);
+            await ensurePublicLiftPhotoV45(assignment?.asignacion_id,occ.id);
             await sendAssignmentEmail({
               codigo_reporte:`OC-${String(occ.numero).padStart(6,'0')}`,
               correo_responsable:selectedResponsible.email,
               nombre_responsable:`${selectedResponsible.nombres||''} ${selectedResponsible.apellidos||''}`.trim(),
               proyecto:project?.nombre||projectEl.options[projectEl.selectedIndex]?.text||'',
               fecha:formatDateEsV6(dateEl.value),
-              reportado_por:`${reporter.nombres||''} ${reporter.apellidos||''}`.trim(),
               lugar:document.getElementById('place').value.trim(),
               tipo_hallazgo:selectedType?.nombre||'',
               descripcion:document.getElementById('description').value.trim(),
@@ -1561,6 +1632,7 @@ function initStage42(){
 initGlobalShellV40();
 initStage42();
 initAccessShellV43();
+void backfillPublicLiftPhotosV45();
 
 if(page==='login')initLogin();
 if(page==='app')initApp();
@@ -2491,13 +2563,13 @@ async function initWorkerReportsAdmin(){
         }
       }else if(responsible&&out?.token_levantamiento){
         try{
+          await ensurePublicLiftPhotoV45(out.asignacion_id,out.ocurrencia_id,current?.ruta_foto||null);
           await sendAssignmentEmail({
             codigo_reporte:workerCode(current),
             correo_responsable:responsible.email,
             nombre_responsable:`${responsible.nombres||''} ${responsible.apellidos||''}`.trim(),
             proyecto:project?.nombre||'',
             fecha:formatDateEsV6(document.getElementById('reviewDate').value),
-            reportado_por:document.getElementById('reviewReporter').value.trim(),
             lugar:document.getElementById('reviewPlace').value.trim(),
             tipo_hallazgo:type?.nombre||'',
             descripcion:document.getElementById('reviewDescription').value.trim(),
@@ -2893,7 +2965,8 @@ async function initPublicLift(){
   document.getElementById('liftCode').textContent=row.codigo_reporte||'Reporte SIG';
   document.getElementById('liftProject').textContent=row.proyecto||'—';
   document.getElementById('liftDate').textContent=formatDateEsV6(row.fecha);
-  document.getElementById('liftReporter').textContent=row.reportado_por||'—';
+  // Privacidad: el responsable de la correccion no visualiza la identidad del reportante.
+  document.getElementById('liftReporter')?.closest('.detail-item')?.remove();
   document.getElementById('liftPlace').textContent=row.lugar||'—';
   document.getElementById('liftType').textContent=row.tipo_hallazgo||'—';
   document.getElementById('liftDescription').textContent=row.descripcion||'—';
@@ -2905,17 +2978,17 @@ async function initPublicLift(){
   card.classList.remove('hidden');
 
   const originalEvidenceBox=document.getElementById('liftOriginalEvidence');
-  if(row.ruta_foto_hallazgo){
-    const {data:signedPhoto,error:photoError}=await sb.storage
-      .from('evidencias-ssomac')
-      .createSignedUrl(row.ruta_foto_hallazgo,3600);
-    if(!photoError&&signedPhoto?.signedUrl){
-      originalEvidenceBox.innerHTML=`<a href="${signedPhoto.signedUrl}" target="_blank" rel="noopener"><img src="${signedPhoto.signedUrl}" alt="Fotografía de la observación"></a><small>Haz clic sobre la fotografía para verla en tamaño completo.</small>`;
+  if(originalEvidenceBox){
+    const {data:publicPhoto,error:publicPhotoError}=await sb.rpc('public_obtener_foto_levantamiento_v45',{p_token:token});
+    const publicPhotoRow=Array.isArray(publicPhoto)?publicPhoto[0]:publicPhoto;
+    const securePhotoUrl=publicPhotoRow?.url_foto_hallazgo||null;
+    if(!publicPhotoError&&securePhotoUrl){
+      originalEvidenceBox.innerHTML=`<a href="${securePhotoUrl}" target="_blank" rel="noopener"><img src="${securePhotoUrl}" alt="Fotografía de la observación"></a><small>Haz clic sobre la fotografía para verla en tamaño completo.</small>`;
+    }else if(row.ruta_foto_hallazgo){
+      originalEvidenceBox.innerHTML='<span>La fotografía está registrada. Ingresa nuevamente al sistema interno una vez para habilitar su visualización segura en este enlace.</span>';
     }else{
-      originalEvidenceBox.innerHTML='<span>No se pudo cargar la fotografía de la observación.</span>';
+      originalEvidenceBox.innerHTML='<span>Este reporte no tiene fotografía de hallazgo registrada.</span>';
     }
-  }else{
-    originalEvidenceBox.innerHTML='<span>Este reporte no tiene fotografía de hallazgo registrada.</span>';
   }
 
   if(!row.puede_levantar){

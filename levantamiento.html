@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <title>SSOMAC Digital | Levantamiento</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Explo Drilling Perú | Levantamiento de observación</title>
-  <link rel="stylesheet" href="styles.css?v=10.9.1">
+  <link rel="stylesheet" href="styles.css?v=11.6">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -12,9 +12,9 @@
   <main class="public-shell">
     <section class="public-report-card">
       <div class="public-brand">
-        <img src="logo_explo_drilling.png" alt="Explo Drilling Perú">
+        <img src="assets/img/logo-corporativo.jpg" alt="Explo Drilling Perú">
         <div>
-          <p class="eyebrow">SIG · SSOMAC</p>
+          <p class="eyebrow">SSOMAC Digital</p>
           <h1>Levantamiento de observación</h1>
           <p class="muted">Registra la corrección ejecutada y adjunta la evidencia fotográfica.</p>
         </div>
@@ -27,75 +27,71 @@
         <div class="lift-status-row">
           <div>
             <p class="eyebrow">Reporte asignado</p>
-            <h2 id="liftCode" style="margin:4px 0">Reporte SIG</h2>
+            <h2 id="liftCode" style="margin:4px 0 0">—</h2>
           </div>
-          <span id="liftStatus" class="lift-status-pill"></span>
+          <span id="liftStatus" class="lift-status-pill">—</span>
         </div>
 
         <div class="lift-summary">
-          <div class="detail-item"><span>Proyecto</span><strong id="liftProject"></strong></div>
-          <div class="detail-item"><span>Fecha</span><strong id="liftDate"></strong></div>
-          <div class="detail-item"><span>Reportado por</span><strong id="liftReporter"></strong></div>
-          <div class="detail-item"><span>Responsable</span><strong id="liftResponsible"></strong></div>
-          <div class="detail-item"><span>Lugar</span><strong id="liftPlace"></strong></div>
-          <div class="detail-item"><span>Tipo</span><strong id="liftType"></strong></div>
-          <div class="detail-item full"><span>Descripción del hallazgo</span><strong id="liftDescription"></strong></div>
-          <div class="detail-item"><span>Fecha límite</span><strong id="liftDue"></strong></div>
+          <div class="detail-item"><span>Proyecto</span><strong id="liftProject">—</strong></div>
+          <div class="detail-item"><span>Fecha</span><strong id="liftDate">—</strong></div>
+          <div class="detail-item"><span>Responsable</span><strong id="liftResponsible">—</strong></div>
+          <div class="detail-item"><span>Lugar</span><strong id="liftPlace">—</strong></div>
+          <div class="detail-item"><span>Tipo</span><strong id="liftType">—</strong></div>
+          <div class="detail-item full"><span>Descripción del hallazgo</span><strong id="liftDescription">—</strong></div>
+          <div class="detail-item"><span>Fecha límite</span><strong id="liftDue">—</strong></div>
         </div>
+
+        <!-- Compatibilidad: app.js elimina este bloque si existiera en una versión antigua. -->
+        <div class="detail-item hidden" aria-hidden="true"><span>Reportado por</span><strong id="liftReporter"></strong></div>
 
         <section class="lift-original-evidence">
           <div class="lift-section-title">
             <strong>Fotografía de la observación</strong>
             <span>Evidencia registrada al momento del hallazgo</span>
           </div>
-          <div id="liftOriginalEvidence" class="lift-original-photo-box">
-            <span>Cargando fotografía...</span>
-          </div>
+          <div id="liftOriginalEvidence" class="lift-original-photo-box">Cargando fotografía...</div>
         </section>
 
         <div class="lift-action-box">
           <strong>Acción requerida</strong><br>
-          <span id="liftAction"></span>
+          <span id="liftAction">—</span>
         </div>
 
         <form id="publicLiftForm">
-          <div class="field">
-            <label for="publicLiftComment">Acción correctiva realizada *</label>
-            <textarea id="publicLiftComment" rows="5" maxlength="2500" required placeholder="Describe qué se corrigió, reemplazó, reparó o implementó."></textarea>
-          </div>
+          <label for="publicLiftComment">Acción correctiva realizada *</label>
+          <textarea id="publicLiftComment" rows="4" placeholder="Describe qué se corrigió, reemplazó, reparó o implementó."></textarea>
 
-          <div class="field">
-            <label for="publicLiftPhoto">Evidencia fotográfica del levantamiento *</label>
-            <input id="publicLiftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required>
-            <small>Adjunta una fotografía donde se evidencie claramente la corrección.</small>
-            <img id="publicLiftPhotoPreview" class="photo-preview hidden" alt="Vista previa">
-          </div>
+          <label for="publicLiftPhoto">Fotografía del levantamiento *</label>
+          <input id="publicLiftPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+          <img id="publicLiftPhotoPreview" class="photo-preview hidden" alt="Vista previa de la evidencia de levantamiento">
 
-          <div class="field">
-            <label for="publicLiftSigner">Nombre de quien realiza el levantamiento *</label>
-            <input id="publicLiftSigner" type="text" maxlength="180" required placeholder="Nombres y apellidos">
-          </div>
+          <label for="publicLiftSigner">Nombre de quien realiza el levantamiento *</label>
+          <input id="publicLiftSigner" type="text" autocomplete="name" placeholder="Nombres y apellidos">
 
-          <div class="field signature-box">
+          <div class="signature-box">
             <div class="signature-head">
               <div>
-                <strong>Firma digital *</strong>
-                <small>Firma directamente con el dedo, lápiz táctil o mouse.</small>
+                <strong>Firma de quien realiza el levantamiento *</strong>
+                <small>Firma con el dedo, mouse o lápiz digital.</small>
               </div>
               <button id="publicLiftClearSignature" type="button" class="secondary signature-clear">Limpiar firma</button>
             </div>
-            <canvas id="publicLiftSignature" class="signature-pad" width="900" height="260"></canvas>
+            <canvas id="publicLiftSignature" class="signature-pad"></canvas>
           </div>
+
+          <p id="publicLiftMessage" class="message"></p>
 
           <div class="public-submit-row">
             <button id="publicLiftSubmitBtn" type="submit">Enviar levantamiento</button>
           </div>
-          <p id="publicLiftMessage" class="message"></p>
         </form>
-        <div id="publicLiftResult" class="hidden"></div>
+
+        <div id="publicLiftResult" class="hidden mt"></div>
       </div>
     </section>
   </main>
-  <script src="app.js?v=10.9.1"></script>
+
+  <script src="app.js?v=11.6"></script>
 </body>
 </html>

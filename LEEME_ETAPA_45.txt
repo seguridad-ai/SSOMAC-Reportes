@@ -1,0 +1,30 @@
+SSOMAC DIGITAL v11.6 - ETAPA 45
+FOTO SEGURA EN LINK DE LEVANTAMIENTO + PRIVACIDAD DEL REPORTANTE
+
+1) SUPABASE
+   Ejecutar completo:
+   ETAPA_45_FOTO_SEGURA_Y_PRIVACIDAD.sql
+
+2) GITHUB
+   Reemplazar/subir los archivos de esta carpeta.
+   Los archivos HTML incluidos ya apuntan a app.js?v=11.6 para evitar cache antiguo.
+   IMPORTANTE: subir tambien levantamiento.html.
+   NO reemplazar config.js.
+
+3) DESPUES DEL DEPLOY
+   Abrir una pagina INTERNA de SSOMAC Digital con un usuario autorizado y hacer Ctrl+F5.
+   La aplicacion preparara automaticamente la foto segura para asignaciones activas antiguas.
+   Esto permite que enlaces ya enviados, como REP-000008, puedan mostrar la foto sin recrear el reporte.
+
+4) PRUEBA
+   - Abrir un enlace de levantamiento en ventana incognito.
+   - Debe verse la foto original.
+   - NO debe aparecer el nombre del reportante.
+   - Debe seguir apareciendo Proyecto, Fecha, Responsable, Lugar, Tipo,
+     Descripcion, Fecha limite y Accion requerida.
+
+SEGURIDAD
+- El bucket evidencias-ssomac permanece privado.
+- No se agrega una politica publica de lectura del bucket.
+- La foto se entrega mediante una URL firmada asociada a la asignacion/token.
+- El nombre del reportante deja de enviarse como parametro del correo y no se muestra en la pagina publica.
