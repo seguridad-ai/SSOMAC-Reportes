@@ -1,0 +1,12 @@
+V11.8.3.1 - FIX RLS STORAGE INSPECCIONES
+
+1) Supabase > SQL Editor > New query.
+2) Ejecutar completo: CORRECCION_V11.8.3_RLS_STORAGE_INSPECCIONES.sql
+3) No es necesario volver a ejecutar ETAPA 47.
+4) No es necesario modificar config.js.
+5) Regresar a la inspección y volver a Guardar.
+
+Causa corregida:
+La firma y las fotos de Inspección General se almacenan en el bucket privado
+'evidencias-ssomac', carpeta 'inspecciones-generales/'. Esa ruta aún no tenía
+una política INSERT/SELECT específica para usuarios autenticados.

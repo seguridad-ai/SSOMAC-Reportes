@@ -1,0 +1,17 @@
+SSOMAC Digital v11.8.4 - FIX Excel de Inspeccion General
+
+CORRECCION:
+- Resuelve el error: Shared Formula master must exist above and or left of clone for cell O15.
+- La plantilla corporativa original contiene formulas compartidas en O14:O23.
+- La web limpia solo esas formulas shared antes de cargar el libro con ExcelJS.
+- Se preservan hojas, formato, imagenes y contenido de la plantilla.
+- No requiere SQL.
+
+ARCHIVOS CLAVE A REEMPLAZAR EN GITHUB:
+- inspecciones.html
+- inspecciones-general.js
+
+La plantilla sigue en:
+assets/templates/formato-inspecciones-general.xlsx
+
+No modificar config.js.
