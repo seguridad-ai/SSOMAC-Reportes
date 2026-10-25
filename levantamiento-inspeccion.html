@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Levantamiento de inspección</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.8.2">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body class="public-report-body">
+  <main class="public-shell">
+    <section class="public-report-card">
+      <div class="public-brand">
+        <img src="assets/img/logo-corporativo.jpg" alt="Explo Drilling Perú">
+        <div><p class="eyebrow">SSOMAC Digital</p><h1>Levantamiento de inspección</h1><p class="muted">Registra la corrección ejecutada y adjunta la evidencia fotográfica.</p></div>
+      </div>
+      <div id="ilgLoading" class="lift-loading">Cargando información de la inspección...</div>
+      <div id="ilgError" class="lift-error hidden"></div>
+      <div id="ilgContent" class="hidden">
+        <div class="lift-status-row"><div><p class="eyebrow">Observación asignada</p><h2 id="ilgCode" style="margin:4px 0 0">—</h2></div><span id="ilgStatus" class="lift-status-pill">—</span></div>
+        <div class="lift-summary">
+          <div class="detail-item"><span>Proyecto</span><strong id="ilgProject">—</strong></div>
+          <div class="detail-item"><span>Fecha</span><strong id="ilgDate">—</strong></div>
+          <div class="detail-item"><span>Área</span><strong id="ilgArea">—</strong></div>
+          <div class="detail-item"><span>Responsable</span><strong id="ilgResponsible">—</strong></div>
+          <div class="detail-item"><span>Clasificación</span><strong id="ilgType">—</strong></div>
+          <div class="detail-item"><span>Fecha límite</span><strong id="ilgDue">—</strong></div>
+          <div class="detail-item full"><span>Observación de inspección</span><strong id="ilgDescription">—</strong></div>
+        </div>
+        <section class="lift-original-evidence">
+          <div class="lift-section-title"><strong>Fotografía de la observación</strong><span>Evidencia registrada durante la inspección</span></div>
+          <div id="ilgOriginalEvidence" class="lift-original-photo-box">Cargando fotografía...</div>
+        </section>
+        <div class="lift-action-box"><strong>Acción requerida</strong><br><span id="ilgAction">—</span></div>
+        <form id="ilgForm">
+          <label for="ilgComment">Acción correctiva realizada *</label>
+          <textarea id="ilgComment" rows="4" placeholder="Describe qué se corrigió, reemplazó, reparó o implementó."></textarea>
+          <label for="ilgPhoto">Fotografía del levantamiento *</label>
+          <input id="ilgPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+          <img id="ilgPhotoPreview" class="photo-preview hidden" alt="Vista previa del levantamiento">
+          <label for="ilgSigner">Nombre de quien realiza el levantamiento *</label>
+          <input id="ilgSigner" type="text" autocomplete="name" placeholder="Nombres y apellidos">
+          <div class="signature-box">
+            <div class="signature-head"><div><strong>Firma de quien realiza el levantamiento *</strong><small>Firma con el dedo, mouse o lápiz digital.</small></div><button id="ilgClearSignature" type="button" class="secondary signature-clear">Limpiar firma</button></div>
+            <canvas id="ilgSignature" class="signature-pad"></canvas>
+          </div>
+          <p id="ilgMessage" class="message"></p>
+          <div class="public-submit-row"><button id="ilgSubmit" type="submit">Enviar levantamiento</button></div>
+        </form>
+        <div id="ilgResult" class="hidden mt"></div>
+      </div>
+    </section>
+  </main>
+  <script src="levantamiento-inspeccion.js?v=11.8.2"></script>
+</body>
+</html>

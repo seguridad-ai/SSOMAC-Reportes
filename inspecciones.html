@@ -4,7 +4,7 @@
   <title>SSOMAC Digital | Inspecciones</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.8.1">
+  <link rel="stylesheet" href="styles.css?v=11.8.2">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="config.js"></script>
@@ -33,7 +33,7 @@
       <div class="e47-format-grid">
         <article class="e47-format-card active">
           <span class="e47-format-icon">✓</span>
-          <div><small>ACTIVO</small><h3>Inspección General</h3><p>EDP-SIG-SSOMAC-RE-PA-191-03</p><strong>No genera ocurrencia</strong></div>
+          <div><small>ACTIVO</small><h3>Inspección General</h3><p>EDP-SIG-SSOMAC-RE-PA-191-03</p><strong>Seguimiento dentro de la inspección</strong></div>
         </article>
         <article class="e47-format-card pending">
           <span class="e47-format-icon">✚</span>
@@ -61,7 +61,7 @@
       </div>
       <div class="filters">
         <div class="field"><label for="e47FilterProject">Proyecto / sede</label><select id="e47FilterProject"></select></div>
-        <div class="field"><label for="e47FilterStatus">Estado</label><select id="e47FilterStatus"><option value="">Todos</option><option value="PENDIENTE_CORRECCION">Pendiente de corrección</option><option value="COMPLETADA">Completada</option></select></div>
+        <div class="field"><label for="e47FilterStatus">Estado</label><select id="e47FilterStatus"><option value="">Todos</option><option value="PENDIENTE_CORRECCION">Pendiente de corrección</option><option value="PENDIENTE_VALIDACION">Pendiente de validación</option><option value="COMPLETADA">Completada</option></select></div>
         <div class="field grow"><label for="e47FilterText">Buscar</label><input id="e47FilterText" placeholder="N.º, inspector o área"></div>
       </div>
       <div id="e47List" class="e47-list">Cargando...</div>
@@ -70,14 +70,14 @@
 
     <section id="e47FormCard" class="card hidden">
       <div class="page-head">
-        <div><p class="eyebrow">EDP-SIG-SSOMAC-RE-PA-191-03</p><h2 id="e47FormTitle">Nueva inspección general</h2><p class="muted">Este formato se gestiona dentro del módulo de inspecciones. No crea registros en Ocurrencias.</p></div>
+        <div><p class="eyebrow">EDP-SIG-SSOMAC-RE-PA-191-03</p><h2 id="e47FormTitle">Nueva inspección general</h2><p class="muted">Este formato se gestiona dentro del módulo de inspecciones. Las observaciones se asignan y levantan posteriormente sin crear registros en Ocurrencias.</p></div>
       </div>
       <form id="e47Form">
         <div class="e47-section-title">Datos de la inspección</div>
         <div class="form-grid">
           <div class="field"><label for="e47Project">Proyecto / sede *</label><select id="e47Project" required></select></div>
           <div class="field"><label for="e47Inspector">Nombre del inspector *</label><input id="e47Inspector" required></div>
-          <div class="field"><label for="e47Area">Área inspeccionada *</label><input id="e47Area" required></div>
+          <div class="field"><label for="e47Area">Área inspeccionada *</label><select id="e47Area" required><option value="">Selecciona primero el proyecto...</option></select><small>Las áreas se administran desde Administración → Áreas por proyecto.</small></div>
           <div class="field"><label for="e47Date">Fecha de inspección *</label><input id="e47Date" type="date" required></div>
           <div class="field"><label for="e47Type">Tipo de inspección *</label><select id="e47Type" required><option value="IP">IP · Inspección planeada</option><option value="INP">INP · Inspección no planeada</option><option value="IC">IC · Inspección cruzada</option></select></div>
           <div class="field"><label for="e47Workers">N.º trabajadores en el centro laboral</label><input id="e47Workers" type="number" min="0" inputmode="numeric"></div>
@@ -114,7 +114,7 @@
     </section>
   </main>
 
-  <script src="app.js?v=11.8.1"></script>
-  <script src="inspecciones-general.js?v=11.8.1"></script>
+  <script src="app.js?v=11.8.2"></script>
+  <script src="inspecciones-general.js?v=11.8.2"></script>
 </body>
 </html>

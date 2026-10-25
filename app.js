@@ -306,6 +306,15 @@ async function getAccessContextV43(session=null){
 function v43ProjectCodeForContext(ctx){return ctx?.projects?.length===1?String(ctx.projects[0].codigo||'').trim():'';}
 function v43LockProjectSelect(el,ctx,helperText='Proyecto asignado a tu usuario.'){if(!el||!ctx?.isProject)return;if(ctx.projects.length===1){el.value=ctx.projects[0].id;el.disabled=true;el.setAttribute('aria-disabled','true');const note=document.createElement('small');note.className='v43-project-lock-note';note.textContent=helperText;el.insertAdjacentElement('afterend',note);}}
 
+// V11.8.2 - Áreas configurables por proyecto / sede
+async function getProjectAreasV472(projectId,includeInactive=false){
+  if(!projectId)return [];
+  let q=sb.from('areas_proyecto').select('id,proyecto_id,nombre,activo').eq('proyecto_id',projectId).order('nombre');
+  if(!includeInactive)q=q.eq('activo',true);
+  const {data,error}=await q;if(error)throw error;return data||[];
+}
+function normalizeAreaNameV472(v=''){return String(v||'').trim().toUpperCase();}
+
 async function initAccessShellV43(){
   if(['login','public-worker-report','public-lift'].includes(page))return;
   const {data}=await sb.auth.getSession();if(!data.session)return;
@@ -651,7 +660,7 @@ async function initNewOccurrence(){
   syncImmediateLiftUI();
 
   const accessCtx=await getAccessContextV43(session);
-  const [projectsRes,originsRes,typesRes,potentialsRes,areasRes,responsiblesRes]=await Promise.all([
+  const [projectsRes,originsRes,typesRes,potentialsRes,legacyAreasRes,responsiblesRes]=await Promise.all([
     Promise.resolve({data:accessCtx.projects,error:null}),
     sb.from('origenes_hallazgo').select('id,nombre,orden').eq('activo',true).order('orden'),
     sb.from('tipos_hallazgo').select('id,codigo,nombre,orden').eq('activo',true).order('orden'),
@@ -659,17 +668,28 @@ async function initNewOccurrence(){
     sb.from('areas').select('id,nombre').eq('activo',true).order('nombre'),
     sb.from('responsables_correccion').select('id,proyecto_id,sede,area_nombre,nombres,apellidos,cargo,email,aplica_todos_proyectos,activo').eq('activo',true).order('apellidos')
   ]);
-  const error=[projectsRes.error,originsRes.error,typesRes.error,potentialsRes.error,areasRes.error,responsiblesRes.error].find(Boolean);
+  const error=[projectsRes.error,originsRes.error,typesRes.error,potentialsRes.error,legacyAreasRes.error,responsiblesRes.error].find(Boolean);
   if(error){showMessage(msg,'No se pudieron cargar los catálogos: '+error.message);saveBtn.disabled=true;return;}
-  const origins=originsRes.data||[],types=typesRes.data||[],responsibles=responsiblesRes.data||[];
+  const origins=originsRes.data||[],types=typesRes.data||[],responsibles=responsiblesRes.data||[],legacyAreas=legacyAreasRes.data||[];
+  let projectAreas=[];
 
   projectEl.innerHTML='<option value="">Seleccione...</option>'+(projectsRes.data||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   v43LockProjectSelect(projectEl,accessCtx);
-  if(accessCtx.isProject&&accessCtx.projects.length===1)projectEl.dispatchEvent(new Event('change'));
   originEl.innerHTML='<option value="">Seleccione...</option>'+origins.map(o=>`<option value="${o.id}">${escapeHtml(o.nombre)}</option>`).join('');
   classificationEl.innerHTML='<option value="">Seleccione...</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
   potentialEl.innerHTML='<option value="">Seleccione...</option>'+(potentialsRes.data||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
-  areaEl.innerHTML='<option value="">Seleccione...</option>'+(areasRes.data||[]).map(a=>`<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('');
+  areaEl.innerHTML='<option value="">Selecciona primero el proyecto...</option>';areaEl.disabled=true;
+
+  async function renderProjectAreas(selected=''){
+    const projectId=projectEl.value;projectAreas=[];
+    if(!projectId){areaEl.innerHTML='<option value="">Selecciona primero el proyecto...</option>';areaEl.disabled=true;return;}
+    try{
+      projectAreas=await getProjectAreasV472(projectId,false);
+      areaEl.innerHTML='<option value="">Seleccione...</option>'+projectAreas.map(a=>`<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('');
+      areaEl.disabled=false;if(selected&&projectAreas.some(a=>a.id===selected))areaEl.value=selected;
+      if(!projectAreas.length)areaEl.innerHTML='<option value="">No hay áreas configuradas para este proyecto</option>';
+    }catch(err){areaEl.innerHTML='<option value="">No se pudieron cargar las áreas</option>';areaEl.disabled=true;console.warn(err);}
+  }
 
   function renderResponsibles(){
     const projectId=projectEl.value;
@@ -684,13 +704,14 @@ async function initNewOccurrence(){
     responsibleInfo.textContent=!projectId?'Selecciona el proyecto para cargar los responsables disponibles.':(available.length?`${available.length} responsable(s) disponible(s).`:'No hay responsables activos disponibles para este proyecto.');
   }
 
-  projectEl.addEventListener('change',renderResponsibles);
+  projectEl.addEventListener('change',async()=>{renderResponsibles();await renderProjectAreas();});
   responsibleEl.addEventListener('change',()=>{
     if(!isImmediateLift()||!immediateLiftSigner)return;
     const r=responsibles.find(x=>x.id===responsibleEl.value);
     if(r&&!immediateLiftSigner.value.trim())immediateLiftSigner.value=`${r.nombres||''} ${r.apellidos||''}`.trim();
   });
   renderResponsibles();
+  await renderProjectAreas();
 
   originEl.addEventListener('change',()=>{
     const origin=origins.find(o=>o.id===originEl.value),good=origin?.nombre==='BUENA PRACTICA';
@@ -732,7 +753,9 @@ async function initNewOccurrence(){
         potencial_perdida_id:good?null:(potentialEl.value||null),
         responsable_correccion_id:good?null:(selectedResponsible?.id||null),
         responsable_correccion:good?null:(selectedResponsible?`${selectedResponsible.nombres||''} ${selectedResponsible.apellidos||''}`.trim():null),
-        area_responsable_id:good?null:(areaEl.value||null),fecha_levantamiento:good?null:(document.getElementById('dueDate').value||null),
+        area_proyecto_id:good?null:(areaEl.value||null),
+        area_responsable_id:good?null:(()=>{const pa=projectAreas.find(a=>a.id===areaEl.value);const legacy=legacyAreas.find(a=>normalizeAreaNameV472(a.nombre)===normalizeAreaNameV472(pa?.nombre));return legacy?.id||null;})(),
+        fecha_levantamiento:good?null:(document.getElementById('dueDate').value||null),
         modalidad_levantamiento:good?null:(immediate?'INMEDIATO':'ASIGNADO')
       };
       const {data:occ,error:oe}=await sb.from('ocurrencias').insert(payload).select('id,numero').single();if(oe)throw oe;
@@ -887,6 +910,7 @@ async function initOccurrenceDetail(){
       tipo:tipos_hallazgo(codigo,nombre),
       potencial:potenciales_perdida(nombre),
       area:areas(nombre),
+      areaProyecto:areas_proyecto(nombre),
       estado:estados_ocurrencia(codigo,nombre)
     `).eq('id',id).single();
     if(error)throw error;
@@ -903,7 +927,7 @@ async function initOccurrenceDetail(){
       <div class="detail-item full"><span>Descripción</span><strong>${escapeHtml(o.descripcion||'—')}</strong></div>
       <div class="detail-item full"><span>Acción a implementar</span><strong>${escapeHtml(o.acciones_implementar||'No aplica')}</strong></div>
       <div class="detail-item"><span>Potencial</span><strong>${escapeHtml(o.potencial?.nombre||'No aplica')}</strong></div>
-      <div class="detail-item"><span>Área responsable</span><strong>${escapeHtml(o.area?.nombre||'No aplica')}</strong></div>
+      <div class="detail-item"><span>Área responsable</span><strong>${escapeHtml(o.areaProyecto?.nombre||o.area?.nombre||'No aplica')}</strong></div>
       <div class="detail-item"><span>Responsable</span><strong>${escapeHtml(o.responsable_correccion||'No aplica')}</strong></div>
       <div class="detail-item"><span>Fecha límite vigente</span><strong>${escapeHtml(o.fecha_levantamiento?formatDateEsV6(o.fecha_levantamiento):'No aplica')}</strong></div>
       <div class="detail-item"><span>Fecha límite original</span><strong>${escapeHtml(o.fecha_levantamiento_original?formatDateEsV6(o.fecha_levantamiento_original):(o.fecha_levantamiento?formatDateEsV6(o.fecha_levantamiento):'No aplica'))}</strong></div>
@@ -1591,6 +1615,10 @@ function initStage46ShellV46(ctx){
   if(ctx?.isAdmin||ctx?.role==='GERENCIA'||ctx?.role==='SIG'){
     admin.push(linkItemV46('⌂','Proyectos / sedes','proyectos.html',ctx?.isAdmin?'Configuración y QR':'Consulta y dashboards'));
   }
+  // ADMIN y usuario operativo del proyecto pueden mantener el catálogo de áreas.
+  if(ctx?.isAdmin||ctx?.isProject||ctx?.role==='ING_SEGURIDAD'){
+    admin.push(linkItemV46('▦','Áreas por proyecto','areas.html','Catálogo para inspecciones y reportes'));
+  }
   if(ctx?.isAdmin){
     admin.push(linkItemV46('♙','Responsables','responsables.html','Asignaciones y correos'));
     admin.push(linkItemV46('♜','Usuarios y accesos','usuarios.html','Roles y permisos'));
@@ -1913,7 +1941,7 @@ async function initDailyReport(){
       responsable_correccion,fecha_levantamiento,fecha_ejecutada,reportado_por_id,reportado_por_externo,
       proyecto:proyectos(nombre),origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(nombre),potencial:potenciales_perdida(nombre),
-      area:areas(nombre),estado:estados_ocurrencia(nombre,codigo)
+      area:areas(nombre),areaProyecto:areas_proyecto(nombre),estado:estados_ocurrencia(nombre,codigo)
     `).gte('fecha',period.start).lte('fecha',period.end).order('fecha',{ascending:true}).order('numero',{ascending:true});
 
     if(projectEl.value!=='ALL') query=query.eq('proyecto_id',projectEl.value);
@@ -1957,7 +1985,7 @@ async function initDailyReport(){
         inmediatas:good?'N.A.':((im.get(o.id)||[]).join(' | ')||'N.A.'),
         basicas:good?'N.A.':((bm.get(o.id)||[]).join(' | ')||'N.A.'),acciones:good?'N.A.':(o.acciones_implementar||'N.A.'),
         potencial:good?'N.A.':(o.potencial?.nombre||'N.A.'),responsable:good?'N.A.':(o.responsable_correccion||'N.A.'),
-        area:good?'N.A.':(o.area?.nombre||'N.A.'),flevant:good?'N.A.':formatDateEsV6(o.fecha_levantamiento),
+        area:good?'N.A.':(o.areaProyecto?.nombre||o.area?.nombre||'N.A.'),flevant:good?'N.A.':formatDateEsV6(o.fecha_levantamiento),
         fejecutada:good?'N.A.':formatDateEsV6(o.fecha_ejecutada),estado:o.estado?.nombre||'',
         evidencia:display?'SI':'NO',evidenciaTipo:display?.tipo_evidencia||'',evidenciaUrl:display?.signedUrl||'',evidenciaCantidad:es.length
       };
@@ -2452,7 +2480,8 @@ async function initWorkerReportsAdmin(){
   let types=[];
   let responsibles=[];
   let potentials=[];
-  let areas=[];
+  let legacyAreas=[];
+  let reviewProjectAreas=[];
   let current=null;
 
   const accessCtx=await getAccessContextV43(session);
@@ -2470,7 +2499,7 @@ async function initWorkerReportsAdmin(){
   types=typesRes.data||[];
   responsibles=responsiblesRes.data||[];
   potentials=potentialsRes.data||[];
-  areas=areasRes.data||[];
+  legacyAreas=areasRes.data||[];
 
   const reviewImmediateFields=document.getElementById('reviewImmediateLiftFields');
   const reviewImmediateComment=document.getElementById('reviewImmediateLiftComment');
@@ -2505,13 +2534,13 @@ async function initWorkerReportsAdmin(){
   if(accessCtx.isProject&&projects.length===1){projectFilter.value=projects[0].id;projectFilter.disabled=true;const rp=document.getElementById('reviewProject');rp.value=projects[0].id;rp.disabled=true;}
   document.getElementById('reviewType').innerHTML='<option value="">Seleccione...</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
   document.getElementById('reviewPotential').innerHTML='<option value="">Seleccione...</option>'+potentials.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
-  document.getElementById('reviewArea').innerHTML='<option value="">Seleccione...</option>'+areas.map(a=>`<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('');
+  document.getElementById('reviewArea').innerHTML='<option value="">Selecciona primero el proyecto...</option>';
 
   statusFilter.addEventListener('change',renderList);
   projectFilter.addEventListener('change',renderList);
   searchEl.addEventListener('input',renderList);
   document.getElementById('workerCloseReviewBtn').addEventListener('click',()=>{reviewCard.classList.add('hidden');current=null;showMessage(reviewMsg,'');});
-  document.getElementById('reviewProject').addEventListener('change',()=>renderReviewResponsibles());
+  document.getElementById('reviewProject').addEventListener('change',async()=>{renderReviewResponsibles();await renderReviewAreas();});
   document.getElementById('reviewResponsible').addEventListener('change',()=>{
     if(!isReviewImmediateLift()||!reviewImmediateSigner)return;
     const r=responsibles.find(x=>x.id===document.getElementById('reviewResponsible').value);
@@ -2522,10 +2551,11 @@ async function initWorkerReportsAdmin(){
   async function loadRows(){
     const {data,error}=await sb.from('reportes_trabajadores').select(`
       id,numero,proyecto_id,fecha,reportado_por_nombre,lugar_hallazgo,tipo_hallazgo_id,
-      descripcion,responsable_propuesto_id,ruta_foto,estado_revision,observacion_revision,
+      descripcion,responsable_propuesto_id,ruta_foto,estado_revision,observacion_revision,area_proyecto_id,
       creado_en,fecha_revision,ocurrencia_id,
       proyecto:proyectos(id,nombre,cliente),
       tipo:tipos_hallazgo(id,codigo,nombre),
+      areaProyecto:areas_proyecto(id,nombre),
       responsable:responsables_correccion(id,nombres,apellidos,cargo,area_nombre,email)
     `).order('creado_en',{ascending:false});
     if(error){showMessage(listMsg,'No se pudieron cargar los reportes: '+error.message);return;}
@@ -2598,6 +2628,7 @@ async function initWorkerReportsAdmin(){
     syncReviewImmediateLiftUI();
 
     renderReviewResponsibles(current.responsable_propuesto_id);
+    await renderReviewAreas(current.area_proyecto_id||'');
     await loadReviewCauses(current.tipo_hallazgo_id);
     await renderOriginalPhoto(current);
 
@@ -2622,6 +2653,18 @@ async function initWorkerReportsAdmin(){
     const el=document.getElementById('reviewResponsible');
     el.innerHTML='<option value="">Seleccione...</option>'+available.map(r=>`<option value="${r.id}">${escapeHtml(`${r.nombres||''} ${r.apellidos||''}`.trim())} · ${escapeHtml(r.area_nombre||'SIN ÁREA')} · ${escapeHtml(r.cargo||'')}</option>`).join('');
     if(selectedId&&available.some(r=>r.id===selectedId))el.value=selectedId;
+  }
+
+  async function renderReviewAreas(selectedId=''){
+    const projectId=document.getElementById('reviewProject').value;
+    const el=document.getElementById('reviewArea');reviewProjectAreas=[];
+    if(!projectId){el.innerHTML='<option value="">Selecciona primero el proyecto...</option>';el.disabled=true;return;}
+    try{
+      reviewProjectAreas=await getProjectAreasV472(projectId,false);
+      el.innerHTML='<option value="">Seleccione...</option>'+reviewProjectAreas.map(a=>`<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('');
+      el.disabled=false;if(selectedId&&reviewProjectAreas.some(a=>a.id===selectedId))el.value=selectedId;
+      if(!reviewProjectAreas.length)el.innerHTML='<option value="">No hay áreas configuradas</option>';
+    }catch(err){el.innerHTML='<option value="">No se pudieron cargar las áreas</option>';el.disabled=true;console.warn(err);}
   }
 
   async function loadReviewCauses(typeId){
@@ -2676,7 +2719,7 @@ async function initWorkerReportsAdmin(){
         p_responsable_id:document.getElementById('reviewResponsible').value,
         p_acciones:document.getElementById('reviewAction').value.trim(),
         p_potencial_id:document.getElementById('reviewPotential').value,
-        p_area_id:document.getElementById('reviewArea').value,
+        p_area_id:(()=>{const pa=reviewProjectAreas.find(a=>a.id===document.getElementById('reviewArea').value);const legacy=legacyAreas.find(a=>normalizeAreaNameV472(a.nombre)===normalizeAreaNameV472(pa?.nombre));return legacy?.id||null;})(),
         p_fecha_levantamiento:document.getElementById('reviewDueDate').value,
         p_causas_inmediatas:immediateIds,
         p_causas_basicas:basicIds,
@@ -2684,6 +2727,11 @@ async function initWorkerReportsAdmin(){
       });
       if(error)throw error;
       const out=Array.isArray(data)?data[0]:data;
+      const selectedProjectAreaId=document.getElementById('reviewArea').value||null;
+      if(selectedProjectAreaId){
+        await sb.from('reportes_trabajadores').update({area_proyecto_id:selectedProjectAreaId}).eq('id',current.id);
+        if(out?.ocurrencia_id)await sb.from('ocurrencias').update({area_proyecto_id:selectedProjectAreaId}).eq('id',out.ocurrencia_id);
+      }
       let emailStatus='';
       const responsible=responsibles.find(r=>r.id===document.getElementById('reviewResponsible').value);
       const project=projects.find(p=>p.id===document.getElementById('reviewProject').value);
@@ -3286,7 +3334,7 @@ async function initAnalyticsDashboard(){
     Chart.defaults.font.family='Arial, Helvetica, sans-serif';Chart.defaults.color='#475467';
 
     const occurrences=await analyticsFetchAll('ocurrencias',`id,numero,fecha,fecha_levantamiento,fecha_levantamiento_original,fecha_ejecutada,modalidad_levantamiento,responsable_correccion,numero_ampliaciones,
-      proyecto:proyectos(id,nombre),origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
+      proyecto:proyectos(id,nombre),origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),areaProyecto:areas_proyecto(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
     const [immediateCauses,basicCauses]=await Promise.all([
       analyticsFetchAll('ocurrencia_causas_inmediatas','ocurrencia_id,causas_inmediatas(id,nombre)'),
       analyticsFetchAll('ocurrencia_causas_basicas','ocurrencia_id,causas_basicas(id,nombre,grupo_nombre,subgrupo_nombre)')
@@ -3301,7 +3349,7 @@ async function initAnalyticsDashboard(){
     els.year.innerHTML='<option value="">Todos los años</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
     ANALYTICS_MONTHS.forEach((m,i)=>els.month.insertAdjacentHTML('beforeend',`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`));
     analyticsFillSelect(els.project,analyticsUniqueOptions(rows,r=>r.proyecto?.id,r=>r.proyecto?.nombre||''),'Todos');
-    analyticsFillSelect(els.area,analyticsUniqueOptions(rows,r=>r.area?.id,r=>r.area?.nombre||''),'Todas');
+    analyticsFillSelect(els.area,analyticsUniqueOptions(rows,r=>r.areaProyecto?.id||r.area?.id,r=>r.areaProyecto?.nombre||r.area?.nombre||''),'Todas');
     analyticsFillSelect(els.origin,analyticsUniqueOptions(rows,r=>r.origen?.id,r=>r.origen?.nombre||''),'Todos');
     analyticsFillSelect(els.type,analyticsUniqueOptions(rows,r=>r._typeKey,r=>r._typeLabel),'Todos');
     analyticsFillSelect(els.status,analyticsUniqueOptions(rows,r=>r.estado?.id,r=>r.estado?.nombre||''),'Todos');
@@ -3311,7 +3359,7 @@ async function initAnalyticsDashboard(){
     els.year.value=years.includes(currentYear)?currentYear:(years[0]||'');
 
     function filteredRows(){
-      return rows.filter(r=>(!els.year.value||r._year===els.year.value)&&(!els.month.value||r._month===els.month.value)&&(!els.project.value||String(r.proyecto?.id||'')===els.project.value)&&(!els.area.value||String(r.area?.id||'')===els.area.value)&&(!els.origin.value||String(r.origen?.id||'')===els.origin.value)&&(!els.type.value||String(r._typeKey||'')===els.type.value)&&(!els.status.value||String(r.estado?.id||'')===els.status.value)&&(!els.potential.value||String(r.potencial?.id||'')===els.potential.value));
+      return rows.filter(r=>(!els.year.value||r._year===els.year.value)&&(!els.month.value||r._month===els.month.value)&&(!els.project.value||String(r.proyecto?.id||'')===els.project.value)&&(!els.area.value||String(r.areaProyecto?.id||r.area?.id||'')===els.area.value)&&(!els.origin.value||String(r.origen?.id||'')===els.origin.value)&&(!els.type.value||String(r._typeKey||'')===els.type.value)&&(!els.status.value||String(r.estado?.id||'')===els.status.value)&&(!els.potential.value||String(r.potencial?.id||'')===els.potential.value));
     }
 
     function render(){
@@ -3337,7 +3385,7 @@ async function initAnalyticsDashboard(){
       analyticsDoughnut('chartStatus',analyticsCountBy(filtered,r=>r.estado?.nombre||'N.A.'));
       analyticsDoughnut('chartType',analyticsCountBy(filtered,r=>r._typeLabel));
       analyticsBar('chartProject',analyticsCountBy(filtered,r=>r.proyecto?.nombre||'N.A.'),{horizontal:false,maxItems:15});
-      analyticsBar('chartArea',analyticsCountBy(filtered,r=>r.area?.nombre||'N.A.'),{horizontal:true,maxItems:15});
+      analyticsBar('chartArea',analyticsCountBy(filtered,r=>r.areaProyecto?.nombre||r.area?.nombre||'N.A.'),{horizontal:true,maxItems:15});
       analyticsDoughnut('chartPotential',analyticsCountBy(filtered,r=>r.potencial?.nombre,{excludeBlank:true}));
       analyticsDoughnut('chartModality',analyticsCountBy(modalities,r=>r.modalidad_levantamiento==='INMEDIATO'?'INMEDIATO':'ASIGNADO'));
       analyticsBar('chartOrigin',analyticsCountBy(filtered,r=>r.origen?.nombre||'N.A.'),{horizontal:false,maxItems:10});
@@ -3425,7 +3473,7 @@ async function initProjectDashboardV41(){
     }
 
     const occurrences=await fetchProjectRows('ocurrencias',`id,numero,fecha,lugar_hallazgo,descripcion,fecha_levantamiento,fecha_levantamiento_original,fecha_ejecutada,modalidad_levantamiento,responsable_correccion,numero_ampliaciones,
-      origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
+      origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),areaProyecto:areas_proyecto(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
     let workerReports=[];
     try{workerReports=await fetchProjectRows('reportes_trabajadores','id,fecha,estado_revision,creado_en');}catch(e){console.warn('No se pudieron contar reportes públicos:',e.message);}
 
@@ -3447,14 +3495,14 @@ async function initProjectDashboardV41(){
     const years=[...new Set(rows.map(r=>r._year).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
     yearEl.innerHTML='<option value="">Todos los años</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
     ANALYTICS_MONTHS.forEach((m,i)=>monthEl.insertAdjacentHTML('beforeend',`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`));
-    analyticsFillSelect(areaEl,analyticsUniqueOptions(rows,r=>r.area?.id,r=>r.area?.nombre||''),'Todas');
+    analyticsFillSelect(areaEl,analyticsUniqueOptions(rows,r=>r.areaProyecto?.id||r.area?.id,r=>r.areaProyecto?.nombre||r.area?.nombre||''),'Todas');
     analyticsFillSelect(statusEl,analyticsUniqueOptions(rows,r=>r.estado?.codigo,r=>r.estado?.nombre||''),'Todos');
     const currentYear=String(new Date().getFullYear());yearEl.value=years.includes(currentYear)?currentYear:(years[0]||'');
 
     document.getElementById('pdWorkerReports').textContent=String(workerReports.length);
 
     function filteredRows(){
-      return rows.filter(r=>(!yearEl.value||r._year===yearEl.value)&&(!monthEl.value||r._month===monthEl.value)&&(!areaEl.value||String(r.area?.id||'')===areaEl.value)&&(!statusEl.value||String(r.estado?.codigo||'')===statusEl.value));
+      return rows.filter(r=>(!yearEl.value||r._year===yearEl.value)&&(!monthEl.value||r._month===monthEl.value)&&(!areaEl.value||String(r.areaProyecto?.id||r.area?.id||'')===areaEl.value)&&(!statusEl.value||String(r.estado?.codigo||'')===statusEl.value));
     }
 
     function render(){
@@ -3484,7 +3532,7 @@ async function initProjectDashboardV41(){
       analyticsMakeChart('pdChartMonthly',{type:'line',data:{labels:monthly.map(x=>x[0]),datasets:[{label:'Ocurrencias',data:monthly.map(x=>x[1]),borderColor:'#C00000',backgroundColor:'rgba(192,0,0,.10)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#C00000'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}});
       analyticsDoughnut('pdChartStatus',analyticsCountBy(filtered,r=>r.estado?.nombre||'N.A.'));
       analyticsDoughnut('pdChartType',analyticsCountBy(filtered,r=>r._typeLabel));
-      analyticsBar('pdChartArea',analyticsCountBy(filtered,r=>r.area?.nombre||'N.A.'),{horizontal:true,maxItems:10});
+      analyticsBar('pdChartArea',analyticsCountBy(filtered,r=>r.areaProyecto?.nombre||r.area?.nombre||'N.A.'),{horizontal:true,maxItems:10});
       analyticsDoughnut('pdChartPotential',analyticsCountBy(filtered,r=>r.potencial?.nombre,{excludeBlank:true}));
       analyticsBar('pdChartOrigin',analyticsCountBy(filtered,r=>r.origen?.nombre||'N.A.'),{horizontal:false,maxItems:8});
       analyticsPareto('pdChartImmediate',analyticsCountBy(immediateCauses.filter(c=>idSet.has(c.ocurrencia_id)),c=>c.causas_inmediatas?.nombre,{excludeBlank:true}).slice(0,8));
@@ -3494,7 +3542,7 @@ async function initProjectDashboardV41(){
       const recentBox=document.getElementById('pdRecentOccurrences');
       recentBox.innerHTML=recent.length?recent.map(r=>{
         const dl=getDeadlineInfo(r);const code=`OC-${String(r.numero||0).padStart(6,'0')}`;
-        return `<a class="pd-recent-row" href="detalle-ocurrencia.html?id=${encodeURIComponent(r.id)}"><span class="pd-recent-code">${escapeHtml(code)}</span><span class="pd-recent-main"><strong>${escapeHtml(r.descripcion||'Sin descripción')}</strong><small>${escapeHtml(r.fecha||'')} · ${escapeHtml(r.area?.nombre||'Sin área')}</small></span><span class="pd-recent-state"><b class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</b>${dl.code!=='CERRADO'?`<small class="deadline-badge ${dl.code}">${escapeHtml(dl.label)}</small>`:''}</span></a>`;
+        return `<a class="pd-recent-row" href="detalle-ocurrencia.html?id=${encodeURIComponent(r.id)}"><span class="pd-recent-code">${escapeHtml(code)}</span><span class="pd-recent-main"><strong>${escapeHtml(r.descripcion||'Sin descripción')}</strong><small>${escapeHtml(r.fecha||'')} · ${escapeHtml(r.areaProyecto?.nombre||r.area?.nombre||'Sin área')}</small></span><span class="pd-recent-state"><b class="badge ${r.estado?.codigo||''}">${escapeHtml(r.estado?.nombre||'')}</b>${dl.code!=='CERRADO'?`<small class="deadline-badge ${dl.code}">${escapeHtml(dl.label)}</small>`:''}</span></a>`;
       }).join(''):'<div class="pd-empty">No hay ocurrencias con los filtros seleccionados.</div>';
 
       const active=filtered.filter(r=>r.estado?.codigo!=='CERRADO');const responsibleMap=new Map();

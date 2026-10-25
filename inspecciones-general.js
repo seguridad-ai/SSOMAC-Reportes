@@ -1,5 +1,5 @@
 // ============================================================
-// V11.8.1 - ETAPA 47 REVISADA
+// V11.8.2 - ETAPA 47 AJUSTADA
 // Inspección General corporativa - EDP-SIG-SSOMAC-RE-PA-191-03
 // NO genera ocurrencias.
 // ============================================================
@@ -9,270 +9,110 @@ const E47_PERSONAL_CAUSES=["Altura, peso, talla, fuerza, alcance inapropiado.", 
 const E47_WORK_CAUSES=["Evaluación insuficiente de las exposiciones a pérdidas.", "Poca preocupación por los factores ergonómicos o humanos.", "Estándares especificaciones o criterios de diseño inadecuados", "Control e inspecciones inadecuadas de los equipos, materiales, areas de trabajo.", "Evaluación deficiente de la condición conveniente para operar.", "Especificaciones deficientes en cuanto a los requerimientos.", "Investigación deficiente respecto a materiales o equipos.", "Modalidad, ruta o carguío inadecuados.", "Comunicación inadecuada de las informaciones (datos) sobre aspectos de seguridad y salud.", "Manejo inadecuado de los materiales.", "Almacenamiento inadecuado de los materiales.", "Transporte inadecuado de los materiales.", "Identificación deficiente de  riesgos.", "Sistemas deficientes de recuperación o de eliminación de desechos.", "Aspectos correctivos inapropiados para comunicación de necesidades, programación del trabajo, revisión de las piezas, reemplazo de partes defectuosas.", "Evaluación deficiente de las necesidades y de los riesgos", "Preocupación deficiente en cuanto a los factores Humanos", "Estándares o especificaciones inadecuadas", "Disponibilidad inadecuada de herramientas, materiales y equipos", "Ajustes / reparación / mantenimiento deficiente", "Sistema deficiente de reparación y recuperación de materiales", "Eliminación y reemplazo inapropiado de piezas defectuosas", "Desarrollo inadecuado de normas para. inventario y evaluación de exposiciones y necesidades; compromiso del trabajador; estándares / procedimientos / reglas inconsistentes", "Comunicación inadecuada de las normas. publicación, distribución, adaptación a las lenguas respectivas, entrenamiento, reforzamiento mediante afiches, código de colores y ayudas para el trabajo.", "Mantenimiento inadecuado de las normas. seguimiento del flujo de trabajo, actualización, control del uso de normas / procedimientos / reglamentos.", "Planificación inadecuada del uso de estandares, PETS", "Prolongación excesiva de la vida útil del elemento", "Inspección o control deficientes", "Sobrecarga o proporción de uso excesivo", "Mantenimiento deficiente", "Empleo del elemento por personas no calificadas o sin preparación", "Empleo inadecuado para otros propósitos", "Permitidos por la supervisión. intencional / no intencional", "No permitidos por la supervisión. intencional / no intencional"];
 const E47_TEMPLATE='assets/templates/formato-inspecciones-general.xlsx';
 
+const E472_PHOTO_TTL=60*60*24*365;
 function e47Options(items,value=''){
   return '<option value="">N.A.</option>'+items.map(x=>`<option value="${escapeHtml(x)}" ${x===value?'selected':''}>${escapeHtml(x)}</option>`).join('');
 }
-function e47FmtDate(v){
-  if(!v)return '—';
-  const [y,m,d]=String(v).slice(0,10).split('-');
-  return `${d}/${m}/${y}`;
-}
+function e47FmtDate(v){if(!v)return '—';const [y,m,d]=String(v).slice(0,10).split('-');return `${d}/${m}/${y}`;}
 function e47Code(n){return `IG-${String(n||0).padStart(6,'0')}`;}
 function e47TypeLabel(v){return ({IP:'Inspección planeada',INP:'Inspección no planeada',IC:'Inspección cruzada'})[v]||v||'—';}
-
-async function e47Signed(path,seconds=3600){
-  if(!path)return '';
-  const {data,error}=await sb.storage.from('evidencias-ssomac').createSignedUrl(path,seconds);
-  return error?'':(data?.signedUrl||'');
-}
+function e47StateLabel(v){return ({PENDIENTE_CORRECCION:'PENDIENTE DE CORRECCIÓN',PENDIENTE_VALIDACION:'PENDIENTE DE VALIDACIÓN',COMPLETADA:'COMPLETADA'})[v]||String(v||'').replaceAll('_',' ');}
+function e47ItemStateLabel(v){return ({PENDIENTE:'PENDIENTE',ASIGNADO:'ASIGNADO',CORREO_ENVIADO:'CORREO ENVIADO',PENDIENTE_VALIDACION:'PENDIENTE DE VALIDACIÓN',CORRECCION_REQUERIDA:'CORRECCIÓN REQUERIDA',CERRADO:'CERRADO'})[v]||String(v||'').replaceAll('_',' ');}
+async function e47Signed(path,seconds=3600){if(!path)return '';const {data,error}=await sb.storage.from('evidencias-ssomac').createSignedUrl(path,seconds);return error?'':(data?.signedUrl||'');}
+function e47InspectionLiftLink(token){return `${getPublicAppBaseUrl()}/levantamiento-inspeccion.html?t=${encodeURIComponent(token)}`;}
+function e47LocalYmd(d){if(!(d instanceof Date)||Number.isNaN(d.getTime()))return '';return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function e47DueFromPotential(base,potential){if(!base)return '';const d=parseYmdLocal(base);if(!d)return '';d.setDate(d.getDate()+(potential==='A'?1:potential==='B'?3:14));return e47LocalYmd(d);}
 
 async function e47Init(){
   const session=await requireSession();if(!session)return;
-  const ctx=await getAccessContextV43(session);
-  const profile=ctx.profile;
-  const listCard=document.getElementById('e47ListCard');
-  const formCard=document.getElementById('e47FormCard');
-  const msg=document.getElementById('e47Message');
-  const list=document.getElementById('e47List');
-  const filterProject=document.getElementById('e47FilterProject');
-  const filterStatus=document.getElementById('e47FilterStatus');
-  const filterText=document.getElementById('e47FilterText');
-  const form=document.getElementById('e47Form');
-  const formMsg=document.getElementById('e47FormMessage');
-  const projectEl=document.getElementById('e47Project');
-  const itemsBox=document.getElementById('e47Items');
-  const signatureCanvas=document.getElementById('e47Signature');
-  const signaturePad=createSignaturePad(signatureCanvas,document.getElementById('e47ClearSignature'));
-  let rows=[];
-  let editId=null;
-  let existingSignaturePath='';
-  let itemModels=[];
-
+  const ctx=await getAccessContextV43(session),profile=ctx.profile;
+  const listCard=document.getElementById('e47ListCard'),formCard=document.getElementById('e47FormCard'),msg=document.getElementById('e47Message'),list=document.getElementById('e47List'),filterProject=document.getElementById('e47FilterProject'),filterStatus=document.getElementById('e47FilterStatus'),filterText=document.getElementById('e47FilterText'),form=document.getElementById('e47Form'),formMsg=document.getElementById('e47FormMessage'),projectEl=document.getElementById('e47Project'),areaEl=document.getElementById('e47Area'),itemsBox=document.getElementById('e47Items'),addItemBtn=document.getElementById('e47AddItem');
+  const signaturePad=createSignaturePad(document.getElementById('e47Signature'),document.getElementById('e47ClearSignature'));
+  let rows=[],editId=null,existingSignaturePath='',itemModels=[],projectAreas=[];
   const projects=ctx.projects||[];
+  const [{data:responsibles,error:re}]=await Promise.all([sb.from('responsables_correccion').select('id,proyecto_id,nombres,apellidos,cargo,area_nombre,email,aplica_todos_proyectos,activo').eq('activo',true).order('apellidos')]);
+  if(re){showMessage(msg,'No se pudieron cargar los responsables: '+re.message);return;}
   const projectOptions=projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
-  filterProject.innerHTML=(ctx.isProject?'':'<option value="">Todos</option>')+projectOptions;
-  projectEl.innerHTML='<option value="">Seleccione...</option>'+projectOptions;
-  if(ctx.isProject&&projects.length===1){
-    filterProject.value=projects[0].id;filterProject.disabled=true;
-    projectEl.value=projects[0].id;projectEl.disabled=true;
+  filterProject.innerHTML=(ctx.isProject?'':'<option value="">Todos</option>')+projectOptions;projectEl.innerHTML='<option value="">Seleccione...</option>'+projectOptions;
+  if(ctx.isProject&&projects.length===1){filterProject.value=projects[0].id;filterProject.disabled=true;projectEl.value=projects[0].id;projectEl.disabled=true;}
+  document.getElementById('e47Inspector').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();document.getElementById('e47RecordName').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();document.getElementById('e47RecordRole').value=profile.cargo||'';document.getElementById('e47Date').value=today();document.getElementById('e47RecordDate').value=today();
+
+  function emptyItem(){return{id:null,descripcion:'',causa_acto:'',causa_condicion:'',factor_trabajo:'',factor_personal:'',observacion_foto_ruta:'',accion_correctiva:'',responsable_id:'',responsable:'',potencial_riesgo:'C',fecha_limite:'',estado_levantamiento:'PENDIENTE',correccion_foto_ruta:'',fecha_correccion:'',levantamiento_comentario:'',levantamiento_firma_ruta:'',levantamiento_firmante:'',observacion_validacion:'',asignacion:null};}
+  function availableResponsibles(){const pid=projectEl.value;return (responsibles||[]).filter(r=>r.aplica_todos_proyectos===true||(pid&&r.proyecto_id===pid));}
+  function responsibleOptions(value=''){return '<option value="">Seleccione...</option>'+availableResponsibles().map(r=>{const name=`${r.nombres||''} ${r.apellidos||''}`.trim();return `<option value="${r.id}" ${r.id===value?'selected':''}>${escapeHtml(name)} · ${escapeHtml(r.cargo||'')} · ${escapeHtml(r.area_nombre||'SIN ÁREA')}</option>`;}).join('');}
+  async function loadAreas(selected=''){
+    projectAreas=[];if(!projectEl.value){areaEl.innerHTML='<option value="">Selecciona primero el proyecto...</option>';areaEl.disabled=true;return;}
+    try{projectAreas=await getProjectAreasV472(projectEl.value,false);areaEl.innerHTML='<option value="">Seleccione...</option>'+projectAreas.map(a=>`<option value="${a.id}">${escapeHtml(a.nombre)}</option>`).join('');areaEl.disabled=false;if(selected&&projectAreas.some(a=>a.id===selected))areaEl.value=selected;if(!projectAreas.length)areaEl.innerHTML='<option value="">No hay áreas configuradas para este proyecto</option>';}
+    catch(err){areaEl.innerHTML='<option value="">No se pudieron cargar las áreas</option>';areaEl.disabled=true;console.warn(err);}
   }
-
-  document.getElementById('e47Inspector').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();
-  document.getElementById('e47RecordName').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();
-  document.getElementById('e47RecordRole').value=profile.cargo||'';
-  document.getElementById('e47Date').value=today();
-  document.getElementById('e47RecordDate').value=today();
-
-  function emptyItem(){
-    return {descripcion:'',causa_acto:'',causa_condicion:'',factor_trabajo:'',factor_personal:'',observacion_foto_ruta:'',accion_correctiva:'',correccion_foto_ruta:'',responsable:'',potencial_riesgo:'C',fecha_correccion:''};
+  function syncCauseMode(card,idx){
+    const it=itemModels[idx],act=card.querySelector('[data-f="causa_acto"]'),cond=card.querySelector('[data-f="causa_condicion"]'),work=card.querySelector('[data-f="factor_trabajo"]'),personal=card.querySelector('[data-f="factor_personal"]');
+    const hasAct=Boolean(act?.value),hasCond=Boolean(cond?.value);
+    if(hasAct){cond.value='';it.causa_condicion='';cond.disabled=true;work.value='';it.factor_trabajo='';work.disabled=true;personal.disabled=false;act.disabled=false;}
+    else if(hasCond){act.value='';it.causa_acto='';act.disabled=true;personal.value='';it.factor_personal='';personal.disabled=true;work.disabled=false;cond.disabled=false;}
+    else{act.disabled=false;cond.disabled=false;work.disabled=true;personal.disabled=true;work.value='';personal.value='';it.factor_trabajo='';it.factor_personal='';}
   }
-
+  async function hydrateEvidence(card,it){
+    const pairs=[['observacion',it.observacion_foto_ruta],['correccion',it.correccion_foto_ruta],['firma',it.levantamiento_firma_ruta]];
+    for(const [kind,path] of pairs){if(!path)continue;const url=await e47Signed(path);const box=card.querySelector(`[data-existing="${kind}"]`);if(box)box.innerHTML=url?`<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Evidencia"></a>`:'<span>No se pudo cargar.</span>';}
+  }
   function renderItems(){
-    itemsBox.innerHTML=itemModels.map((it,i)=>`
+    itemsBox.innerHTML=itemModels.map((it,i)=>{const locked=Boolean(it.id);const state=it.estado_levantamiento||'PENDIENTE';return `
       <article class="e47-item-card" data-item-index="${i}">
-        <div class="e47-item-head">
-          <div><span>ITEM ${i+1}</span><strong>Observación / hallazgo de inspección</strong></div>
-          ${itemModels.length>1?`<button type="button" class="e47-remove-item" data-remove-item="${i}">Quitar</button>`:''}
-        </div>
-        <div class="field full"><label>Condición o práctica subestándar *</label><textarea rows="2" data-f="descripcion" placeholder="Describa claramente la observación...">${escapeHtml(it.descripcion||'')}</textarea></div>
+        <div class="e47-item-head"><div><span>ITEM ${i+1}</span><strong>Observación / hallazgo de inspección</strong></div><span class="e47-status ${state}">${escapeHtml(e47ItemStateLabel(state))}</span>${!locked&&itemModels.length>1?`<button type="button" class="e47-remove-item" data-remove-item="${i}">Quitar</button>`:''}</div>
+        <div class="field full"><label>Condición o práctica subestándar *</label><textarea rows="2" data-f="descripcion" ${locked?'disabled':''}>${escapeHtml(it.descripcion||'')}</textarea></div>
         <div class="e47-grid-2">
-          <div class="field"><label>Causa inmediata · Acto subestándar</label><select data-f="causa_acto">${e47Options(E47_ACT_CAUSES,it.causa_acto)}</select></div>
-          <div class="field"><label>Causa inmediata · Condición subestándar</label><select data-f="causa_condicion">${e47Options(E47_COND_CAUSES,it.causa_condicion)}</select></div>
-          <div class="field"><label>Causa básica · Factor de trabajo</label><select data-f="factor_trabajo">${e47Options(E47_WORK_CAUSES,it.factor_trabajo)}</select></div>
-          <div class="field"><label>Causa básica · Factor personal</label><select data-f="factor_personal">${e47Options(E47_PERSONAL_CAUSES,it.factor_personal)}</select></div>
+          <div class="field"><label>Causa inmediata · Acto subestándar</label><select data-f="causa_acto" ${locked?'disabled':''}>${e47Options(E47_ACT_CAUSES,it.causa_acto)}</select></div>
+          <div class="field"><label>Causa inmediata · Condición subestándar</label><select data-f="causa_condicion" ${locked?'disabled':''}>${e47Options(E47_COND_CAUSES,it.causa_condicion)}</select></div>
+          <div class="field"><label>Causa básica · Factor de trabajo</label><select data-f="factor_trabajo" ${locked?'disabled':''}>${e47Options(E47_WORK_CAUSES,it.factor_trabajo)}</select></div>
+          <div class="field"><label>Causa básica · Factor personal</label><select data-f="factor_personal" ${locked?'disabled':''}>${e47Options(E47_PERSONAL_CAUSES,it.factor_personal)}</select></div>
         </div>
-        <div class="e47-grid-2">
-          <div class="field"><label>Fotografía de la observación</label><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" data-file="observacion"><div class="e47-photo-preview" data-preview="observacion">${it.observacion_foto_ruta?'<span>Cargando fotografía...</span>':'<span>Sin fotografía</span>'}</div></div>
-          <div class="field"><label>Corrección ejecutada</label><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" data-file="correccion"><div class="e47-photo-preview" data-preview="correccion">${it.correccion_foto_ruta?'<span>Cargando fotografía...</span>':'<span>Sin fotografía de corrección</span>'}</div></div>
-        </div>
-        <div class="field full"><label>Acción mitigadora / acción correctiva *</label><textarea rows="2" data-f="accion_correctiva" placeholder="Indique la acción definida...">${escapeHtml(it.accion_correctiva||'')}</textarea></div>
+        <div class="field"><label>Fotografía de la observación</label>${locked?'':`<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" data-file="observacion">`}<div class="e47-photo-preview" data-existing="observacion">${it.observacion_foto_ruta?'<span>Cargando fotografía...</span>':'<span>Sin fotografía</span>'}</div></div>
+        <div class="field full"><label>Acción mitigadora / acción correctiva *</label><textarea rows="2" data-f="accion_correctiva" ${locked?'disabled':''}>${escapeHtml(it.accion_correctiva||'')}</textarea></div>
         <div class="e47-grid-3">
-          <div class="field"><label>Responsable *</label><input data-f="responsable" value="${escapeHtml(it.responsable||'')}"></div>
-          <div class="field"><label>Potencial de riesgo *</label><select data-f="potencial_riesgo"><option value="A" ${it.potencial_riesgo==='A'?'selected':''}>A · Alto (24 h)</option><option value="B" ${it.potencial_riesgo==='B'?'selected':''}>B · Medio (72 h)</option><option value="C" ${it.potencial_riesgo==='C'?'selected':''}>C · Bajo (2 semanas)</option></select></div>
-          <div class="field"><label>Fecha de corrección</label><input type="date" data-f="fecha_correccion" value="${escapeHtml(it.fecha_correccion||'')}"></div>
+          <div class="field"><label>Responsable del levantamiento *</label><select data-f="responsable_id" ${locked?'disabled':''}>${responsibleOptions(it.responsable_id)}</select></div>
+          <div class="field"><label>Potencial de riesgo *</label><select data-f="potencial_riesgo" ${locked?'disabled':''}><option value="A" ${it.potencial_riesgo==='A'?'selected':''}>A · Alto (24 h)</option><option value="B" ${it.potencial_riesgo==='B'?'selected':''}>B · Medio (72 h)</option><option value="C" ${it.potencial_riesgo==='C'?'selected':''}>C · Bajo (2 semanas)</option></select></div>
+          <div class="field"><label>Fecha límite de levantamiento *</label><input type="date" data-f="fecha_limite" value="${escapeHtml(it.fecha_limite||'')}" ${locked?'disabled':''}></div>
         </div>
-      </article>`).join('');
-
-    itemsBox.querySelectorAll('[data-item-index]').forEach(card=>{
-      const idx=Number(card.dataset.itemIndex);
-      card.querySelectorAll('[data-f]').forEach(el=>el.addEventListener('input',()=>{itemModels[idx][el.dataset.f]=el.value;}));
-      card.querySelectorAll('[data-file]').forEach(el=>el.addEventListener('change',()=>{
-        const file=el.files?.[0];if(!file)return;
-        itemModels[idx][el.dataset.file+'_file']=file;
-        const preview=card.querySelector(`[data-preview="${el.dataset.file}"]`);
-        preview.innerHTML=`<img src="${URL.createObjectURL(file)}" alt="Vista previa">`;
-      }));
-      const rm=card.querySelector('[data-remove-item]');
-      rm?.addEventListener('click',()=>{itemModels.splice(idx,1);renderItems();});
-      (async()=>{
-        for(const kind of ['observacion','correccion']){
-          const path=itemModels[idx][kind+'_foto_ruta'];if(!path)continue;
-          const url=await e47Signed(path);
-          const preview=card.querySelector(`[data-preview="${kind}"]`);
-          if(preview)preview.innerHTML=url?`<img src="${url}" alt="Evidencia existente">`:'<span>No se pudo cargar la fotografía.</span>';
-        }
-      })();
-    });
+        ${locked?`<div class="e472-followup"><div class="e47-section-title">Seguimiento del levantamiento</div><div class="detail-grid"><div class="detail-item"><span>Responsable</span><strong>${escapeHtml(it.responsable||'—')}</strong></div><div class="detail-item"><span>Fecha límite</span><strong>${e47FmtDate(it.fecha_limite)}</strong></div>${it.levantamiento_comentario?`<div class="detail-item full"><span>Acción correctiva realizada</span><strong>${escapeHtml(it.levantamiento_comentario)}</strong></div>`:''}${it.levantamiento_firmante?`<div class="detail-item"><span>Levantado por</span><strong>${escapeHtml(it.levantamiento_firmante)}</strong></div>`:''}${it.fecha_correccion?`<div class="detail-item"><span>Fecha ejecutada</span><strong>${e47FmtDate(it.fecha_correccion)}</strong></div>`:''}${it.observacion_validacion?`<div class="detail-item full"><span>Observación de validación</span><strong>${escapeHtml(it.observacion_validacion)}</strong></div>`:''}</div>${it.correccion_foto_ruta?`<div class="e47-grid-2"><div class="field"><label>Fotografía del levantamiento</label><div class="e47-photo-preview" data-existing="correccion"><span>Cargando...</span></div></div><div class="field"><label>Firma del levantamiento</label><div class="e47-photo-preview" data-existing="firma"><span>Cargando...</span></div></div></div>`:''}${state==='PENDIENTE_VALIDACION'?`<div class="field full"><label>Observación de validación</label><textarea rows="2" data-validation-note="${it.id}" placeholder="Conformidad u observación..."></textarea></div><div class="workflow-actions"><button type="button" class="success" data-validate-item="${it.id}">Validar y cerrar</button><button type="button" class="warning" data-reject-item="${it.id}">Devolver a corrección</button></div>`:''}${['ASIGNADO','CORREO_ENVIADO','CORRECCION_REQUERIDA'].includes(state)?`<div class="workflow-actions"><button type="button" class="secondary" data-resend-item="${it.id}">Reenviar correo de levantamiento</button></div>`:''}</div>`:''}
+      </article>`;}).join('');
+    itemsBox.querySelectorAll('[data-item-index]').forEach(card=>{const idx=Number(card.dataset.itemIndex),it=itemModels[idx];card.querySelectorAll('[data-f]').forEach(el=>el.addEventListener('change',()=>{it[el.dataset.f]=el.value;if(el.dataset.f==='causa_acto'||el.dataset.f==='causa_condicion')syncCauseMode(card,idx);if(el.dataset.f==='potencial_riesgo'){it.fecha_limite=e47DueFromPotential(document.getElementById('e47Date').value,it.potencial_riesgo);const due=card.querySelector('[data-f="fecha_limite"]');if(due)due.value=it.fecha_limite;}}));card.querySelectorAll('[data-f]').forEach(el=>el.addEventListener('input',()=>{it[el.dataset.f]=el.value;}));const file=card.querySelector('[data-file="observacion"]');file?.addEventListener('change',()=>{const f=file.files?.[0];if(!f)return;it.observacion_file=f;const box=card.querySelector('[data-existing="observacion"]');box.innerHTML=`<img src="${URL.createObjectURL(f)}" alt="Vista previa">`;});const rm=card.querySelector('[data-remove-item]');rm?.addEventListener('click',()=>{itemModels.splice(idx,1);renderItems();});syncCauseMode(card,idx);hydrateEvidence(card,it);});
+    itemsBox.querySelectorAll('[data-validate-item]').forEach(b=>b.addEventListener('click',()=>validateLift(b.dataset.validateItem,true)));
+    itemsBox.querySelectorAll('[data-reject-item]').forEach(b=>b.addEventListener('click',()=>validateLift(b.dataset.rejectItem,false)));
+    itemsBox.querySelectorAll('[data-resend-item]').forEach(b=>b.addEventListener('click',()=>resendEmail(b.dataset.resendItem,b)));
   }
+  addItemBtn.addEventListener('click',()=>{if(editId){showMessage(formMsg,'Para conservar la trazabilidad, no se agregan nuevos ítems después de emitir la inspección.');return;}if(itemModels.length>=10){showMessage(formMsg,'El formato corporativo permite un máximo de 10 ítems.');return;}itemModels.push(emptyItem());renderItems();});
+  projectEl.addEventListener('change',async()=>{await loadAreas();renderItems();});
+  document.getElementById('e47Date').addEventListener('change',()=>{if(editId)return;itemModels.forEach(it=>{it.fecha_limite=e47DueFromPotential(document.getElementById('e47Date').value,it.potencial_riesgo);});renderItems();});
 
-  document.getElementById('e47AddItem').addEventListener('click',()=>{
-    if(itemModels.length>=10){showMessage(formMsg,'El formato corporativo permite un máximo de 10 ítems.');return;}
-    itemModels.push(emptyItem());renderItems();
+  function showList(){formCard.classList.add('hidden');listCard.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});}
+  function showForm(){listCard.classList.add('hidden');formCard.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});}
+  document.getElementById('e47Cancel').addEventListener('click',()=>{history.replaceState(null,'','inspecciones.html');showList();});document.getElementById('e47NewBtn').addEventListener('click',()=>openNew());
+  async function openNew(){editId=null;existingSignaturePath='';form.reset();signaturePad?.clear();addItemBtn.disabled=false;document.getElementById('e47FormTitle').textContent='Nueva inspección general';document.getElementById('e47Inspector').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();document.getElementById('e47RecordName').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();document.getElementById('e47RecordRole').value=profile.cargo||'';document.getElementById('e47Date').value=today();document.getElementById('e47RecordDate').value=today();if(ctx.isProject&&projects.length===1)projectEl.value=projects[0].id;await loadAreas();itemModels=[emptyItem()];itemModels[0].fecha_limite=e47DueFromPotential(today(),'C');renderItems();showMessage(formMsg,'');showForm();}
+  async function getFull(id){const {data,error}=await sb.from('inspecciones_generales').select(`*,proyecto:proyectos(id,nombre,codigo),areaProyecto:areas_proyecto(id,nombre),items:inspeccion_general_items(*)`).eq('id',id).single();if(error)throw error;data.items=(data.items||[]).sort((a,b)=>a.item_no-b.item_no);if(data.items.length){const ids=data.items.map(x=>x.id);const {data:asigs}=await sb.from('inspeccion_general_asignaciones').select('id,item_id,responsable_id,token,fecha_limite,estado,correo_enviado_en').in('item_id',ids);const map=new Map((asigs||[]).map(a=>[a.item_id,a]));data.items.forEach(x=>x.asignacion=map.get(x.id)||null);}return data;}
+  async function openEdit(id){showMessage(formMsg,'Cargando...',true);try{const data=await getFull(id);editId=id;existingSignaturePath=data.firma_ruta||'';signaturePad?.clear();addItemBtn.disabled=true;document.getElementById('e47FormTitle').textContent=`Seguimiento ${e47Code(data.numero)}`;projectEl.value=data.proyecto_id;await loadAreas(data.area_proyecto_id||'');document.getElementById('e47Inspector').value=data.inspector_nombre||'';document.getElementById('e47Date').value=data.fecha_inspeccion||today();document.getElementById('e47Type').value=data.tipo_inspeccion||'IP';document.getElementById('e47Workers').value=data.numero_trabajadores??'';document.getElementById('e47RecordName').value=data.responsable_registro_nombre||'';document.getElementById('e47RecordRole').value=data.responsable_registro_cargo||'';document.getElementById('e47RecordDate').value=data.responsable_registro_fecha||today();itemModels=data.items.length?data.items.map(x=>({...emptyItem(),...x,responsable_id:x.responsable_id||x.asignacion?.responsable_id||'',fecha_limite:x.fecha_limite||x.asignacion?.fecha_limite||''})):[emptyItem()];renderItems();const sigBox=document.getElementById('e47ExistingSignature');sigBox.innerHTML='';if(existingSignaturePath){const url=await e47Signed(existingSignaturePath);sigBox.innerHTML=url?`<span>Firma registrada</span><img src="${url}" alt="Firma registrada">`:'<span>Firma existente registrada.</span>';}showMessage(formMsg,'');showForm();}catch(err){showMessage(msg,'No se pudo abrir la inspección: '+err.message);}}
+  async function uploadImage(file,path){if(!file)return null;const blob=await optimizeImage(file);const {error}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});if(error)throw error;return path;}
+  async function preparePublicPhoto(assignmentId,path){if(!assignmentId||!path)return;const {data,error}=await sb.storage.from('evidencias-ssomac').createSignedUrl(path,E472_PHOTO_TTL);if(error)throw error;const exp=new Date(Date.now()+E472_PHOTO_TTL*1000).toISOString();const {error:ue}=await sb.from('inspeccion_general_asignaciones').update({url_foto_observacion_firmada:data?.signedUrl||null,foto_observacion_url_expira_en:exp}).eq('id',assignmentId);if(ue)throw ue;}
+  async function sendItemEmail(inspection,item,assignment){const resp=(responsibles||[]).find(r=>r.id===item.responsable_id);if(!resp?.email)throw new Error('El responsable no tiene correo configurado.');const project=projects.find(p=>p.id===inspection.proyecto_id),area=projectAreas.find(a=>a.id===inspection.area_proyecto_id);await preparePublicPhoto(assignment.asignacion_id,item.observacion_foto_ruta);await sendAssignmentEmail({codigo_reporte:`${e47Code(inspection.numero)} / Ítem ${item.item_no}`,correo_responsable:resp.email,nombre_responsable:`${resp.nombres||''} ${resp.apellidos||''}`.trim(),proyecto:project?.nombre||'',fecha:e47FmtDate(inspection.fecha_inspeccion),lugar:area?.nombre||inspection.area_inspeccionada||'',tipo_hallazgo:item.causa_acto?'ACTO SUBESTÁNDAR':'CONDICIÓN SUBESTÁNDAR',descripcion:item.descripcion||'',accion:item.accion_correctiva||'',fecha_limite:e47FmtDate(item.fecha_limite),link_levantamiento:e47InspectionLiftLink(assignment.token)});await sb.rpc('marcar_correo_inspeccion_general',{p_asignacion_id:assignment.asignacion_id});}
+  async function resendEmail(itemId,button){const it=itemModels.find(x=>x.id===itemId);if(!it?.asignacion)return;const old=button.textContent;button.disabled=true;button.textContent='Enviando...';try{const inspection={id:editId,numero:Number((document.getElementById('e47FormTitle').textContent.match(/\d+/)||['0'])[0]),proyecto_id:projectEl.value,area_proyecto_id:areaEl.value,area_inspeccionada:areaEl.options[areaEl.selectedIndex]?.text||'',fecha_inspeccion:document.getElementById('e47Date').value};await sendItemEmail(inspection,it,{asignacion_id:it.asignacion.id,token:it.asignacion.token});showMessage(formMsg,'Correo reenviado correctamente.',true);}catch(err){showMessage(formMsg,'No se pudo reenviar: '+(err.message||err));}finally{button.disabled=false;button.textContent=old;}}
+  async function validateLift(itemId,approve){const note=itemsBox.querySelector(`[data-validation-note="${itemId}"]`)?.value.trim()||'';if(!approve&&note.length<5){showMessage(formMsg,'Indica el motivo de devolución.');return;}try{const {error}=await sb.rpc('validar_levantamiento_inspeccion_general',{p_item_id:itemId,p_aprobar:approve,p_observacion:note||null});if(error)throw error;showMessage(formMsg,approve?'Levantamiento validado y cerrado.':'Levantamiento devuelto al responsable.',true);await openEdit(editId);await loadRows();}catch(err){showMessage(formMsg,'No se pudo actualizar: '+(err.message||err));}}
+
+  form.addEventListener('submit',async e=>{e.preventDefault();showMessage(formMsg,'');itemModels.forEach((it,i)=>{document.querySelectorAll(`[data-item-index="${i}"] [data-f]`).forEach(el=>{if(!el.disabled)it[el.dataset.f]=el.value;});});const populated=itemModels.filter(it=>String(it.descripcion||'').trim());if(!projectEl.value||!areaEl.value||!document.getElementById('e47Inspector').value.trim()||!populated.length){showMessage(formMsg,'Completa proyecto, área y registra al menos una observación.');return;}if(!editId){for(const [i,it] of populated.entries()){if(!it.causa_acto&&!it.causa_condicion){showMessage(formMsg,`Selecciona Acto o Condición en el ítem ${i+1}.`);return;}if(it.causa_acto&&!it.factor_personal){showMessage(formMsg,`Selecciona Factor personal en el ítem ${i+1}.`);return;}if(it.causa_condicion&&!it.factor_trabajo){showMessage(formMsg,`Selecciona Factor de trabajo en el ítem ${i+1}.`);return;}if(!String(it.accion_correctiva||'').trim()||!it.responsable_id||!it.potencial_riesgo||!it.fecha_limite){showMessage(formMsg,`Completa acción, responsable, potencial y fecha límite del ítem ${i+1}.`);return;}}if(signaturePad?.isEmpty()){showMessage(formMsg,'Registra la firma del responsable del registro.');return;}}
+    const btn=document.getElementById('e47Save');btn.disabled=true;btn.textContent='Guardando...';try{const area=projectAreas.find(a=>a.id===areaEl.value);const header={proyecto_id:projectEl.value,area_proyecto_id:areaEl.value,area_inspeccionada:area?.nombre||areaEl.options[areaEl.selectedIndex]?.text||'',inspector_nombre:document.getElementById('e47Inspector').value.trim(),fecha_inspeccion:document.getElementById('e47Date').value,tipo_inspeccion:document.getElementById('e47Type').value,numero_trabajadores:document.getElementById('e47Workers').value?Number(document.getElementById('e47Workers').value):null,responsable_registro_nombre:document.getElementById('e47RecordName').value.trim(),responsable_registro_cargo:document.getElementById('e47RecordRole').value.trim()||null,responsable_registro_fecha:document.getElementById('e47RecordDate').value};let inspection;if(editId){const {data,error}=await sb.from('inspecciones_generales').update(header).eq('id',editId).select('id,numero,proyecto_id,area_proyecto_id,area_inspeccionada,fecha_inspeccion').single();if(error)throw error;inspection=data;}else{const {data,error}=await sb.from('inspecciones_generales').insert({...header,creado_por_id:session.user.id}).select('id,numero,proyecto_id,area_proyecto_id,area_inspeccionada,fecha_inspeccion').single();if(error)throw error;inspection=data;editId=data.id;}
+      let firmaPath=existingSignaturePath;if(signaturePad&&!signaturePad.isEmpty()){const blob=await signaturePad.toBlob();firmaPath=`inspecciones-generales/${inspection.id}/firma/${Date.now()}_${uid()}.webp`;const {error}=await sb.storage.from('evidencias-ssomac').upload(firmaPath,blob,{contentType:'image/webp',upsert:false});if(error)throw error;await sb.from('inspecciones_generales').update({firma_ruta:firmaPath}).eq('id',inspection.id);existingSignaturePath=firmaPath;}
+      let sent=0,warnings=[];
+      if(!itemModels.some(x=>x.id)){for(let i=0;i<populated.length;i++){const it=populated[i],resp=(responsibles||[]).find(r=>r.id===it.responsable_id);let obs=null;if(it.observacion_file)obs=await uploadImage(it.observacion_file,`inspecciones-generales/${inspection.id}/item-${i+1}/observacion/${Date.now()}_${uid()}.webp`);const payload={inspeccion_id:inspection.id,item_no:i+1,descripcion:String(it.descripcion||'').trim(),causa_acto:it.causa_acto||null,causa_condicion:it.causa_condicion||null,factor_trabajo:it.factor_trabajo||null,factor_personal:it.factor_personal||null,observacion_foto_ruta:obs,accion_correctiva:String(it.accion_correctiva||'').trim(),responsable_id:it.responsable_id,responsable:resp?`${resp.nombres||''} ${resp.apellidos||''}`.trim():'',potencial_riesgo:it.potencial_riesgo,fecha_limite:it.fecha_limite,estado_levantamiento:'PENDIENTE'};const {data:row,error}=await sb.from('inspeccion_general_items').insert(payload).select('*').single();if(error)throw error;const {data:ad,error:ae}=await sb.rpc('crear_asignacion_inspeccion_general',{p_item_id:row.id,p_responsable_id:it.responsable_id,p_fecha_limite:it.fecha_limite});if(ae)throw ae;const assignment=Array.isArray(ad)?ad[0]:ad;try{await sendItemEmail(inspection,{...row,responsable_id:it.responsable_id,item_no:i+1},assignment);sent++;}catch(mailErr){warnings.push(`Ítem ${i+1}: ${mailErr.message||mailErr}`);}}await sb.rpc('e472_actualizar_estado_inspeccion',{p_inspeccion_id:inspection.id});}
+      showMessage(formMsg,`Inspección ${e47Code(inspection.numero)} guardada.${sent?` ${sent} correo(s) de levantamiento enviado(s).`:''}${warnings.length?' '+warnings.join(' | '):''}`,warnings.length===0);await loadRows();setTimeout(()=>{location.href=`inspecciones.html?id=${inspection.id}`;},warnings.length?2500:700);
+    }catch(err){console.error(err);showMessage(formMsg,'No se pudo guardar: '+(err.message||err));}finally{btn.disabled=false;btn.textContent='Guardar inspección';}
   });
 
-  function showList(){
-    formCard.classList.add('hidden');listCard.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
-  }
-  function showForm(){
-    listCard.classList.add('hidden');formCard.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
-  }
-
-  document.getElementById('e47Cancel').addEventListener('click',()=>{history.replaceState(null,'','inspecciones.html');showList();});
-  document.getElementById('e47NewBtn').addEventListener('click',()=>openNew());
-
-  async function openNew(){
-    editId=null;existingSignaturePath='';form.reset();signaturePad?.clear();
-    document.getElementById('e47FormTitle').textContent='Nueva inspección general';
-    document.getElementById('e47Inspector').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();
-    document.getElementById('e47RecordName').value=`${profile.nombres||''} ${profile.apellidos||''}`.trim();
-    document.getElementById('e47RecordRole').value=profile.cargo||'';
-    document.getElementById('e47Date').value=today();document.getElementById('e47RecordDate').value=today();
-    if(ctx.isProject&&projects.length===1)projectEl.value=projects[0].id;
-    itemModels=[emptyItem()];renderItems();showMessage(formMsg,'');showForm();
-  }
-
-  async function openEdit(id){
-    showMessage(formMsg,'Cargando...',true);
-    const {data,error}=await sb.from('inspecciones_generales').select(`*,proyecto:proyectos(id,nombre),items:inspeccion_general_items(*)`).eq('id',id).single();
-    if(error){showMessage(msg,'No se pudo abrir la inspección: '+error.message);return;}
-    editId=id;existingSignaturePath=data.firma_ruta||'';signaturePad?.clear();
-    document.getElementById('e47FormTitle').textContent=`Editar ${e47Code(data.numero)}`;
-    projectEl.value=data.proyecto_id;document.getElementById('e47Inspector').value=data.inspector_nombre||'';document.getElementById('e47Area').value=data.area_inspeccionada||'';document.getElementById('e47Date').value=data.fecha_inspeccion||today();document.getElementById('e47Type').value=data.tipo_inspeccion||'IP';document.getElementById('e47Workers').value=data.numero_trabajadores??'';document.getElementById('e47RecordName').value=data.responsable_registro_nombre||'';document.getElementById('e47RecordRole').value=data.responsable_registro_cargo||'';document.getElementById('e47RecordDate').value=data.responsable_registro_fecha||today();
-    itemModels=(data.items||[]).sort((a,b)=>a.item_no-b.item_no).map(x=>({...x,fecha_correccion:x.fecha_correccion||''}));if(!itemModels.length)itemModels=[emptyItem()];
-    renderItems();
-    const sigBox=document.getElementById('e47ExistingSignature');sigBox.innerHTML='';
-    if(existingSignaturePath){const url=await e47Signed(existingSignaturePath);sigBox.innerHTML=url?`<span>Firma registrada</span><img src="${url}" alt="Firma registrada">`:'<span>Firma existente registrada.</span>';}
-    showMessage(formMsg,'');showForm();
-  }
-
-  async function uploadImage(file,path){
-    if(!file)return null;
-    const blob=await optimizeImage(file);
-    const {error}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});
-    if(error)throw error;return path;
-  }
-
-  form.addEventListener('submit',async e=>{
-    e.preventDefault();showMessage(formMsg,'');
-    itemModels.forEach((it,i)=>{document.querySelectorAll(`[data-item-index="${i}"] [data-f]`).forEach(el=>it[el.dataset.f]=el.value);});
-    const populated=itemModels.filter(it=>String(it.descripcion||'').trim());
-    if(!projectEl.value||!document.getElementById('e47Inspector').value.trim()||!document.getElementById('e47Area').value.trim()||!populated.length){showMessage(formMsg,'Completa los datos de la inspección y registra al menos una observación.');return;}
-    for(const [i,it] of populated.entries()){if(!String(it.accion_correctiva||'').trim()||!String(it.responsable||'').trim()||!it.potencial_riesgo){showMessage(formMsg,`Completa acción, responsable y potencial del ítem ${i+1}.`);return;}}
-    if(!editId&&signaturePad?.isEmpty()){showMessage(formMsg,'Registra la firma del responsable del registro.');return;}
-    const btn=document.getElementById('e47Save');btn.disabled=true;btn.textContent='Guardando...';
-    try{
-      const header={proyecto_id:projectEl.value,inspector_nombre:document.getElementById('e47Inspector').value.trim(),area_inspeccionada:document.getElementById('e47Area').value.trim(),fecha_inspeccion:document.getElementById('e47Date').value,tipo_inspeccion:document.getElementById('e47Type').value,numero_trabajadores:document.getElementById('e47Workers').value?Number(document.getElementById('e47Workers').value):null,responsable_registro_nombre:document.getElementById('e47RecordName').value.trim(),responsable_registro_cargo:document.getElementById('e47RecordRole').value.trim()||null,responsable_registro_fecha:document.getElementById('e47RecordDate').value};
-      let inspection;
-      if(editId){const {data,error}=await sb.from('inspecciones_generales').update(header).eq('id',editId).select('id,numero').single();if(error)throw error;inspection=data;}
-      else{const {data,error}=await sb.from('inspecciones_generales').insert({...header,creado_por_id:session.user.id}).select('id,numero').single();if(error)throw error;inspection=data;editId=data.id;}
-
-      let firmaPath=existingSignaturePath;
-      if(signaturePad&&!signaturePad.isEmpty()){
-        const blob=await signaturePad.toBlob();firmaPath=`inspecciones-generales/${inspection.id}/firma/${Date.now()}_${uid()}.webp`;
-        const {error}=await sb.storage.from('evidencias-ssomac').upload(firmaPath,blob,{contentType:'image/webp',upsert:false});if(error)throw error;
-      }
-
-      const payload=[];
-      for(let i=0;i<populated.length;i++){
-        const it=populated[i];let obs=it.observacion_foto_ruta||null,corr=it.correccion_foto_ruta||null;
-        if(it.observacion_file)obs=await uploadImage(it.observacion_file,`inspecciones-generales/${inspection.id}/item-${i+1}/observacion/${Date.now()}_${uid()}.webp`);
-        if(it.correccion_file)corr=await uploadImage(it.correccion_file,`inspecciones-generales/${inspection.id}/item-${i+1}/correccion/${Date.now()}_${uid()}.webp`);
-        payload.push({inspeccion_id:inspection.id,item_no:i+1,descripcion:String(it.descripcion||'').trim(),causa_acto:it.causa_acto||null,causa_condicion:it.causa_condicion||null,factor_trabajo:it.factor_trabajo||null,factor_personal:it.factor_personal||null,observacion_foto_ruta:obs,accion_correctiva:String(it.accion_correctiva||'').trim(),correccion_foto_ruta:corr,responsable:String(it.responsable||'').trim(),potencial_riesgo:it.potencial_riesgo,fecha_correccion:it.fecha_correccion||null});
-      }
-      const pending=payload.some(x=>!x.correccion_foto_ruta||!x.fecha_correccion);
-      const {error:de}=await sb.from('inspeccion_general_items').delete().eq('inspeccion_id',inspection.id);if(de)throw de;
-      const {error:ie}=await sb.from('inspeccion_general_items').insert(payload);if(ie)throw ie;
-      const {error:ue}=await sb.from('inspecciones_generales').update({firma_ruta:firmaPath||null,estado:pending?'PENDIENTE_CORRECCION':'COMPLETADA'}).eq('id',inspection.id);if(ue)throw ue;
-      showMessage(formMsg,`Inspección ${e47Code(inspection.numero)} guardada.`,true);
-      await loadRows();setTimeout(()=>{location.href=`inspecciones.html?saved=${inspection.id}`; },500);
-    }catch(err){console.error(err);showMessage(formMsg,'No se pudo guardar: '+(err.message||err));}
-    finally{btn.disabled=false;btn.textContent='Guardar inspección';}
-  });
-
-  async function loadRows(){
-    const {data,error}=await sb.from('inspecciones_generales').select(`id,numero,proyecto_id,inspector_nombre,area_inspeccionada,fecha_inspeccion,tipo_inspeccion,estado,actualizado_en,proyecto:proyectos(id,nombre)`).order('numero',{ascending:false});
-    if(error){showMessage(msg,'No se pudieron cargar las inspecciones: '+error.message);return;}
-    rows=data||[];renderList();
-  }
-  function renderList(){
-    const q=(filterText.value||'').trim().toLowerCase(),p=filterProject.value,s=filterStatus.value;
-    const f=rows.filter(r=>(!p||r.proyecto_id===p)&&(!s||r.estado===s)&&(!q||`${e47Code(r.numero)} ${r.proyecto?.nombre||''} ${r.inspector_nombre||''} ${r.area_inspeccionada||''}`.toLowerCase().includes(q)));
-    document.getElementById('e47KpiTotal').textContent=rows.length;document.getElementById('e47KpiPending').textContent=rows.filter(r=>r.estado==='PENDIENTE_CORRECCION').length;document.getElementById('e47KpiClosed').textContent=rows.filter(r=>r.estado==='COMPLETADA').length;
-    list.innerHTML=f.length?f.map(r=>`<article class="e47-list-card"><div><div class="e47-list-top"><strong>${e47Code(r.numero)} · ${escapeHtml(r.proyecto?.nombre||'')}</strong><span class="e47-status ${r.estado}">${r.estado==='COMPLETADA'?'COMPLETADA':'PENDIENTE DE CORRECCIÓN'}</span></div><h3>${escapeHtml(r.area_inspeccionada||'')}</h3><div class="occurrence-meta"><span>${e47FmtDate(r.fecha_inspeccion)}</span><span>${escapeHtml(e47TypeLabel(r.tipo_inspeccion))}</span><span>Inspector: ${escapeHtml(r.inspector_nombre||'')}</span></div></div><div class="e47-list-actions"><button type="button" class="secondary" data-e47-edit="${r.id}">Editar / completar</button><button type="button" data-e47-excel="${r.id}">Descargar Excel</button></div></article>`).join(''):'<div class="list-item">No hay inspecciones con esos filtros.</div>';
-    list.querySelectorAll('[data-e47-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.e47Edit)));
-    list.querySelectorAll('[data-e47-excel]').forEach(b=>b.addEventListener('click',()=>exportExcel(b.dataset.e47Excel,b)));
-  }
+  async function loadRows(){const {data,error}=await sb.from('inspecciones_generales').select(`id,numero,proyecto_id,inspector_nombre,area_inspeccionada,fecha_inspeccion,tipo_inspeccion,estado,actualizado_en,proyecto:proyectos(id,nombre),areaProyecto:areas_proyecto(id,nombre)`).order('numero',{ascending:false});if(error){showMessage(msg,'No se pudieron cargar las inspecciones: '+error.message);return;}rows=data||[];renderList();}
+  function renderList(){const q=(filterText.value||'').trim().toLowerCase(),p=filterProject.value,s=filterStatus.value;const f=rows.filter(r=>(!p||r.proyecto_id===p)&&(!s||r.estado===s)&&(!q||`${e47Code(r.numero)} ${r.proyecto?.nombre||''} ${r.inspector_nombre||''} ${r.areaProyecto?.nombre||r.area_inspeccionada||''}`.toLowerCase().includes(q)));document.getElementById('e47KpiTotal').textContent=rows.length;document.getElementById('e47KpiPending').textContent=rows.filter(r=>r.estado!=='COMPLETADA').length;document.getElementById('e47KpiClosed').textContent=rows.filter(r=>r.estado==='COMPLETADA').length;list.innerHTML=f.length?f.map(r=>`<article class="e47-list-card"><div><div class="e47-list-top"><strong>${e47Code(r.numero)} · ${escapeHtml(r.proyecto?.nombre||'')}</strong><span class="e47-status ${r.estado}">${escapeHtml(e47StateLabel(r.estado))}</span></div><h3>${escapeHtml(r.areaProyecto?.nombre||r.area_inspeccionada||'')}</h3><div class="occurrence-meta"><span>${e47FmtDate(r.fecha_inspeccion)}</span><span>${escapeHtml(e47TypeLabel(r.tipo_inspeccion))}</span><span>Inspector: ${escapeHtml(r.inspector_nombre||'')}</span></div></div><div class="e47-list-actions"><button type="button" class="secondary" data-e47-edit="${r.id}">Ver / seguimiento</button><button type="button" data-e47-excel="${r.id}">Descargar Excel</button></div></article>`).join(''):'<div class="list-item">No hay inspecciones con esos filtros.</div>';list.querySelectorAll('[data-e47-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.e47Edit)));list.querySelectorAll('[data-e47-excel]').forEach(b=>b.addEventListener('click',()=>exportExcel(b.dataset.e47Excel,b)));}
   filterProject.addEventListener('change',renderList);filterStatus.addEventListener('change',renderList);filterText.addEventListener('input',renderList);
-
-  async function getFull(id){
-    const {data,error}=await sb.from('inspecciones_generales').select(`*,proyecto:proyectos(id,nombre,codigo),items:inspeccion_general_items(*)`).eq('id',id).single();
-    if(error)throw error;data.items=(data.items||[]).sort((a,b)=>a.item_no-b.item_no);return data;
-  }
   function excelDate(v){if(!v)return null;const [y,m,d]=String(v).slice(0,10).split('-').map(Number);return new Date(y,m-1,d);}
-  async function insertExcelImage(book,sheet,path,col,row,width=160,height=72){
-    if(!path)return;
-    const url=await e47Signed(path,1800);if(!url)return;
-    const png=await urlImageToPngDataUrl(url);if(!png)return;
-    const id=book.addImage({base64:png,extension:'png'});
-    sheet.addImage(id,{tl:{col,row:row-1},ext:{width,height},editAs:'oneCell'});
-  }
-  async function exportExcel(id,button=null){
-    const old=button?.textContent;if(button){button.disabled=true;button.textContent='Generando...';}
-    try{
-      if(typeof ExcelJS==='undefined')throw new Error('No se cargó el generador de Excel.');
-      const data=await getFull(id);
-      const response=await fetch(E47_TEMPLATE+'?v=1');if(!response.ok)throw new Error('No se pudo cargar la plantilla corporativa.');
-      const ab=await response.arrayBuffer();const book=new ExcelJS.Workbook();await book.xlsx.load(ab);
-      const sheet=book.getWorksheet('EDP-SIG-SSOMAC-RE-PA-191-03')||book.worksheets[0];
-      sheet.getCell('C8').value=data.inspector_nombre||'';
-      sheet.getCell('C9').value=data.area_inspeccionada||'';
-      sheet.getCell('C10').value=excelDate(data.fecha_inspeccion);sheet.getCell('C10').numFmt='dd/mm/yyyy';
-      sheet.getCell('E10').value=e47Code(data.numero);
-      if(data.numero_trabajadores!=null)sheet.getCell('K6').value=Number(data.numero_trabajadores);
-      sheet.getCell('G8').value=(data.tipo_inspeccion==='IP'?'X  ':'')+'INSPECIONES PLANEADAS: IP';
-      sheet.getCell('G9').value=(data.tipo_inspeccion==='INP'?'X  ':'')+'INSPECCIONES NO PLANEADAS: INP';
-      sheet.getCell('G10').value=(data.tipo_inspeccion==='IC'?'X  ':'')+'INSPECCIONES CRUZADAS: IC';
+  async function insertExcelImage(book,sheet,path,col,row,width=160,height=72){if(!path)return;const url=await e47Signed(path,1800);if(!url)return;const png=await urlImageToPngDataUrl(url);if(!png)return;const id=book.addImage({base64:png,extension:'png'});sheet.addImage(id,{tl:{col,row:row-1},ext:{width,height},editAs:'oneCell'});}
+  async function exportExcel(id,button=null){const old=button?.textContent;if(button){button.disabled=true;button.textContent='Generando...';}try{if(typeof ExcelJS==='undefined')throw new Error('No se cargó el generador de Excel.');const data=await getFull(id);const response=await fetch(E47_TEMPLATE+'?v=2');if(!response.ok)throw new Error('No se pudo cargar la plantilla corporativa.');const ab=await response.arrayBuffer(),book=new ExcelJS.Workbook();await book.xlsx.load(ab);const sheet=book.getWorksheet('EDP-SIG-SSOMAC-RE-PA-191-03')||book.worksheets[0];sheet.getCell('C8').value=data.inspector_nombre||'';sheet.getCell('C9').value=data.areaProyecto?.nombre||data.area_inspeccionada||'';sheet.getCell('C10').value=excelDate(data.fecha_inspeccion);sheet.getCell('C10').numFmt='dd/mm/yyyy';sheet.getCell('E10').value=e47Code(data.numero);if(data.numero_trabajadores!=null)sheet.getCell('K6').value=Number(data.numero_trabajadores);sheet.getCell('G8').value=(data.tipo_inspeccion==='IP'?'X  ':'')+'INSPECIONES PLANEADAS: IP';sheet.getCell('G9').value=(data.tipo_inspeccion==='INP'?'X  ':'')+'INSPECCIONES NO PLANEADAS: INP';sheet.getCell('G10').value=(data.tipo_inspeccion==='IC'?'X  ':'')+'INSPECCIONES CRUZADAS: IC';for(let i=0;i<10;i++){const row=14+i,it=data.items[i];if(!it)continue;sheet.getCell(`B${row}`).value=it.descripcion||'';sheet.getCell(`C${row}`).value=it.causa_acto||'';sheet.getCell(`D${row}`).value=it.causa_condicion||'';sheet.getCell(`E${row}`).value=it.factor_trabajo||'';sheet.getCell(`F${row}`).value=it.factor_personal||'';sheet.getCell(`H${row}`).value=it.accion_correctiva||'';sheet.getCell(`K${row}`).value=it.responsable||'';sheet.getCell(`L${row}`).value=it.potencial_riesgo==='A'?'X':'';sheet.getCell(`M${row}`).value=it.potencial_riesgo==='B'?'X':'';sheet.getCell(`N${row}`).value=it.potencial_riesgo==='C'?'X':'';if(it.fecha_correccion){sheet.getCell(`O${row}`).value=excelDate(it.fecha_correccion);sheet.getCell(`O${row}`).numFmt='dd/mm/yyyy';}else sheet.getCell(`O${row}`).value='';await insertExcelImage(book,sheet,it.observacion_foto_ruta,6,row,150,68);await insertExcelImage(book,sheet,it.correccion_foto_ruta,9,row,135,68);}sheet.getCell('C25').value=data.responsable_registro_nombre||'';sheet.getCell('C26').value=data.responsable_registro_cargo||'';sheet.getCell('F26').value='FECHA: '+e47FmtDate(data.responsable_registro_fecha);if(data.firma_ruta)await insertExcelImage(book,sheet,data.firma_ruta,7,25,190,38);const buffer=await book.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const safe=(data.proyecto?.nombre||'PROYECTO').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'-');a.download=`EDP-SIG-SSOMAC-RE-PA-191-03_${e47Code(data.numero)}_${safe}_${data.fecha_inspeccion}.xlsx`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}catch(err){console.error(err);showMessage(msg,'No se pudo generar el Excel: '+(err.message||err));}finally{if(button){button.disabled=false;button.textContent=old;}}}
 
-      for(let i=0;i<10;i++){
-        const row=14+i,it=data.items[i];if(!it)continue;
-        sheet.getCell(`B${row}`).value=it.descripcion||'';
-        sheet.getCell(`C${row}`).value=it.causa_acto||'';
-        sheet.getCell(`D${row}`).value=it.causa_condicion||'';
-        sheet.getCell(`E${row}`).value=it.factor_trabajo||'';
-        sheet.getCell(`F${row}`).value=it.factor_personal||'';
-        sheet.getCell(`H${row}`).value=it.accion_correctiva||'';
-        sheet.getCell(`K${row}`).value=it.responsable||'';
-        sheet.getCell(`L${row}`).value=it.potencial_riesgo==='A'?'X':'';
-        sheet.getCell(`M${row}`).value=it.potencial_riesgo==='B'?'X':'';
-        sheet.getCell(`N${row}`).value=it.potencial_riesgo==='C'?'X':'';
-        if(it.fecha_correccion){sheet.getCell(`O${row}`).value=excelDate(it.fecha_correccion);sheet.getCell(`O${row}`).numFmt='dd/mm/yyyy';}else sheet.getCell(`O${row}`).value='';
-        await insertExcelImage(book,sheet,it.observacion_foto_ruta,6,row,150,68);
-        await insertExcelImage(book,sheet,it.correccion_foto_ruta,9,row,135,68);
-      }
-      sheet.getCell('C25').value=data.responsable_registro_nombre||'';
-      sheet.getCell('C26').value=data.responsable_registro_cargo||'';
-      sheet.getCell('F26').value='FECHA: '+e47FmtDate(data.responsable_registro_fecha);
-      if(data.firma_ruta)await insertExcelImage(book,sheet,data.firma_ruta,7,25,190,38);
-      const buffer=await book.xlsx.writeBuffer();const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;const safe=(data.proyecto?.nombre||'PROYECTO').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'-');a.download=`EDP-SIG-SSOMAC-RE-PA-191-03_${e47Code(data.numero)}_${safe}_${data.fecha_inspeccion}.xlsx`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-    }catch(err){console.error(err);showMessage(msg,'No se pudo generar el Excel: '+(err.message||err));}
-    finally{if(button){button.disabled=false;button.textContent=old;}}
-  }
-
-  await loadRows();
-  const params=new URLSearchParams(location.search);
-  if(params.get('new')==='1')await openNew();
-  else if(params.get('id'))await openEdit(params.get('id'));
-  else showList();
-  if(params.get('saved'))showMessage(msg,'Inspección guardada correctamente. Puedes descargar el Excel corporativo desde la lista.',true);
+  await loadRows();const params=new URLSearchParams(location.search);if(params.get('new')==='1')await openNew();else if(params.get('id'))await openEdit(params.get('id'));else showList();
 }
 if(document.body.dataset.page==='inspections')e47Init();

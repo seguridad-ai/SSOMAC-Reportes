@@ -1,0 +1,49 @@
+SSOMAC DIGITAL V11.8.2 - AJUSTE ETAPA 47
+
+BASE: V11.8.1 ETAPA 47 REVISADA
+
+CAMBIOS PRINCIPALES
+1. ÁREAS POR PROYECTO / SEDE
+   - Nuevo módulo: Administración > Áreas por proyecto.
+   - ADMIN puede administrar cualquier proyecto/sede.
+   - Usuario PROYECTO / ING_SEGURIDAD puede administrar áreas de su proyecto asignado.
+   - Las áreas alimentan Inspección General, Ocurrencias y revisión de Reportes de trabajadores.
+
+2. LÓGICA ACTO / CONDICIÓN EN INSPECCIÓN GENERAL
+   - ACTO: bloquea Condición y Factor de trabajo; habilita Factor personal.
+   - CONDICIÓN: bloquea Acto y Factor personal; habilita Factor de trabajo.
+
+3. LEVANTAMIENTO POSTERIOR DE INSPECCIÓN GENERAL
+   - En el registro inicial NO se carga foto de corrección.
+   - Cada observación requiere responsable, potencial A/B/C y fecha límite.
+   - Se envía correo al responsable con enlace público.
+   - El responsable registra acción correctiva, fotografía y firma.
+   - El levantamiento queda PENDIENTE DE VALIDACIÓN.
+   - Usuario interno autorizado puede VALIDAR/CERRAR o DEVOLVER A CORRECCIÓN.
+   - Todo permanece dentro de IG-XXXXXX; NO crea Ocurrencias.
+   - El Excel corporativo se completa con la evidencia cuando existe levantamiento.
+
+INSTALACIÓN SOBRE V11.8.1
+A. SUPABASE
+   Ejecutar SOLO: ETAPA_47_AJUSTE_02_AREAS_Y_LEVANTAMIENTO.sql
+
+B. GITHUB
+   Subir/reemplazar todos los archivos incluidos en este ZIP.
+   NO modificar config.js.
+   Nuevos archivos importantes:
+   - areas.html
+   - areas.js
+   - levantamiento-inspeccion.html
+   - levantamiento-inspeccion.js
+
+C. COMMIT SUGERIDO
+   V11.8.2 - Ajuste Etapa 47 areas y levantamiento inspecciones
+
+D. PRUEBAS
+   1. Administración > Áreas por proyecto > crear TALLER DE MANTENIMIENTO.
+   2. Inspecciones > Nueva inspección > comprobar que Área inspeccionada sea desplegable.
+   3. Seleccionar Acto: verificar bloqueo Condición/Factor trabajo.
+   4. Seleccionar Condición: verificar bloqueo Acto/Factor personal.
+   5. Guardar observación con responsable y plazo; comprobar correo.
+   6. Abrir enlace del correo, subir corrección + foto + firma.
+   7. Volver a Inspecciones > Ver/seguimiento > validar o devolver.
