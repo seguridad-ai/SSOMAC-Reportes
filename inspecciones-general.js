@@ -333,7 +333,29 @@ async function e47Init(){
         .e47p-spacer td{height:9px;padding:0}
         .e47p-head{
           background:#d9d9d9;
-          font-weight:800;font-size:10px
+          font-weight:800;
+          font-size:10px;
+          line-height:1.12
+        }
+        .e47p-head-top th{
+          height:38px;
+          padding:5px 4px;
+          vertical-align:middle;
+          white-space:normal;
+          overflow:visible
+        }
+        .e47p-head-bottom th{
+          height:44px;
+          padding:5px 3px;
+          vertical-align:middle;
+          white-space:normal;
+          overflow:visible
+        }
+        .e47p-head-empty{
+          background:#d9d9d9;
+          color:transparent;
+          font-size:1px;
+          padding:0!important
         }
         .e47p-item td{
           height:138px;
@@ -450,24 +472,31 @@ async function e47Init(){
           <col style="width:3%">
           <col style="width:9.5%">
         </colgroup>
-        <tr class="e47p-head">
-          <th rowspan="2">ITEM</th>
-          <th rowspan="2">CONDICIÓN O PRÁCTICA SUB ESTÁNDAR<br>(Describir la observación)</th>
+        <tr class="e47p-head e47p-head-top">
+          <th class="e47p-head-empty">&nbsp;</th>
+          <th class="e47p-head-empty">&nbsp;</th>
           <th colspan="2">CAUSA INMEDIATA</th>
           <th colspan="2">CAUSAS BÁSICAS</th>
-          <th rowspan="2">OBSERVACIÓN<br>(Colocar imagen)</th>
-          <th rowspan="2">ACCIÓN MITIGADORA / ACCIÓN CORRECTIVA</th>
-          <th rowspan="2">CORRECCIÓN EJECUTADA<br>(Colocar imagen)</th>
-          <th rowspan="2">RESPONSABLE</th>
+          <th class="e47p-head-empty">&nbsp;</th>
+          <th class="e47p-head-empty">&nbsp;</th>
+          <th class="e47p-head-empty">&nbsp;</th>
+          <th class="e47p-head-empty">&nbsp;</th>
           <th colspan="3">POTENCIAL DE RIESGO</th>
-          <th rowspan="2">FECHA DE CORRECCIÓN</th>
+          <th class="e47p-head-empty">&nbsp;</th>
         </tr>
-        <tr class="e47p-head">
+        <tr class="e47p-head e47p-head-bottom">
+          <th>ITEM</th>
+          <th>CONDICIÓN O PRÁCTICA SUB ESTÁNDAR<br>(Describir la observación)</th>
           <th>ACTOS SUB ESTÁNDARES</th>
           <th>CONDICIONES SUB ESTÁNDARES</th>
           <th>FACTORES DE TRABAJO</th>
           <th>FACTORES PERSONALES</th>
+          <th>OBSERVACIÓN<br>(Colocar imagen)</th>
+          <th>ACCIÓN MITIGADORA / ACCIÓN CORRECTIVA</th>
+          <th>CORRECCIÓN EJECUTADA<br>(Colocar imagen)</th>
+          <th>RESPONSABLE</th>
           <th>A</th><th>B</th><th>C</th>
+          <th>FECHA DE CORRECCIÓN</th>
         </tr>
         ${enriched.map((it,i)=>`
           <tr class="e47p-item">
