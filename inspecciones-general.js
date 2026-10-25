@@ -1,5 +1,5 @@
 // ============================================================
-// V11.8.6 - ETAPA 47 · EXPORTACIÓN EXCEL/PDF CORREGIDA
+// V11.8.7 - ETAPA 47 · PDF DE HOJA COMPLETA CON ENCABEZADO
 // Inspección General corporativa - EDP-SIG-SSOMAC-RE-PA-191-03
 // NO genera ocurrencias.
 // ============================================================
@@ -207,23 +207,347 @@ async function e47Init(){
   async function e47PdfDataUrl(path){if(!path)return '';const url=await e47Signed(path,1800);if(!url)return '';return await urlImageToPngDataUrl(url)||'';}
   async function e47WaitImages(root){const imgs=[...root.querySelectorAll('img')];await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;})));}
   function e47PdfRisk(it,code){return it.potencial_riesgo===code?'X':'';}
-  async function exportPdf(id,button=null){const old=button?.textContent;if(button){button.disabled=true;button.textContent='Generando PDF...';}let report=null;try{if(typeof html2canvas==='undefined'||!window.jspdf?.jsPDF)throw new Error('No se cargaron los componentes para generar PDF.');const data=await getFull(id);const items=(data.items||[]).filter(it=>String(it.descripcion||'').trim()||it.observacion_foto_ruta||it.correccion_foto_ruta||it.accion_correctiva||it.responsable);const enriched=[];for(const it of items){enriched.push({...it,obsData:await e47PdfDataUrl(it.observacion_foto_ruta),corrData:await e47PdfDataUrl(it.correccion_foto_ruta)});}const sig=await e47PdfDataUrl(data.firma_ruta);const typeLine=(code,label)=>`<div class="e47p-type"><span class="e47p-check">${data.tipo_inspeccion===code?'X':''}</span><strong>${label}</strong></div>`;report=document.createElement('div');report.className='e47-pdf-report';report.innerHTML=`<style>
-.e47-pdf-report{position:absolute;left:-20000px;top:0;width:1600px;background:#fff;color:#000;font-family:Arial,sans-serif;padding:10px;box-sizing:border-box}.e47-pdf-report table{border-collapse:collapse;width:100%;table-layout:fixed}.e47-pdf-report td,.e47-pdf-report th{border:1.4px solid #111;padding:6px;text-align:center;vertical-align:middle;word-break:break-word;overflow-wrap:anywhere}.e47p-top td{font-size:14px;font-weight:700}.e47p-dark{background:#555;color:#fff;font-weight:700}.e47p-label{background:#ddd;text-align:left!important;font-weight:700}.e47p-type{display:flex;align-items:center;gap:8px;text-align:left}.e47p-check{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border:1.5px solid #111;font-size:20px;font-weight:800;flex:0 0 auto}.e47p-risk-a{background:#ff1f16}.e47p-risk-b{background:#ffe400}.e47p-risk-c{background:#00bf62}.e47p-head{background:#d9d9d9;font-weight:700;font-size:11px}.e47p-item td{height:126px;font-size:11px}.e47p-img{display:block;max-width:100%;max-height:112px;margin:auto;object-fit:contain}.e47p-x{font-size:20px;font-weight:800}.e47p-footer{margin-top:8px}.e47p-sign{max-width:230px;max-height:55px;object-fit:contain;display:block;margin:2px auto}.e47p-small{font-size:10px}.e47p-title{font-size:15px;font-weight:800}.e47p-meta{font-size:12px;font-weight:700}</style>
-<table>
-<tr class="e47p-top"><td colspan="4">EXPLO DRILLING PERU S.R.L.</td><td colspan="2">20527775851</td><td colspan="5">Las Acacias I-7, Urb. La Capitana, Lurigancho - Huachipa, Lima.</td><td colspan="4">Perforación Diamantina</td></tr>
-<tr><td colspan="7"></td><td colspan="4" class="e47p-dark">TIPO DE INSPECCIÓN</td><td colspan="4" class="e47p-dark">MEDIDAS CORRECTIVAS</td></tr>
-<tr><td colspan="2" class="e47p-label">Nombre del Inspector:</td><td colspan="5" class="e47p-meta">${escapeHtml(data.inspector_nombre||'')}</td><td colspan="4">${typeLine('IP','INSPECCIONES PLANEADAS: IP')}</td><td colspan="4" class="e47p-risk-a"><strong>A (Alto)</strong> Muerte de varias personas. Acción antes de 24 horas.</td></tr>
-<tr><td colspan="2" class="e47p-label">Área Inspeccionada:</td><td colspan="5" class="e47p-meta">${escapeHtml(data.lugar?.nombre||data.area_inspeccionada||'')}</td><td colspan="4">${typeLine('INP','INSPECCIONES NO PLANEADAS: INP')}</td><td colspan="4" class="e47p-risk-b"><strong>B (Medio)</strong> Múltiples lesiones irreversibles. Acción antes de 72 horas.</td></tr>
-<tr><td colspan="2" class="e47p-label">Fecha de Inspección:</td><td colspan="2" class="e47p-meta">${escapeHtml(e47FmtDate(data.fecha_inspeccion))}</td><td colspan="2" class="e47p-label">Número de inspección:</td><td class="e47p-meta">${escapeHtml(e47Code(data.numero))}</td><td colspan="4">${typeLine('IC','INSPECCIONES CRUZADAS: IC')}</td><td colspan="4" class="e47p-risk-c"><strong>C (Bajo)</strong> Lesión leve / no lesión. Acción antes de dos semanas.</td></tr>
-</table>
-<table style="margin-top:8px">
-<colgroup><col style="width:4%"><col style="width:15%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:10%"><col style="width:3%"><col style="width:3%"><col style="width:3%"><col style="width:10%"></colgroup>
-<tr class="e47p-head"><th rowspan="2">ITEM</th><th rowspan="2">CONDICIÓN O PRÁCTICA SUB ESTÁNDAR</th><th colspan="2">CAUSA INMEDIATA</th><th colspan="2">CAUSAS BÁSICAS</th><th rowspan="2">OBSERVACIÓN</th><th rowspan="2">ACCIÓN MITIGADORA / CORRECTIVA</th><th rowspan="2">CORRECCIÓN EJECUTADA</th><th rowspan="2">RESPONSABLE</th><th colspan="3">POTENCIAL DE RIESGO</th><th rowspan="2">FECHA DE CORRECCIÓN</th></tr>
-<tr class="e47p-head"><th>ACTOS SUB ESTÁNDARES</th><th>CONDICIONES SUB ESTÁNDARES</th><th>FACTORES DE TRABAJO</th><th>FACTORES PERSONALES</th><th>A</th><th>B</th><th>C</th></tr>
-${enriched.map((it,i)=>`<tr class="e47p-item"><td>${i+1}</td><td>${escapeHtml(it.descripcion||'')}</td><td>${escapeHtml(it.causa_acto||'')}</td><td>${escapeHtml(it.causa_condicion||'')}</td><td>${escapeHtml(it.factor_trabajo||'')}</td><td>${escapeHtml(it.factor_personal||'')}</td><td>${it.obsData?`<img class="e47p-img" src="${it.obsData}">`:''}</td><td>${escapeHtml(it.accion_correctiva||'')}</td><td>${it.corrData?`<img class="e47p-img" src="${it.corrData}">`:''}</td><td>${escapeHtml(it.responsable||'')}</td><td class="e47p-x">${e47PdfRisk(it,'A')}</td><td class="e47p-x">${e47PdfRisk(it,'B')}</td><td class="e47p-x">${e47PdfRisk(it,'C')}</td><td>${it.fecha_correccion?escapeHtml(e47FmtDate(it.fecha_correccion)):''}</td></tr>`).join('')}
-</table>
-<table class="e47p-footer"><tr><td class="e47p-dark" colspan="15">RESPONSABLE DEL REGISTRO</td></tr><tr><td colspan="5"><strong>NOMBRE:</strong><br>${escapeHtml(data.responsable_registro_nombre||'')}</td><td colspan="5"><strong>FIRMA:</strong>${sig?`<img class="e47p-sign" src="${sig}">`:''}</td><td colspan="5"><strong>CARGO:</strong><br>${escapeHtml(data.responsable_registro_cargo||'')}<br><strong>FECHA:</strong> ${escapeHtml(e47FmtDate(data.responsable_registro_fecha))}</td></tr></table>`;document.body.appendChild(report);await e47WaitImages(report);const canvas=await html2canvas(report,{scale:1.5,useCORS:true,backgroundColor:'#ffffff',logging:false});const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a3'});const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),margin=5;let w=pw-margin*2,h=canvas.height*(w/canvas.width);if(h>ph-margin*2){h=ph-margin*2;w=canvas.width*(h/canvas.height);}pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',(pw-w)/2,(ph-h)/2,w,h,undefined,'FAST');const safe=(data.proyecto?.nombre||'PROYECTO').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_-]+/g,'-');pdf.save(`EDP-SIG-SSOMAC-RE-PA-191-03_${e47Code(data.numero)}_${safe}_${data.fecha_inspeccion}.pdf`);
-    }catch(err){console.error(err);showMessage(msg,'No se pudo generar el PDF: '+(err.message||err));}finally{report?.remove();if(button){button.disabled=false;button.textContent=old;}}}
+  async function exportPdf(id,button=null){
+    const old=button?.textContent;
+    if(button){button.disabled=true;button.textContent='Generando PDF...';}
+    let report=null;
+    try{
+      if(typeof html2canvas==='undefined'||!window.jspdf?.jsPDF)throw new Error('No se cargaron los componentes para generar PDF.');
+
+      const data=await getFull(id);
+      const items=(data.items||[]).filter(it=>
+        String(it.descripcion||'').trim()||
+        it.observacion_foto_ruta||
+        it.correccion_foto_ruta||
+        it.accion_correctiva||
+        it.responsable
+      );
+
+      const enriched=[];
+      for(const it of items){
+        enriched.push({
+          ...it,
+          obsData:await e47PdfDataUrl(it.observacion_foto_ruta),
+          corrData:await e47PdfDataUrl(it.correccion_foto_ruta)
+        });
+      }
+
+      const sig=await e47PdfDataUrl(data.firma_ruta);
+
+      let logo='';
+      try{
+        logo=await urlImageToPngDataUrl('assets/img/logo-corporativo.jpg')||'';
+      }catch(_){
+        try{logo=typeof EXPLO_LOGO_BASE64!=='undefined'?EXPLO_LOGO_BASE64:'';}catch(__){logo='';}
+      }
+
+      const typeRow=(code,label)=>`
+        <div class="e47p-type-row">
+          <span class="e47p-type-label">${label}</span>
+          <span class="e47p-check">${data.tipo_inspeccion===code?'X':''}</span>
+        </div>`;
+
+      report=document.createElement('div');
+      report.className='e47-pdf-report';
+      report.innerHTML=`<style>
+        .e47-pdf-report{
+          position:absolute;left:-24000px;top:0;
+          width:2100px;background:#fff;color:#000;
+          font-family:Arial,Helvetica,sans-serif;
+          padding:8px;box-sizing:border-box
+        }
+        .e47-pdf-report table{
+          border-collapse:collapse;width:100%;table-layout:fixed
+        }
+        .e47-pdf-report td,.e47-pdf-report th{
+          border:1.35px solid #111;
+          padding:5px;
+          text-align:center;vertical-align:middle;
+          word-break:normal;overflow-wrap:break-word;
+          box-sizing:border-box
+        }
+        .e47p-logo{
+          padding:2px!important;
+          background:#fff
+        }
+        .e47p-logo img{
+          display:block;
+          max-width:180px;
+          max-height:75px;
+          margin:0 auto;
+          object-fit:contain
+        }
+        .e47p-sig{
+          font-size:18px;font-weight:800
+        }
+        .e47p-form-title{
+          font-size:20px;font-weight:800
+        }
+        .e47p-doc-label{
+          font-size:11px;font-weight:800;background:#f2f2f2
+        }
+        .e47p-doc-value{
+          font-size:11px;font-weight:700
+        }
+        .e47p-company-head{
+          background:#d9d9d9;
+          font-size:10px;font-weight:800
+        }
+        .e47p-company-value{
+          font-size:11px;font-weight:700
+        }
+        .e47p-dark{
+          background:#555;color:#fff;font-weight:800
+        }
+        .e47p-label{
+          background:#d9d9d9;
+          text-align:left!important;
+          font-weight:800
+        }
+        .e47p-meta{
+          font-size:12px;font-weight:700
+        }
+        .e47p-type-row{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:8px;
+          min-height:32px
+        }
+        .e47p-type-label{
+          flex:1;
+          text-align:left;
+          font-weight:800
+        }
+        .e47p-check{
+          width:28px;height:28px;
+          display:inline-flex;
+          align-items:center;justify-content:center;
+          border:1.5px solid #111;
+          font-size:20px;font-weight:900;
+          flex:0 0 auto
+        }
+        .e47p-risk-a{background:#ff1f16;font-size:11px}
+        .e47p-risk-b{background:#ffe400;font-size:11px}
+        .e47p-risk-c{background:#00bf62;font-size:11px}
+        .e47p-spacer td{height:9px;padding:0}
+        .e47p-head{
+          background:#d9d9d9;
+          font-weight:800;font-size:10px
+        }
+        .e47p-item td{
+          height:138px;
+          font-size:10px;
+          line-height:1.25
+        }
+        .e47p-img{
+          display:block;
+          max-width:98%;
+          max-height:124px;
+          margin:auto;
+          object-fit:contain
+        }
+        .e47p-x{
+          font-size:20px;font-weight:900
+        }
+        .e47p-footer{
+          margin-top:7px
+        }
+        .e47p-sign{
+          max-width:240px;
+          max-height:58px;
+          object-fit:contain;
+          display:block;
+          margin:3px auto
+        }
+        .e47p-resp-title{
+          background:#555;color:#fff;
+          font-weight:800;font-size:12px
+        }
+        .e47p-small{font-size:9px}
+      </style>
+
+      <table class="e47p-sheet">
+        <tr>
+          <td rowspan="4" colspan="2" class="e47p-logo">
+            ${logo?`<img src="${logo}" alt="Explo Drilling Perú">`:''}
+          </td>
+          <td rowspan="2" colspan="10" class="e47p-sig">SIG - SSOMAC</td>
+          <td colspan="2" class="e47p-doc-label">Código:</td>
+          <td class="e47p-doc-value">EDP-SIG-SSOMAC-RE-EA-191</td>
+        </tr>
+        <tr>
+          <td colspan="2" class="e47p-doc-label">N°:</td>
+          <td class="e47p-doc-value">3</td>
+        </tr>
+        <tr>
+          <td rowspan="2" colspan="10" class="e47p-form-title">FORMATO DE INSPECCIONES</td>
+          <td colspan="2" class="e47p-doc-label">Versión:</td>
+          <td class="e47p-doc-value">5</td>
+        </tr>
+        <tr>
+          <td colspan="2" class="e47p-doc-label">Fecha Act:</td>
+          <td class="e47p-doc-value">Jul-25</td>
+        </tr>
+
+        <tr class="e47p-company-head">
+          <td colspan="3">RAZÓN SOCIAL O DENOMINACIÓN SOCIAL</td>
+          <td>RUC</td>
+          <td colspan="2">DOMICILIO (Dirección, distrito, departamento, provincia)</td>
+          <td colspan="4">ACTIVIDAD ECONÓMICA</td>
+          <td colspan="5">Nº TRABAJADORES EN EL CENTRO LABORAL</td>
+        </tr>
+        <tr class="e47p-company-value">
+          <td colspan="3">EXPLO DRILLING PERU S.R.L.</td>
+          <td>20527775851</td>
+          <td colspan="2">Las Acacias I-7, Urb. La Capitana, Lurigancho - Huachipa, Lima.</td>
+          <td colspan="4">Perforación Diamantina</td>
+          <td colspan="5">${data.numero_trabajadores!=null?escapeHtml(String(data.numero_trabajadores)):''}</td>
+        </tr>
+
+        <tr>
+          <td colspan="6"></td>
+          <td colspan="3" class="e47p-dark">TIPO DE INSPECCIÓN</td>
+          <td colspan="6" class="e47p-dark">MEDIDAS CORRECTIVAS</td>
+        </tr>
+        <tr>
+          <td colspan="2" class="e47p-label">Nombre del Inspector:</td>
+          <td colspan="4" class="e47p-meta">${escapeHtml(data.inspector_nombre||'')}</td>
+          <td colspan="3">${typeRow('IP','INSPECCIONES PLANEADAS: IP')}</td>
+          <td colspan="6" class="e47p-risk-a"><strong>A (Alto)</strong> Muerte de varias personas: la acción correctiva deberá ser tomada de inmediato y terminada antes de las 24 horas.</td>
+        </tr>
+        <tr>
+          <td colspan="2" class="e47p-label">Área Inspeccionada:</td>
+          <td colspan="4" class="e47p-meta">${escapeHtml(data.lugar?.nombre||data.area_inspeccionada||'')}</td>
+          <td colspan="3">${typeRow('INP','INSPECCIONES NO PLANEADAS: INP')}</td>
+          <td colspan="6" class="e47p-risk-b"><strong>B (Medio)</strong> Múltiples lesiones irreversibles: la acción correctiva deberá ser completada antes de 72 horas.</td>
+        </tr>
+        <tr>
+          <td colspan="2" class="e47p-label">Fecha de Inspección:</td>
+          <td colspan="2" class="e47p-meta">${escapeHtml(e47FmtDate(data.fecha_inspeccion))}</td>
+          <td colspan="2" class="e47p-label">Número de inspección:</td>
+          <td class="e47p-meta">${escapeHtml(e47Code(data.numero))}</td>
+          <td colspan="2">${typeRow('IC','INSPECCIONES CRUZADAS: IC')}</td>
+          <td colspan="6" class="e47p-risk-c"><strong>C (Bajo)</strong> Lesión leve / no lesión: la acción correctiva deberá ser completada antes de dos semanas.</td>
+        </tr>
+        <tr class="e47p-spacer"><td colspan="15"></td></tr>
+      </table>
+
+      <table class="e47p-items">
+        <colgroup>
+          <col style="width:4%">
+          <col style="width:14%">
+          <col style="width:8.5%">
+          <col style="width:8.5%">
+          <col style="width:9%">
+          <col style="width:9%">
+          <col style="width:11%">
+          <col style="width:11%">
+          <col style="width:11%">
+          <col style="width:9.5%">
+          <col style="width:3%">
+          <col style="width:3%">
+          <col style="width:3%">
+          <col style="width:9.5%">
+        </colgroup>
+        <tr class="e47p-head">
+          <th rowspan="2">ITEM</th>
+          <th rowspan="2">CONDICIÓN O PRÁCTICA SUB ESTÁNDAR<br>(Describir la observación)</th>
+          <th colspan="2">CAUSA INMEDIATA</th>
+          <th colspan="2">CAUSAS BÁSICAS</th>
+          <th rowspan="2">OBSERVACIÓN<br>(Colocar imagen)</th>
+          <th rowspan="2">ACCIÓN MITIGADORA / ACCIÓN CORRECTIVA</th>
+          <th rowspan="2">CORRECCIÓN EJECUTADA<br>(Colocar imagen)</th>
+          <th rowspan="2">RESPONSABLE</th>
+          <th colspan="3">POTENCIAL DE RIESGO</th>
+          <th rowspan="2">FECHA DE CORRECCIÓN</th>
+        </tr>
+        <tr class="e47p-head">
+          <th>ACTOS SUB ESTÁNDARES</th>
+          <th>CONDICIONES SUB ESTÁNDARES</th>
+          <th>FACTORES DE TRABAJO</th>
+          <th>FACTORES PERSONALES</th>
+          <th>A</th><th>B</th><th>C</th>
+        </tr>
+        ${enriched.map((it,i)=>`
+          <tr class="e47p-item">
+            <td>${i+1}</td>
+            <td>${escapeHtml(it.descripcion||'')}</td>
+            <td>${escapeHtml(it.causa_acto||'')}</td>
+            <td>${escapeHtml(it.causa_condicion||'')}</td>
+            <td>${escapeHtml(it.factor_trabajo||'')}</td>
+            <td>${escapeHtml(it.factor_personal||'')}</td>
+            <td>${it.obsData?`<img class="e47p-img" src="${it.obsData}">`:''}</td>
+            <td>${escapeHtml(it.accion_correctiva||'')}</td>
+            <td>${it.corrData?`<img class="e47p-img" src="${it.corrData}">`:''}</td>
+            <td>${escapeHtml(it.responsable||'')}</td>
+            <td class="e47p-x">${e47PdfRisk(it,'A')}</td>
+            <td class="e47p-x">${e47PdfRisk(it,'B')}</td>
+            <td class="e47p-x">${e47PdfRisk(it,'C')}</td>
+            <td>${it.fecha_correccion?escapeHtml(e47FmtDate(it.fecha_correccion)):''}</td>
+          </tr>`).join('')}
+      </table>
+
+      <table class="e47p-footer">
+        <tr><td class="e47p-resp-title" colspan="15">RESPONSABLE DEL REGISTRO</td></tr>
+        <tr>
+          <td colspan="5"><strong>NOMBRE:</strong><br>${escapeHtml(data.responsable_registro_nombre||'')}</td>
+          <td colspan="5"><strong>FIRMA:</strong>${sig?`<img class="e47p-sign" src="${sig}">`:''}</td>
+          <td colspan="5"><strong>CARGO:</strong><br>${escapeHtml(data.responsable_registro_cargo||'')}<br><strong>FECHA:</strong> ${escapeHtml(e47FmtDate(data.responsable_registro_fecha))}</td>
+        </tr>
+      </table>`;
+
+      document.body.appendChild(report);
+      await e47WaitImages(report);
+
+      const canvas=await html2canvas(report,{
+        scale:1.8,
+        useCORS:true,
+        backgroundColor:'#ffffff',
+        logging:false,
+        imageTimeout:15000
+      });
+
+      const {jsPDF}=window.jspdf;
+      const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+      const pw=pdf.internal.pageSize.getWidth();
+      const ph=pdf.internal.pageSize.getHeight();
+      const margin=2.5;
+      const maxW=pw-margin*2;
+      const maxH=ph-margin*2;
+
+      let w=maxW;
+      let h=canvas.height*(w/canvas.width);
+      if(h>maxH){
+        h=maxH;
+        w=canvas.width*(h/canvas.height);
+      }
+
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg',0.98),
+        'JPEG',
+        (pw-w)/2,
+        (ph-h)/2,
+        w,
+        h,
+        undefined,
+        'FAST'
+      );
+
+      const safe=(data.proyecto?.nombre||'PROYECTO')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^A-Za-z0-9_-]+/g,'-');
+
+      pdf.save(`EDP-SIG-SSOMAC-RE-PA-191-03_${e47Code(data.numero)}_${safe}_${data.fecha_inspeccion}.pdf`);
+    }catch(err){
+      console.error(err);
+      showMessage(msg,'No se pudo generar el PDF: '+(err.message||err));
+    }finally{
+      report?.remove();
+      if(button){button.disabled=false;button.textContent=old;}
+    }
+  }
 
 
   await loadRows();const params=new URLSearchParams(location.search);if(params.get('new')==='1')await openNew();else if(params.get('id'))await openEdit(params.get('id'));else showList();
