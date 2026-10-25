@@ -625,6 +625,8 @@ async function initNewOccurrence(){
   const immediateLiftSigner=document.getElementById('immediateLiftSigner'),immediateLiftSignature=document.getElementById('immediateLiftSignature'),immediateLiftClearSignature=document.getElementById('immediateLiftClearSignature');
   const immediateSignaturePad=createSignaturePad(immediateLiftSignature,immediateLiftClearSignature);
   dateEl.value=today();
+  const sourceParamsV47=new URLSearchParams(location.search);
+  const sourceInspectionIdV47=sourceParamsV47.get('inspeccion')||'';
 
   function isImmediateLift(){
     return document.querySelector('input[name="immediateLift"]:checked')?.value==='SI';
@@ -702,6 +704,23 @@ async function initNewOccurrence(){
   classificationEl.addEventListener('change',async()=>{clearCauses(); if(!classificationEl.value){causesSection.classList.add('hidden');correctiveSection.classList.add('hidden');return;} causesSection.classList.remove('hidden');correctiveSection.classList.remove('hidden');await loadCauses(classificationEl.value);});
   photoEl.addEventListener('change',()=>{const f=photoEl.files?.[0];if(!f){preview.classList.add('hidden');return;}preview.src=URL.createObjectURL(f);preview.classList.remove('hidden');});
 
+  // ETAPA 47: precarga una ocurrencia originada desde una inspeccion.
+  if(sourceInspectionIdV47){
+    const sourceProjectV47=sourceParamsV47.get('proyecto')||'';
+    const sourceDateV47=sourceParamsV47.get('fecha')||'';
+    const sourcePlaceV47=sourceParamsV47.get('lugar')||'';
+    const sourceDescriptionV47=sourceParamsV47.get('descripcion')||'';
+    if(sourceProjectV47&&[...projectEl.options].some(o=>o.value===sourceProjectV47)){
+      projectEl.value=sourceProjectV47;renderResponsibles();
+    }
+    if(sourceDateV47)dateEl.value=sourceDateV47;
+    if(sourcePlaceV47)document.getElementById('place').value=sourcePlaceV47;
+    if(sourceDescriptionV47)document.getElementById('description').value=sourceDescriptionV47;
+    const inspectionOriginV47=origins.find(o=>String(o.nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes('INSPECCION'));
+    if(inspectionOriginV47){originEl.value=inspectionOriginV47.id;originEl.dispatchEvent(new Event('change'));}
+    showMessage(msg,'Hallazgo precargado desde una inspección. Completa la clasificación, causas, responsable y plazo.',true);
+  }
+
   async function loadCauses(typeId){
     const ib=document.getElementById('immediateCauses'),bb=document.getElementById('basicCauses');ib.innerHTML=bb.innerHTML='Cargando...';
     const [ir,br]=await Promise.all([
@@ -735,6 +754,7 @@ async function initNewOccurrence(){
         area_responsable_id:good?null:(areaEl.value||null),fecha_levantamiento:good?null:(document.getElementById('dueDate').value||null),
         modalidad_levantamiento:good?null:(immediate?'INMEDIATO':'ASIGNADO')
       };
+      if(sourceInspectionIdV47)payload.inspeccion_id=sourceInspectionIdV47;
       const {data:occ,error:oe}=await sb.from('ocurrencias').insert(payload).select('id,numero').single();if(oe)throw oe;
       if(!good){
         const ii=[...document.querySelectorAll('input[name="immediateCause"]:checked')].map(x=>x.value),bi=[...document.querySelectorAll('input[name="basicCause"]:checked')].map(x=>x.value);
@@ -1574,7 +1594,7 @@ function initStage46ShellV46(ctx){
   const managementItems=[
     linkItemV46('◎','Ocurrencias','ocurrencias.html','Seguimiento y cierre'),
     linkItemV46('◉','Reportes de trabajadores','reportes-trabajadores.html','Revisión de reportes QR'),
-    futureItemV46('✓','Inspecciones'),
+    linkItemV46('✓','Inspecciones','inspecciones.html','Checklists y hallazgos'),
     futureItemV46('◫','OPT'),
     futureItemV46('★','Liderazgo visible'),
     futureItemV46('◆','Riesgos críticos')
@@ -1621,7 +1641,7 @@ function initStage46ShellV46(ctx){
     <div class="register-dropdown-v46">
       ${linkItemV46('+','Nueva ocurrencia','nueva-ocurrencia.html','Registrar hallazgo interno')}
       ${linkItemV46('◎','Yo Reporto',reportPublicHref,'Abrir formulario público')}
-      ${futureItemV46('✓','Inspección')}
+      ${linkItemV46('✓','Inspección','inspecciones.html?nuevo=1','Ejecutar checklist')}
       ${futureItemV46('◫','OPT')}
       ${futureItemV46('★','Liderazgo visible')}
       ${futureItemV46('◆','Riesgo crítico')}
@@ -1767,7 +1787,7 @@ function initScrollTopV42(){
 
 function initRevealAnimationsV42(){
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const selector='.card,.kpi,.pd-kpi,.home-mini-kpi-v40,.occurrence-card,.project-qr-card,.responsible-card,.alert-row-v40,.home-activity-row-v40';
+  const selector='.card,.kpi,.pd-kpi,.home-mini-kpi-v40,.occurrence-card,.project-qr-card,.responsible-card,.alert-row-v40,.home-activity-row-v40,.inspection-card-v47';
   const seen=new WeakSet();
   const io=new IntersectionObserver(entries=>{
     entries.forEach(entry=>{
@@ -3567,3 +3587,328 @@ async function initUsersAccessV43(){
 }
 
 if(page==='users-access')initUsersAccessV43();
+
+// ============================================================
+// V11.8 - ETAPA 47
+// MOTOR GENERAL DE INSPECCIONES SSOMAC
+// ============================================================
+function inspectionCodeV47(row){return `INS-${String(row?.numero||0).padStart(6,'0')}`;}
+function inspectionPercentV47(value){return value===null||value===undefined?'—':`${Math.round(Number(value)*10)/10}%`;}
+function inspectionResultV47(row){
+  if(row?.tiene_falla_critica)return {code:'CRITICO',label:'Falla crítica',cls:'critical'};
+  if(row?.tiene_incumplimientos)return {code:'NO_CONFORME',label:'Con incumplimientos',cls:'nc'};
+  return {code:'CONFORME',label:'Sin incumplimientos',cls:'ok'};
+}
+
+async function initInspectionsV47(){
+  const session=await requireSession();if(!session)return;
+  document.getElementById('logoutBtn')?.addEventListener('click',logout);
+  const ctx=await getAccessContextV43(session);
+  const profile=ctx.profile||{};
+  const projects=ctx.projects||[];
+  const fullName=`${profile.nombres||''} ${profile.apellidos||''}`.trim()||profile.email||'Usuario';
+
+  const list=document.getElementById('inspectionList');
+  const listMsg=document.getElementById('inspectionListMessage');
+  const formCard=document.getElementById('inspectionFormCard');
+  const form=document.getElementById('inspectionForm');
+  const formMsg=document.getElementById('inspectionFormMessage');
+  const detailCard=document.getElementById('inspectionDetailCard');
+  const detailMsg=document.getElementById('inspectionDetailMessage');
+  const templatesCard=document.getElementById('inspectionTemplatesCard');
+  const templatesMsg=document.getElementById('inspectionTemplatesMessage');
+
+  const projectFilter=document.getElementById('inspectionProjectFilter');
+  const typeFilter=document.getElementById('inspectionTypeFilter');
+  const resultFilter=document.getElementById('inspectionResultFilter');
+  const searchEl=document.getElementById('inspectionSearch');
+  const projectEl=document.getElementById('inspectionProject');
+  const typeEl=document.getElementById('inspectionType');
+  const photoEl=document.getElementById('inspectionPhotos');
+
+  let types=[];
+  let rows=[];
+  let currentItems=[];
+  let detailRow=null;
+
+  function fillProjects(){
+    projectFilter.innerHTML='<option value="ALL">Todos</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+    projectEl.innerHTML='<option value="">Seleccione...</option>'+projects.map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
+    if(ctx.isProject&&projects.length===1){
+      projectFilter.value=projects[0].id;projectFilter.disabled=true;
+      projectEl.value=projects[0].id;projectEl.disabled=true;
+      if(!projectEl.nextElementSibling?.classList?.contains('v43-project-lock-note'))projectEl.insertAdjacentHTML('afterend','<small class="v43-project-lock-note">Proyecto asignado a tu usuario.</small>');
+    }
+  }
+
+  async function loadTypes(){
+    const {data,error}=await sb.from('tipos_inspeccion').select('id,codigo,nombre,descripcion,icono,activo,orden,creado_en').order('orden').order('nombre');
+    if(error)throw error;
+    types=data||[];
+    const active=types.filter(t=>t.activo!==false);
+    typeFilter.innerHTML='<option value="ALL">Todos</option>'+active.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
+    typeEl.innerHTML='<option value="">Seleccione...</option>'+active.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
+    const adminSelect=document.getElementById('inspectionTemplateSelect');
+    if(adminSelect){
+      const prev=adminSelect.value;
+      adminSelect.innerHTML=types.map(t=>`<option value="${t.id}">${escapeHtml(t.nombre)}${t.activo===false?' · INACTIVO':''}</option>`).join('');
+      if(types.some(t=>t.id===prev))adminSelect.value=prev;
+    }
+    renderAdminTypeList();
+  }
+
+  function filteredRows(){
+    const q=(searchEl.value||'').trim().toLowerCase();
+    return rows.filter(r=>{
+      const result=inspectionResultV47(r).code;
+      return (projectFilter.value==='ALL'||r.proyecto_id===projectFilter.value)
+        &&(typeFilter.value==='ALL'||r.tipo_inspeccion_id===typeFilter.value)
+        &&(resultFilter.value==='ALL'||result===resultFilter.value)
+        &&(!q||`${inspectionCodeV47(r)} ${r.lugar||''} ${r.area||''} ${r.identificacion_activo||''} ${r.tipo?.nombre||''}`.toLowerCase().includes(q));
+    });
+  }
+
+  function updateKpis(){
+    const f=filteredRows();
+    const ym=today().slice(0,7);
+    const scored=f.filter(r=>r.porcentaje_cumplimiento!==null&&r.porcentaje_cumplimiento!==undefined);
+    const avg=scored.length?scored.reduce((a,r)=>a+Number(r.porcentaje_cumplimiento||0),0)/scored.length:null;
+    document.getElementById('inspectionKpiTotal').textContent=String(f.length);
+    document.getElementById('inspectionKpiMonth').textContent=String(f.filter(r=>String(r.fecha||'').slice(0,7)===ym).length);
+    document.getElementById('inspectionKpiCompliance').textContent=inspectionPercentV47(avg);
+    document.getElementById('inspectionKpiNc').textContent=String(f.filter(r=>r.tiene_incumplimientos).length);
+    document.getElementById('inspectionKpiCritical').textContent=String(f.filter(r=>r.tiene_falla_critica).length);
+  }
+
+  function renderList(){
+    const f=filteredRows();updateKpis();
+    if(!f.length){list.innerHTML='<div class="inspection-empty-v47">No hay inspecciones con los filtros seleccionados.</div>';return;}
+    list.innerHTML=f.map(r=>{
+      const result=inspectionResultV47(r);
+      return `<article class="inspection-card-v47 ${result.cls==='critical'?'is-critical':result.cls==='nc'?'has-nc':'is-ok'}">
+        <div>
+          <h3>${escapeHtml(inspectionCodeV47(r))} · ${escapeHtml(r.tipo?.nombre||'Inspección')}</h3>
+          <div class="inspection-card-meta-v47">
+            <span>${escapeHtml(r.proyecto?.nombre||'')}</span><span>${escapeHtml(formatDateEsV6(r.fecha))}</span><span>${escapeHtml(r.lugar||'')}</span>
+            ${r.area?`<span>Área: ${escapeHtml(r.area)}</span>`:''}${r.identificacion_activo?`<span>Activo: ${escapeHtml(r.identificacion_activo)}</span>`:''}
+          </div>
+          <p>${r.total_no_conformes?`${r.total_no_conformes} criterio(s) NO CUMPLE.`:'Todos los criterios aplicables registrados como conformes.'}</p>
+        </div>
+        <div class="inspection-card-side-v47">
+          <span class="inspection-result-badge-v47 ${result.cls}">${escapeHtml(result.label)}</span>
+          <div class="inspection-score-v47">${inspectionPercentV47(r.porcentaje_cumplimiento)}<small>Cumplimiento</small></div>
+          <button type="button" class="secondary" data-inspection-detail="${r.id}">Ver detalle</button>
+        </div>
+      </article>`;
+    }).join('');
+    list.querySelectorAll('[data-inspection-detail]').forEach(btn=>btn.addEventListener('click',()=>openDetail(btn.dataset.inspectionDetail)));
+  }
+
+  async function loadRows(){
+    list.innerHTML='Cargando inspecciones...';showMessage(listMsg,'');
+    const {data,error}=await sb.from('inspecciones').select(`
+      id,numero,proyecto_id,tipo_inspeccion_id,fecha,lugar,area,identificacion_activo,inspector_nombre,estado,
+      total_evaluados,total_conformes,total_no_conformes,total_na,porcentaje_cumplimiento,tiene_incumplimientos,tiene_falla_critica,observaciones_generales,creado_en,
+      proyecto:proyectos(id,codigo,nombre,cliente),tipo:tipos_inspeccion(id,codigo,nombre,descripcion,icono)
+    `).order('fecha',{ascending:false}).order('numero',{ascending:false});
+    if(error){showMessage(listMsg,'No se pudieron cargar las inspecciones: '+error.message);list.innerHTML='';return;}
+    rows=data||[];renderList();
+  }
+
+  function openNewForm(){
+    form.reset();showMessage(formMsg,'');currentItems=[];
+    document.getElementById('inspectionDate').value=today();
+    if(ctx.isProject&&projects.length===1)projectEl.value=projects[0].id;
+    document.getElementById('inspectionChecklist').innerHTML='<div class="inspection-empty-v47">Selecciona un tipo de inspección para cargar el checklist.</div>';
+    document.getElementById('inspectionTemplateDescription').textContent='Selecciona un tipo de inspección.';
+    document.getElementById('inspectionChecklistProgress').textContent='0 / 0';
+    document.getElementById('inspectionLiveResult').classList.add('hidden');
+    document.getElementById('inspectionPhotoPreview').innerHTML='';
+    formCard.classList.remove('hidden');detailCard.classList.add('hidden');templatesCard.classList.add('hidden');
+    formCard.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  async function loadChecklist(typeId){
+    currentItems=[];
+    const box=document.getElementById('inspectionChecklist');
+    const type=types.find(t=>t.id===typeId);
+    document.getElementById('inspectionTemplateDescription').textContent=type?.descripcion||'Lista de verificación configurada.';
+    if(!typeId){box.innerHTML='<div class="inspection-empty-v47">Selecciona un tipo de inspección para cargar el checklist.</div>';updateLiveResult();return;}
+    box.innerHTML='Cargando checklist...';
+    const {data,error}=await sb.from('inspeccion_items').select('id,tipo_inspeccion_id,seccion,codigo,criterio,criticidad,requiere_observacion_nc,activo,orden').eq('tipo_inspeccion_id',typeId).eq('activo',true).order('orden').order('codigo');
+    if(error){box.innerHTML='<div class="inspection-empty-v47">No se pudo cargar el checklist.</div>';showMessage(formMsg,error.message);return;}
+    currentItems=data||[];
+    if(!currentItems.length){box.innerHTML='<div class="inspection-empty-v47">Esta plantilla no tiene criterios activos. El ADMIN debe configurarlos en Plantillas.</div>';updateLiveResult();return;}
+    let html='',lastSection=null;
+    for(const item of currentItems){
+      const section=item.seccion||'GENERAL';
+      if(section!==lastSection){lastSection=section;html+=`<div class="inspection-section-title-v47">${escapeHtml(section)}</div>`;}
+      html+=`<article class="inspection-check-item-v47 ${item.criticidad==='CRITICO'?'is-critical':''}" data-inspection-item="${item.id}">
+        <div class="inspection-item-head-v47"><span class="inspection-item-code-v47">${escapeHtml(item.codigo)}</span><div class="inspection-item-copy-v47"><strong>${escapeHtml(item.criterio)}</strong></div>${item.criticidad==='CRITICO'?'<span class="inspection-critical-v47">Crítico</span>':''}</div>
+        <div class="inspection-choice-row-v47">
+          <label class="inspection-choice-v47"><input type="radio" name="inspection_result_${item.id}" value="CUMPLE"><span>Cumple</span></label>
+          <label class="inspection-choice-v47"><input type="radio" name="inspection_result_${item.id}" value="NO_CUMPLE"><span>No cumple</span></label>
+          <label class="inspection-choice-v47"><input type="radio" name="inspection_result_${item.id}" value="NA"><span>N.A.</span></label>
+        </div>
+        <div class="inspection-item-observation-v47 hidden" data-inspection-observation-wrap="${item.id}"><textarea data-inspection-observation="${item.id}" rows="2" maxlength="1200" placeholder="Describe el incumplimiento observado${item.requiere_observacion_nc?' (obligatorio)':''}."></textarea></div>
+      </article>`;
+    }
+    box.innerHTML=html;
+    box.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',()=>{
+      const card=input.closest('[data-inspection-item]');const id=card?.dataset.inspectionItem;
+      const wrap=box.querySelector(`[data-inspection-observation-wrap="${id}"]`);
+      const no=input.value==='NO_CUMPLE';card?.classList.toggle('is-no',no);wrap?.classList.toggle('hidden',!no);if(!no){const ta=wrap?.querySelector('textarea');if(ta)ta.value='';}updateLiveResult();
+    }));
+    updateLiveResult();
+  }
+
+  function checklistData(){
+    return currentItems.map(item=>{
+      const chosen=document.querySelector(`input[name="inspection_result_${item.id}"]:checked`);
+      const obs=document.querySelector(`[data-inspection-observation="${item.id}"]`);
+      return {item,resultado:chosen?.value||'',observacion:obs?.value.trim()||''};
+    });
+  }
+
+  function updateLiveResult(){
+    const data=checklistData();const answered=data.filter(x=>x.resultado).length;const applicable=data.filter(x=>x.resultado&&x.resultado!=='NA');const ok=applicable.filter(x=>x.resultado==='CUMPLE').length;const nc=applicable.filter(x=>x.resultado==='NO_CUMPLE').length;const critical=data.some(x=>x.resultado==='NO_CUMPLE'&&x.item.criticidad==='CRITICO');const pct=applicable.length?Math.round((ok/applicable.length)*1000)/10:null;
+    document.getElementById('inspectionChecklistProgress').textContent=`${answered} / ${data.length}`;
+    const box=document.getElementById('inspectionLiveResult');
+    if(!data.length){box.classList.add('hidden');return;}
+    box.classList.remove('hidden');box.classList.toggle('has-critical',critical);
+    box.innerHTML=`<div><span>Respondidos</span><strong>${answered}/${data.length}</strong></div><div><span>Cumplimiento</span><strong>${pct===null?'—':pct+'%'}</strong></div><div><span>No cumple</span><strong>${nc}</strong></div><div><span>Estado</span><strong>${critical?'CRÍTICO':nc?'CON HALLAZGOS':'CONFORME'}</strong></div>`;
+  }
+
+  photoEl.addEventListener('change',()=>{
+    const box=document.getElementById('inspectionPhotoPreview');box.innerHTML='';
+    const files=[...(photoEl.files||[])].slice(0,4);
+    files.forEach(file=>{const img=document.createElement('img');img.alt='Vista previa';img.src=URL.createObjectURL(file);box.appendChild(img);});
+    if((photoEl.files?.length||0)>4)showMessage(formMsg,'Se utilizarán solo las primeras 4 fotografías.');
+  });
+
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();showMessage(formMsg,'');
+    const data=checklistData();
+    if(!projectEl.value||!typeEl.value||!document.getElementById('inspectionDate').value||!document.getElementById('inspectionPlace').value.trim()){showMessage(formMsg,'Completa proyecto, tipo, fecha y lugar.');return;}
+    if(!data.length){showMessage(formMsg,'La plantilla seleccionada no tiene criterios activos.');return;}
+    const missing=data.find(x=>!x.resultado);if(missing){showMessage(formMsg,`Falta responder el criterio ${missing.item.codigo}.`);document.querySelector(`[data-inspection-item="${missing.item.id}"]`)?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    const missingObs=data.find(x=>x.resultado==='NO_CUMPLE'&&x.item.requiere_observacion_nc&&!x.observacion);if(missingObs){showMessage(formMsg,`Describe el incumplimiento del criterio ${missingObs.item.codigo}.`);document.querySelector(`[data-inspection-item="${missingObs.item.id}"]`)?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    const btn=document.getElementById('saveInspectionBtn');btn.disabled=true;btn.textContent='Guardando...';
+    try{
+      const {data:created,error:createError}=await sb.from('inspecciones').insert({
+        proyecto_id:projectEl.value,tipo_inspeccion_id:typeEl.value,fecha:document.getElementById('inspectionDate').value,lugar:document.getElementById('inspectionPlace').value.trim(),area:document.getElementById('inspectionArea').value.trim()||null,identificacion_activo:document.getElementById('inspectionAsset').value.trim()||null,inspector_id:session.user.id,inspector_nombre:fullName,estado:'COMPLETADA',observaciones_generales:document.getElementById('inspectionGeneralObservation').value.trim()||null,creado_por_id:session.user.id
+      }).select('id,numero').single();
+      if(createError)throw createError;
+      const {error:answersError}=await sb.from('inspeccion_respuestas').insert(data.map(x=>({inspeccion_id:created.id,item_id:x.item.id,resultado:x.resultado,observacion:x.observacion||null})));
+      if(answersError)throw answersError;
+      await sb.rpc('v47_recalcular_inspeccion',{p_inspeccion_id:created.id});
+
+      const warnings=[];const files=[...(photoEl.files||[])].slice(0,4);
+      for(let i=0;i<files.length;i++){
+        try{
+          const blob=await optimizeImage(files[i]);const path=`inspecciones/${created.id}/evidencia/${Date.now()}_${i+1}_${uid()}.webp`;
+          const {error:uploadError}=await sb.storage.from('evidencias-ssomac').upload(path,blob,{contentType:'image/webp',upsert:false});if(uploadError)throw uploadError;
+          const {error:evidenceError}=await sb.from('inspeccion_evidencias').insert({inspeccion_id:created.id,ruta_archivo:path,comentario:`Evidencia general ${i+1}`,creado_por_id:session.user.id});if(evidenceError)throw evidenceError;
+        }catch(photoErr){warnings.push(photoErr.message||String(photoErr));}
+      }
+      showMessage(formMsg,`Inspección ${inspectionCodeV47(created)} registrada correctamente.${warnings.length?' Algunas fotografías no pudieron guardarse.':''}`,true);
+      await loadRows();
+      setTimeout(()=>{formCard.classList.add('hidden');openDetail(created.id);},500);
+    }catch(err){console.error(err);showMessage(formMsg,'No se pudo guardar la inspección: '+(err.message||err));}
+    finally{btn.disabled=false;btn.textContent='Guardar inspección';}
+  });
+
+  async function openDetail(id){
+    const row=rows.find(r=>r.id===id);if(!row)return;
+    detailRow=row;showMessage(detailMsg,'');detailCard.classList.remove('hidden');formCard.classList.add('hidden');templatesCard.classList.add('hidden');
+    document.getElementById('inspectionDetailTitle').textContent=`${inspectionCodeV47(row)} · ${row.tipo?.nombre||'Inspección'}`;
+    document.getElementById('inspectionDetailMeta').textContent=`${row.proyecto?.nombre||''} · ${formatDateEsV6(row.fecha)} · Inspector: ${row.inspector_nombre||'—'}`;
+    const result=inspectionResultV47(row);
+    document.getElementById('inspectionDetailSummary').innerHTML=`
+      <div class="inspection-summary-box-v47"><span>Lugar</span><strong>${escapeHtml(row.lugar||'—')}</strong></div>
+      <div class="inspection-summary-box-v47"><span>Área / activo</span><strong>${escapeHtml([row.area,row.identificacion_activo].filter(Boolean).join(' · ')||'—')}</strong></div>
+      <div class="inspection-summary-box-v47"><span>Cumplimiento</span><strong>${inspectionPercentV47(row.porcentaje_cumplimiento)}</strong></div>
+      <div class="inspection-summary-box-v47"><span>Resultado</span><strong class="inspection-result-badge-v47 ${result.cls}">${escapeHtml(result.label)}</strong></div>`;
+
+    const [rr,er,or]=await Promise.all([
+      sb.from('inspeccion_respuestas').select('id,resultado,observacion,item:inspeccion_items(id,codigo,criterio,seccion,criticidad,orden)').eq('inspeccion_id',id),
+      sb.from('inspeccion_evidencias').select('id,ruta_archivo,comentario,creado_en').eq('inspeccion_id',id).order('creado_en'),
+      sb.from('ocurrencias').select('id,numero,descripcion,estado:estados_ocurrencia(codigo,nombre)').eq('inspeccion_id',id).order('numero')
+    ]);
+    if(rr.error){showMessage(detailMsg,'No se pudieron cargar las respuestas: '+rr.error.message);return;}
+    const answers=(rr.data||[]).sort((a,b)=>(a.item?.orden||0)-(b.item?.orden||0));
+    document.getElementById('inspectionDetailResponses').innerHTML=answers.map(x=>{
+      const no=x.resultado==='NO_CUMPLE';const critical=no&&x.item?.criticidad==='CRITICO';
+      return `<div class="inspection-response-row-v47 ${critical?'critical':no?'no':''}"><strong>${escapeHtml(x.item?.codigo||'')}</strong><div class="criterion">${escapeHtml(x.item?.criterio||'')}${x.observacion?`<small>Observación: ${escapeHtml(x.observacion)}</small>`:''}</div><div class="inspection-answer-v47 ${x.resultado==='CUMPLE'?'ok':no?'no':'na'}">${x.resultado==='CUMPLE'?'CUMPLE':no?'NO CUMPLE':'N.A.'}</div></div>`;
+    }).join('')||'<div class="inspection-empty-v47">Sin respuestas registradas.</div>';
+
+    const evidenceBox=document.getElementById('inspectionDetailEvidence');evidenceBox.innerHTML='';
+    if(er.error){evidenceBox.innerHTML='<div class="inspection-empty-v47">No se pudieron cargar las evidencias.</div>';}else if(!(er.data||[]).length){evidenceBox.innerHTML='<div class="inspection-empty-v47">Sin fotografías adjuntas.</div>';}else{
+      const cards=[];for(const ev of er.data||[]){const {data:signed}=await sb.storage.from('evidencias-ssomac').createSignedUrl(ev.ruta_archivo,3600);cards.push(`<article class="evidence-card">${signed?.signedUrl?`<img src="${signed.signedUrl}" alt="Evidencia de inspección">`:''}<div class="evidence-info"><strong>Evidencia</strong><small>${escapeHtml(ev.comentario||'')}</small></div></article>`);}evidenceBox.innerHTML=cards.join('');
+    }
+
+    const actions=document.getElementById('inspectionDetailActions');const linked=or.error?[]:(or.data||[]);const nc=answers.filter(x=>x.resultado==='NO_CUMPLE');
+    let actionHtml=linked.map(o=>`<a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${encodeURIComponent(o.id)}">Ver OC-${String(o.numero||0).padStart(6,'0')} · ${escapeHtml(o.estado?.nombre||'')}</a>`).join('');
+    if(nc.length){
+      const desc=`Hallazgo(s) detectado(s) en ${inspectionCodeV47(row)} - ${row.tipo?.nombre||'Inspección'}:\n${nc.map(x=>`- ${x.item?.codigo||''}: ${x.item?.criterio||''}${x.observacion?` Observación: ${x.observacion}`:''}`).join('\n')}`;
+      const params=new URLSearchParams({inspeccion:row.id,proyecto:row.proyecto_id,fecha:row.fecha||today(),lugar:row.lugar||'',descripcion:desc});
+      actionHtml+=`<a class="button-link" href="nueva-ocurrencia.html?${params.toString()}">${linked.length?'Generar otra ocurrencia':'Generar ocurrencia por hallazgo'}</a>`;
+    }
+    actions.innerHTML=actionHtml||'<span class="muted">La inspección no presenta incumplimientos que requieran generar una ocurrencia.</span>';
+    detailCard.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  // ---------------- ADMINISTRACION DE PLANTILLAS ----------------
+  const templatesBtn=document.getElementById('inspectionTemplatesBtn');
+  if(ctx.isAdmin)templatesBtn.classList.remove('hidden');
+  templatesBtn?.addEventListener('click',async()=>{templatesCard.classList.remove('hidden');formCard.classList.add('hidden');detailCard.classList.add('hidden');await loadAdminItems();templatesCard.scrollIntoView({behavior:'smooth',block:'start'});});
+  document.getElementById('closeInspectionTemplatesBtn')?.addEventListener('click',()=>templatesCard.classList.add('hidden'));
+
+  function resetTypeAdminForm(){
+    const f=document.getElementById('inspectionTypeAdminForm');f.reset();document.getElementById('inspectionTypeAdminId').value='';document.getElementById('inspectionTypeOrder').value='100';document.getElementById('cancelInspectionTypeEditBtn').classList.add('hidden');
+  }
+  function renderAdminTypeList(){
+    const box=document.getElementById('inspectionTypeAdminList');if(!box||!ctx.isAdmin)return;
+    box.innerHTML=types.map(t=>`<div class="inspection-template-row-v47 ${t.activo===false?'inactive':''}"><div><strong>${escapeHtml(t.codigo)} · ${escapeHtml(t.nombre)}</strong><small>${escapeHtml(t.descripcion||'Sin descripción')} · ${t.activo===false?'INACTIVO':'ACTIVO'}</small></div><div class="inspection-template-actions-v47"><button type="button" class="secondary" data-type-edit="${t.id}">Editar</button><button type="button" class="secondary" data-type-toggle="${t.id}">${t.activo===false?'Activar':'Desactivar'}</button></div></div>`).join('')||'<div class="inspection-empty-v47">Sin plantillas.</div>';
+    box.querySelectorAll('[data-type-edit]').forEach(b=>b.addEventListener('click',()=>{const t=types.find(x=>x.id===b.dataset.typeEdit);if(!t)return;document.getElementById('inspectionTypeAdminId').value=t.id;document.getElementById('inspectionTypeCode').value=t.codigo||'';document.getElementById('inspectionTypeName').value=t.nombre||'';document.getElementById('inspectionTypeDescription').value=t.descripcion||'';document.getElementById('inspectionTypeOrder').value=t.orden||100;document.getElementById('cancelInspectionTypeEditBtn').classList.remove('hidden');}));
+    box.querySelectorAll('[data-type-toggle]').forEach(b=>b.addEventListener('click',async()=>{const t=types.find(x=>x.id===b.dataset.typeToggle);if(!t)return;const {error}=await sb.from('tipos_inspeccion').update({activo:t.activo===false,actualizado_en:new Date().toISOString()}).eq('id',t.id);if(error){showMessage(templatesMsg,error.message);return;}await loadTypes();await loadAdminItems();}));
+  }
+
+  document.getElementById('inspectionTypeAdminForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();showMessage(templatesMsg,'');const id=document.getElementById('inspectionTypeAdminId').value;const payload={codigo:document.getElementById('inspectionTypeCode').value.trim().toUpperCase().replace(/\s+/g,'_'),nombre:document.getElementById('inspectionTypeName').value.trim(),descripcion:document.getElementById('inspectionTypeDescription').value.trim()||null,orden:Number(document.getElementById('inspectionTypeOrder').value||100),actualizado_en:new Date().toISOString()};if(!id)payload.creado_por_id=session.user.id;
+    const q=id?sb.from('tipos_inspeccion').update(payload).eq('id',id):sb.from('tipos_inspeccion').insert(payload);const {error}=await q;if(error){showMessage(templatesMsg,'No se pudo guardar la plantilla: '+error.message);return;}showMessage(templatesMsg,'Plantilla guardada.',true);resetTypeAdminForm();await loadTypes();await loadAdminItems();
+  });
+  document.getElementById('cancelInspectionTypeEditBtn')?.addEventListener('click',resetTypeAdminForm);
+
+  let adminItems=[];
+  function resetItemAdminForm(){const f=document.getElementById('inspectionItemAdminForm');f.reset();document.getElementById('inspectionItemAdminId').value='';document.getElementById('inspectionItemSection').value='GENERAL';document.getElementById('inspectionItemOrder').value='100';document.getElementById('cancelInspectionItemEditBtn').classList.add('hidden');}
+  async function loadAdminItems(){
+    if(!ctx.isAdmin)return;const typeId=document.getElementById('inspectionTemplateSelect')?.value;const box=document.getElementById('inspectionItemAdminList');if(!typeId){adminItems=[];box.innerHTML='<div class="inspection-empty-v47">Crea o selecciona una plantilla.</div>';return;}
+    const {data,error}=await sb.from('inspeccion_items').select('id,tipo_inspeccion_id,seccion,codigo,criterio,criticidad,requiere_observacion_nc,activo,orden').eq('tipo_inspeccion_id',typeId).order('orden').order('codigo');if(error){showMessage(templatesMsg,error.message);return;}adminItems=data||[];
+    box.innerHTML=adminItems.map(i=>`<div class="inspection-template-row-v47 ${i.activo===false?'inactive':''}"><div><strong>${escapeHtml(i.codigo)} · ${escapeHtml(i.criterio)}</strong><small>${escapeHtml(i.seccion||'GENERAL')} · ${i.criticidad==='CRITICO'?'CRÍTICO':'NORMAL'} · ${i.activo===false?'INACTIVO':'ACTIVO'}</small></div><div class="inspection-template-actions-v47"><button type="button" class="secondary" data-item-edit="${i.id}">Editar</button><button type="button" class="secondary" data-item-toggle="${i.id}">${i.activo===false?'Activar':'Desactivar'}</button></div></div>`).join('')||'<div class="inspection-empty-v47">Esta plantilla todavía no tiene criterios.</div>';
+    box.querySelectorAll('[data-item-edit]').forEach(b=>b.addEventListener('click',()=>{const i=adminItems.find(x=>x.id===b.dataset.itemEdit);if(!i)return;document.getElementById('inspectionItemAdminId').value=i.id;document.getElementById('inspectionItemSection').value=i.seccion||'GENERAL';document.getElementById('inspectionItemCode').value=i.codigo||'';document.getElementById('inspectionItemCriterion').value=i.criterio||'';document.getElementById('inspectionItemCriticality').value=i.criticidad||'NORMAL';document.getElementById('inspectionItemOrder').value=i.orden||100;document.getElementById('cancelInspectionItemEditBtn').classList.remove('hidden');}));
+    box.querySelectorAll('[data-item-toggle]').forEach(b=>b.addEventListener('click',async()=>{const i=adminItems.find(x=>x.id===b.dataset.itemToggle);if(!i)return;const {error}=await sb.from('inspeccion_items').update({activo:i.activo===false,actualizado_en:new Date().toISOString()}).eq('id',i.id);if(error){showMessage(templatesMsg,error.message);return;}await loadAdminItems();}));
+  }
+  document.getElementById('inspectionTemplateSelect')?.addEventListener('change',()=>{resetItemAdminForm();loadAdminItems();});
+  document.getElementById('inspectionItemAdminForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();showMessage(templatesMsg,'');const typeId=document.getElementById('inspectionTemplateSelect').value;if(!typeId){showMessage(templatesMsg,'Selecciona una plantilla.');return;}const id=document.getElementById('inspectionItemAdminId').value;const payload={tipo_inspeccion_id:typeId,seccion:document.getElementById('inspectionItemSection').value.trim()||'GENERAL',codigo:document.getElementById('inspectionItemCode').value.trim().toUpperCase().replace(/\s+/g,'_'),criterio:document.getElementById('inspectionItemCriterion').value.trim(),criticidad:document.getElementById('inspectionItemCriticality').value,requiere_observacion_nc:true,orden:Number(document.getElementById('inspectionItemOrder').value||100),actualizado_en:new Date().toISOString()};const q=id?sb.from('inspeccion_items').update(payload).eq('id',id):sb.from('inspeccion_items').insert(payload);const {error}=await q;if(error){showMessage(templatesMsg,'No se pudo guardar el criterio: '+error.message);return;}showMessage(templatesMsg,'Criterio guardado.',true);resetItemAdminForm();await loadAdminItems();
+  });
+  document.getElementById('cancelInspectionItemEditBtn')?.addEventListener('click',resetItemAdminForm);
+
+  document.getElementById('newInspectionBtn').addEventListener('click',openNewForm);
+  document.getElementById('cancelInspectionBtn').addEventListener('click',()=>formCard.classList.add('hidden'));
+  document.getElementById('closeInspectionDetailBtn').addEventListener('click',()=>detailCard.classList.add('hidden'));
+  typeEl.addEventListener('change',()=>loadChecklist(typeEl.value));
+  [projectFilter,typeFilter,resultFilter].forEach(el=>el.addEventListener('change',renderList));searchEl.addEventListener('input',renderList);
+
+  fillProjects();
+  try{await loadTypes();await loadRows();if(ctx.isAdmin)await loadAdminItems();}catch(err){console.error(err);showMessage(listMsg,'No se pudo iniciar el módulo de inspecciones: '+(err.message||err));}
+  if(new URLSearchParams(location.search).get('nuevo')==='1')openNewForm();
+}
+
+function addInspectionHomeCardV47(){
+  if(page!=='app')return;const grid=document.querySelector('.home-quick-grid-v40');if(!grid||grid.querySelector('[data-v47-inspections-card]'))return;const a=document.createElement('a');a.href='inspecciones.html';a.className='home-quick-item-v40';a.dataset.v47InspectionsCard='1';a.innerHTML='<span>✓</span><strong>Inspecciones</strong><small>Checklists, evidencias y hallazgos</small>';grid.appendChild(a);
+}
+
+if(page==='inspections')initInspectionsV47();
+if(page==='app')setTimeout(addInspectionHomeCardV47,0);

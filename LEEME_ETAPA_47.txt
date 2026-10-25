@@ -1,0 +1,55 @@
+SSOMAC DIGITAL - V11.8 - ETAPA 47
+MOTOR GENERAL DE INSPECCIONES
+========================================
+
+OBJETIVO
+Crear la base reutilizable para todas las inspecciones SSOMAC antes de agregar formatos especificos como Botiquines, Extintores, Vehiculos, Herramientas, etc.
+
+INCLUYE
+- Nuevo modulo: inspecciones.html
+- Menu Gestion SSOMAC > Inspecciones habilitado.
+- + Registrar > Inspeccion habilitado.
+- Registro de inspecciones por proyecto/sede.
+- Checklist configurable por plantilla.
+- Respuestas: CUMPLE / NO CUMPLE / N.A.
+- Criterios CRITICOS.
+- Observacion obligatoria para NO CUMPLE.
+- Calculo automatico de cumplimiento.
+- Deteccion de incumplimientos y fallas criticas.
+- Hasta 4 evidencias fotograficas por inspeccion.
+- Historial y detalle de inspecciones.
+- Boton Generar ocurrencia cuando existen incumplimientos.
+- La ocurrencia queda vinculada a la inspeccion mediante inspeccion_id.
+- Administrador de plantillas solo para ADMIN.
+- Plantilla base precargada: INSPECCION GENERAL SSOMAC.
+- RLS por proyecto compatible con ETAPA 43.
+
+INSTALACION
+1. En Supabase > SQL Editor ejecutar completo:
+   ETAPA_47_MOTOR_INSPECCIONES.sql
+
+2. En GitHub reemplazar/subir todos los archivos incluidos en este paquete.
+   IMPORTANTE: no reemplazar config.js.
+
+3. Commit sugerido:
+   V11.8 - Etapa 47 motor general de inspecciones
+
+4. Esperar GitHub Pages y hacer Ctrl + F5.
+
+PRUEBA RECOMENDADA
+1. Abrir Gestion SSOMAC > Inspecciones.
+2. Pulsar + Nueva inspeccion.
+3. Elegir Inspeccion General SSOMAC.
+4. Completar los 5 criterios.
+5. Marcar al menos uno como NO CUMPLE y escribir la observacion.
+6. Guardar.
+7. Verificar porcentaje, resultado y detalle.
+8. Pulsar Generar ocurrencia por hallazgo.
+9. Comprobar que Nueva ocurrencia abre con proyecto, fecha, lugar, origen INSPECCION y descripcion precargados.
+
+SIGUIENTES ETAPAS
+- ETAPA 48: Inspeccion de Botiquines.
+- ETAPA 49: Inspeccion de Extintores.
+
+NOTA
+Esta etapa no programa periodicidades. La programacion y vencimientos de inspecciones se incorporaran en una etapa posterior sobre este mismo motor.
