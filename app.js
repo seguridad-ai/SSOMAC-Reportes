@@ -935,7 +935,7 @@ async function initOccurrenceDetail(){
       tipo:tipos_hallazgo(codigo,nombre),
       potencial:potenciales_perdida(nombre),
       area:areas(nombre),
-      areaProyecto:areas_proyecto(nombre),
+      areaProyecto:areas_proyecto!ocurrencias_area_proyecto_id_fkey(nombre),
       estado:estados_ocurrencia(codigo,nombre)
     `).eq('id',id).single();
     if(error)throw error;
@@ -1967,7 +1967,7 @@ async function initDailyReport(){
       responsable_correccion,fecha_levantamiento,fecha_ejecutada,reportado_por_id,reportado_por_externo,
       proyecto:proyectos(nombre),origen:origenes_hallazgo(nombre),
       tipo:tipos_hallazgo(nombre),potencial:potenciales_perdida(nombre),
-      area:areas(nombre),areaProyecto:areas_proyecto(nombre),estado:estados_ocurrencia(nombre,codigo)
+      area:areas(nombre),areaProyecto:areas_proyecto!ocurrencias_area_proyecto_id_fkey(nombre),estado:estados_ocurrencia(nombre,codigo)
     `).gte('fecha',period.start).lte('fecha',period.end).order('fecha',{ascending:true}).order('numero',{ascending:true});
 
     if(projectEl.value!=='ALL') query=query.eq('proyecto_id',projectEl.value);
@@ -2595,7 +2595,7 @@ async function initWorkerReportsAdmin(){
       creado_en,fecha_revision,ocurrencia_id,
       proyecto:proyectos(id,nombre,cliente),
       tipo:tipos_hallazgo(id,codigo,nombre),
-      areaProyecto:areas_proyecto(id,nombre),
+      areaProyecto:areas_proyecto!reportes_trabajadores_area_proyecto_id_fkey(id,nombre),
       responsable:responsables_correccion(id,nombres,apellidos,cargo,area_nombre,email)
     `).order('creado_en',{ascending:false});
     if(error){showMessage(listMsg,'No se pudieron cargar los reportes: '+error.message);return;}
@@ -3386,7 +3386,7 @@ async function initAnalyticsDashboard(){
     Chart.defaults.font.family='Arial, Helvetica, sans-serif';Chart.defaults.color='#475467';
 
     const occurrences=await analyticsFetchAll('ocurrencias',`id,numero,fecha,fecha_levantamiento,fecha_levantamiento_original,fecha_ejecutada,modalidad_levantamiento,responsable_correccion,numero_ampliaciones,
-      proyecto:proyectos(id,nombre),origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),areaProyecto:areas_proyecto(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
+      proyecto:proyectos(id,nombre),origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),areaProyecto:areas_proyecto!ocurrencias_area_proyecto_id_fkey(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
     const [immediateCauses,basicCauses]=await Promise.all([
       analyticsFetchAll('ocurrencia_causas_inmediatas','ocurrencia_id,causas_inmediatas(id,nombre)'),
       analyticsFetchAll('ocurrencia_causas_basicas','ocurrencia_id,causas_basicas(id,nombre,grupo_nombre,subgrupo_nombre)')
@@ -3525,7 +3525,7 @@ async function initProjectDashboardV41(){
     }
 
     const occurrences=await fetchProjectRows('ocurrencias',`id,numero,fecha,lugar_hallazgo,descripcion,fecha_levantamiento,fecha_levantamiento_original,fecha_ejecutada,modalidad_levantamiento,responsable_correccion,numero_ampliaciones,
-      origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),areaProyecto:areas_proyecto(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
+      origen:origenes_hallazgo(id,nombre),tipo:tipos_hallazgo(id,codigo,nombre),potencial:potenciales_perdida(id,nombre),area:areas(id,nombre),areaProyecto:areas_proyecto!ocurrencias_area_proyecto_id_fkey(id,nombre),estado:estados_ocurrencia(id,codigo,nombre)`);
     let workerReports=[];
     try{workerReports=await fetchProjectRows('reportes_trabajadores','id,fecha,estado_revision,creado_en');}catch(e){console.warn('No se pudieron contar reportes públicos:',e.message);}
 

@@ -1,0 +1,8 @@
+SSOMAC Digital v11.8.8 - Corrección encabezados PDF Inspección General
+
+Corrección:
+- El PDF ya no usa rowspan=2 en la cabecera de la tabla de observaciones.
+- Evita el recorte de Condición/Práctica, Observación, Acción mitigadora/correctiva, Corrección ejecutada, Responsable y Fecha de corrección.
+- Se mantienen CAUSA INMEDIATA, CAUSAS BÁSICAS y POTENCIAL DE RIESGO como agrupadores en la primera fila.
+- No requiere SQL.
+- No reemplazar config.js.

@@ -1,0 +1,16 @@
+SSOMAC DIGITAL v11.8.9
+Corrección de relaciones ambiguas áreas_proyecto.
+
+Problema corregido:
+PostgREST encontraba dos relaciones entre reportes_trabajadores y areas_proyecto:
+- area_proyecto_id (área responsable)
+- area_hallazgo_proyecto_id (área del lugar/hallazgo)
+
+La consulta ahora usa explícitamente:
+reportes_trabajadores_area_proyecto_id_fkey
+
+También se especificó la relación correcta en las consultas de ocurrencias para evitar el mismo error en dashboard/reportes.
+
+NO REQUIERE SQL.
+No reemplazar config.js.
+Después de subir a GitHub, usar Ctrl + F5.

@@ -1,0 +1,21 @@
+V11.8.7 - PDF HOJA COMPLETA
+=============================
+
+Corrección:
+- Descargar PDF ahora incluye TODO el encabezado del formato Excel:
+  * Logo corporativo
+  * SIG - SSOMAC
+  * Código, N°, versión y fecha de actualización
+  * Razón social, RUC, domicilio, actividad económica y N° trabajadores
+  * Tipo de inspección
+  * Medidas correctivas A/B/C
+  * Tabla de observaciones
+  * Responsable del registro, firma, cargo y fecha
+- Solo aparecen los ítems utilizados.
+- PDF A4 horizontal, ajustado a una sola página como impresión de la hoja Excel.
+- No requiere SQL.
+- No reemplazar config.js.
+
+Archivos principales:
+- inspecciones-general.js
+- inspecciones.html

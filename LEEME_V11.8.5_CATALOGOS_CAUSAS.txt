@@ -1,0 +1,15 @@
+SSOMAC Digital v11.8.5 - Catálogos de causas actualizados
+
+Catálogos incorporados desde las listas corporativas proporcionadas:
+- 16 Actos subestándar.
+- 14 Condiciones subestándar.
+- 68 Factores personales, agrupados del 01 al 07.
+- 73 Factores de trabajo, agrupados del 08 al 15.
+
+La interfaz conserva:
+- ACTO -> bloquea Condición y habilita Factor Personal.
+- CONDICIÓN -> bloquea Acto y habilita Factor de Trabajo.
+- N.A. como opción inicial.
+
+No requiere SQL.
+Reemplazar inspecciones-general.js e inspecciones.html, o subir el ZIP completo.

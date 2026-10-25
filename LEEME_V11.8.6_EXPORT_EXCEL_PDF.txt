@@ -1,0 +1,12 @@
+SSOMAC Digital v11.8.6
+
+Ajustes de exportación de Inspección General:
+- Tipo de inspección marcado con X.
+- Textos centrados vertical y horizontalmente.
+- Fotografías de observación y corrección centradas y ajustadas.
+- Potencial A/B/C visible por columna.
+- Filas no utilizadas ocultas en Excel.
+- Plantilla corporativa saneada incluida.
+- Nuevo botón Descargar PDF.
+
+No requiere SQL. No reemplazar config.js.
