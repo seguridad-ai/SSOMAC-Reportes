@@ -1,0 +1,20 @@
+SSOMAC Digital - v11.6.1 FIX ELIMINACION
+
+CORRIGE:
+- Error al eliminar: column "proyecto_nombre" of relation "auditoria_eliminaciones" does not exist.
+- Compatibilidad con una tabla auditoria_eliminaciones creada por una version anterior.
+
+SI YA TIENES v11.6 EN GITHUB:
+1. No necesitas reemplazar ningun HTML ni app.js para este error.
+2. En Supabase > SQL Editor ejecuta completo:
+   CORRECCION_ETAPA_44_AUDITORIA.sql
+3. Debe mostrar las columnas:
+   - detalle
+   - eliminado_por_nombre
+   - proyecto_nombre
+4. Regresa a SSOMAC Digital, Ctrl+F5 y vuelve a eliminar la ocurrencia de prueba.
+
+PARA INSTALACIONES NUEVAS:
+- ETAPA_44_ELIMINACION_CONTROLADA.sql tambien fue corregido para agregar automaticamente estas columnas si la tabla ya existia.
+
+No modificar config.js.

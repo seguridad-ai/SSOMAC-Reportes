@@ -1,0 +1,32 @@
+SSOMAC DIGITAL v11.7 - ETAPA 46
+
+OBJETIVO
+Reorganizar la navegación para preparar la plataforma para nuevos módulos SSOMAC.
+
+CAMBIOS
+- Menú superior modular: Inicio / Gestión SSOMAC / Seguimiento / Administración.
+- Botón único + Registrar.
+- Menú de usuario con nombre, rol, alcance y Cerrar sesión.
+- Gestión SSOMAC incluye Ocurrencias y Reportes de trabajadores.
+- Se muestran como PRÓXIMAMENTE: Inspecciones, OPT, Liderazgo visible y Riesgos críticos.
+- Seguimiento incluye Dashboard y Reporte mensual.
+- Se muestran como PRÓXIMAMENTE: Indicadores SSOMAC y Pendientes / programación.
+- Administración respeta roles de ETAPA 43.
+- ADMIN: Proyectos/sedes, Responsables, Usuarios/accesos.
+- GERENCIA/SIG: Proyectos/sedes.
+- PROYECTO: sin menú de administración.
+- Se conserva el botón contextual Descargar PDF cuando corresponde.
+- Navegación responsive para celular.
+
+INSTALACIÓN
+1. No ejecutar SQL. Esta etapa no modifica Supabase.
+2. Reemplazar en GitHub todos los archivos incluidos en este ZIP.
+3. NO modificar config.js.
+4. Commit sugerido: V11.7 - Etapa 46 navegación modular
+5. Esperar GitHub Pages y hacer Ctrl + F5.
+
+PRUEBAS
+- ADMIN: verificar los 3 grupos y el menú Usuarios/accesos.
+- GERENCIA: verificar todos los proyectos, sin Responsables ni Usuarios.
+- PROYECTO: Dashboard debe abrir el dashboard de su proyecto y no mostrar Administración.
+- Celular: abrir el menú hamburguesa y probar grupos desplegables.

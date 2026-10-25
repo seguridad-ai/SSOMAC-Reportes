@@ -347,6 +347,7 @@ async function initAccessShellV43(){
     if(ctx.isProject&&ctx.projects.length===1){
       const code=v43ProjectCodeForContext(ctx);const floating=document.querySelector('.floating-report-v42');if(floating)floating.href=`reportar.html?p=${encodeURIComponent(code)}`;
     }
+    initStage46ShellV46(ctx);
   }catch(err){console.error('Acceso V43:',err);}
 }
 
@@ -1513,6 +1514,171 @@ async function optimizeImage(file){
 }
 function loadImage(file){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(file);i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=rej;i.src=u;});}
 function canvasToBlob(c,q){return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('No se pudo procesar la imagen.')),'image/webp',q));}
+
+
+
+
+// ============================================================
+// V11.7 - ETAPA 46
+// Navegación modular SSOMAC: Gestión / Seguimiento / Administración
+// + Registrar centralizado + menú de usuario.
+// Los módulos futuros se muestran como PRÓXIMAMENTE sin enlaces activos.
+// ============================================================
+function closeDropdownsV46(except=null){
+  document.querySelectorAll('.nav-group-v46.is-open,.register-menu-v46.is-open,.user-menu-v46.is-open').forEach(el=>{
+    if(el===except)return;
+    el.classList.remove('is-open');
+    el.querySelector(':scope > button')?.setAttribute('aria-expanded','false');
+  });
+}
+
+function futureItemV46(icon,label){
+  return `<span class="nav-item-v46 is-future" aria-disabled="true"><span class="nav-item-icon-v46">${icon}</span><span><strong>${escapeHtml(label)}</strong><small>Próximamente</small></span></span>`;
+}
+
+function linkItemV46(icon,label,href,desc=''){
+  return `<a class="nav-item-v46" href="${escapeHtml(href)}"><span class="nav-item-icon-v46">${icon}</span><span><strong>${escapeHtml(label)}</strong>${desc?`<small>${escapeHtml(desc)}</small>`:''}</span></a>`;
+}
+
+function groupMarkupV46(id,label,items){
+  return `<div class="nav-group-v46" data-v46-group="${id}">
+    <button type="button" class="nav-group-toggle-v46" aria-expanded="false">${escapeHtml(label)} <span aria-hidden="true">⌄</span></button>
+    <div class="nav-dropdown-v46">${items}</div>
+  </div>`;
+}
+
+function initialsV46(profile){
+  const parts=[profile?.nombres,profile?.apellidos].filter(Boolean).join(' ').trim().split(/\s+/).filter(Boolean);
+  return (parts.slice(0,2).map(x=>x[0]).join('')||'U').toUpperCase();
+}
+
+function initStage46ShellV46(ctx){
+  if(['login','public-worker-report','public-lift'].includes(page))return;
+  const topbar=document.querySelector('.topbar');
+  const actions=topbar?.querySelector('.top-actions');
+  if(!topbar||!actions||topbar.dataset.v46Ready==='1')return;
+
+  topbar.dataset.v46Ready='1';
+  topbar.classList.add('topbar-v46');
+  actions.classList.add('top-actions-v46');
+
+  const mobileHead=actions.querySelector('.mobile-nav-head-v42');
+  const logoutBtn=actions.querySelector('#logoutBtn');
+  const contextual=[...actions.querySelectorAll('button:not(#logoutBtn):not(.mobile-nav-close-v42)')];
+  contextual.forEach(btn=>btn.classList.add('context-action-v46'));
+
+  const code=v43ProjectCodeForContext(ctx);
+  const dashboardHref=ctx?.isProject&&code?`proyecto-dashboard.html?p=${encodeURIComponent(code)}`:'dashboard.html';
+  const reportPublicHref=ctx?.isProject&&code?`reportar.html?p=${encodeURIComponent(code)}`:'reportar.html';
+
+  const managementItems=[
+    linkItemV46('◎','Ocurrencias','ocurrencias.html','Seguimiento y cierre'),
+    linkItemV46('◉','Reportes de trabajadores','reportes-trabajadores.html','Revisión de reportes QR'),
+    futureItemV46('✓','Inspecciones'),
+    futureItemV46('◫','OPT'),
+    futureItemV46('★','Liderazgo visible'),
+    futureItemV46('◆','Riesgos críticos')
+  ].join('');
+
+  const trackingItems=[
+    linkItemV46('▥','Dashboard',dashboardHref,'Indicadores y tendencias'),
+    linkItemV46('▦','Reporte mensual','reporte-diario.html','Consolidado y Excel'),
+    futureItemV46('◔','Indicadores SSOMAC'),
+    futureItemV46('!','Pendientes y programación')
+  ].join('');
+
+  const admin=[];
+  if(ctx?.isAdmin||ctx?.role==='GERENCIA'||ctx?.role==='SIG'){
+    admin.push(linkItemV46('⌂','Proyectos / sedes','proyectos.html',ctx?.isAdmin?'Configuración y QR':'Consulta y dashboards'));
+  }
+  if(ctx?.isAdmin){
+    admin.push(linkItemV46('♙','Responsables','responsables.html','Asignaciones y correos'));
+    admin.push(linkItemV46('♜','Usuarios y accesos','usuarios.html','Roles y permisos'));
+  }
+
+  const nav=document.createElement('nav');
+  nav.className='main-nav-v46';
+  nav.setAttribute('aria-label','Navegación principal');
+  nav.innerHTML=`
+    <a class="nav-home-v46" href="app.html" aria-label="Inicio">Inicio</a>
+    ${groupMarkupV46('gestion','Gestión SSOMAC',managementItems)}
+    ${groupMarkupV46('seguimiento','Seguimiento',trackingItems)}
+    ${admin.length?groupMarkupV46('administracion','Administración',admin.join('')):''}
+  `;
+
+  const tools=document.createElement('div');
+  tools.className='nav-tools-v46';
+
+  const contextWrap=document.createElement('div');
+  contextWrap.className='context-tools-v46';
+  contextual.forEach(btn=>contextWrap.appendChild(btn));
+  if(contextual.length)tools.appendChild(contextWrap);
+
+  const register=document.createElement('div');
+  register.className='register-menu-v46';
+  register.innerHTML=`
+    <button type="button" class="register-toggle-v46" aria-expanded="false"><span>＋</span> Registrar <b aria-hidden="true">⌄</b></button>
+    <div class="register-dropdown-v46">
+      ${linkItemV46('+','Nueva ocurrencia','nueva-ocurrencia.html','Registrar hallazgo interno')}
+      ${linkItemV46('◎','Yo Reporto',reportPublicHref,'Abrir formulario público')}
+      ${futureItemV46('✓','Inspección')}
+      ${futureItemV46('◫','OPT')}
+      ${futureItemV46('★','Liderazgo visible')}
+      ${futureItemV46('◆','Riesgo crítico')}
+    </div>`;
+  tools.appendChild(register);
+
+  const user=document.createElement('div');
+  user.className='user-menu-v46';
+  const fullName=`${ctx?.profile?.nombres||''} ${ctx?.profile?.apellidos||''}`.trim()||'Usuario';
+  const scope=ctx?.isProject&&ctx.projects?.length===1?ctx.projects[0].nombre:'Corporativo';
+  user.innerHTML=`
+    <button type="button" class="user-toggle-v46" aria-expanded="false" aria-label="Menú de usuario">
+      <span class="user-avatar-v46">${escapeHtml(initialsV46(ctx?.profile))}</span>
+      <span class="user-copy-v46"><strong>${escapeHtml(fullName)}</strong><small>${escapeHtml(ctx?.role||'')} · ${escapeHtml(scope)}</small></span>
+      <span class="user-chevron-v46" aria-hidden="true">⌄</span>
+    </button>
+    <div class="user-dropdown-v46">
+      <div class="user-summary-v46"><strong>${escapeHtml(fullName)}</strong><span>${escapeHtml(ctx?.profile?.cargo||'')}</span><small>${escapeHtml(ctx?.profile?.email||'')}</small></div>
+    </div>`;
+  const userDrop=user.querySelector('.user-dropdown-v46');
+  if(logoutBtn){
+    logoutBtn.className='logout-v46';
+    logoutBtn.textContent='Cerrar sesión';
+    userDrop.appendChild(logoutBtn);
+  }
+  tools.appendChild(user);
+
+  const keep=[];
+  if(mobileHead)keep.push(mobileHead);
+  actions.replaceChildren(...keep,nav,tools);
+
+  const current=(location.pathname.split('/').pop()||'app.html').toLowerCase();
+  actions.querySelectorAll('a[href]').forEach(a=>{
+    const href=(a.getAttribute('href')||'').split('?')[0].toLowerCase();
+    if(href===current)a.classList.add('is-active-v46');
+  });
+  actions.querySelectorAll('.nav-group-v46').forEach(g=>{
+    if(g.querySelector('.is-active-v46'))g.classList.add('has-active-v46');
+  });
+
+  const toggles=[...actions.querySelectorAll('.nav-group-toggle-v46,.register-toggle-v46,.user-toggle-v46')];
+  toggles.forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const parent=btn.parentElement;
+    const willOpen=!parent.classList.contains('is-open');
+    closeDropdownsV46(parent);
+    parent.classList.toggle('is-open',willOpen);
+    btn.setAttribute('aria-expanded',willOpen?'true':'false');
+  }));
+
+  actions.querySelectorAll('a[href]').forEach(a=>a.addEventListener('click',()=>{
+    closeDropdownsV46();
+    if(window.matchMedia('(max-width: 900px)').matches)closeMobileNavV42();
+  }));
+  document.addEventListener('click',e=>{if(!actions.contains(e.target))closeDropdownsV46();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDropdownsV46();});
+}
 
 
 // ============================================================

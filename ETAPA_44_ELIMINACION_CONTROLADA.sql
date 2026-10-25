@@ -24,6 +24,18 @@ create table if not exists public.auditoria_eliminaciones (
   detalle jsonb not null default '{}'::jsonb
 );
 
+-- IMPORTANTE: CREATE TABLE IF NOT EXISTS no agrega columnas a una tabla ya existente.
+-- Estas sentencias hacen la ETAPA 44 compatible con instalaciones anteriores.
+alter table public.auditoria_eliminaciones
+  add column if not exists proyecto_nombre text;
+
+alter table public.auditoria_eliminaciones
+  add column if not exists eliminado_por_nombre text;
+
+alter table public.auditoria_eliminaciones
+  add column if not exists detalle jsonb not null default '{}'::jsonb;
+
+
 alter table public.auditoria_eliminaciones enable row level security;
 
 revoke insert, update, delete on public.auditoria_eliminaciones from anon, authenticated;
