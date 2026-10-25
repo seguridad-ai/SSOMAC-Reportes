@@ -1,239 +1,120 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <title>SSOMAC Digital | Inspecciones</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SSOMAC Digital | Inspecciones</title>
-  <link rel="stylesheet" href="styles.css?v=11.8">
+  <link rel="stylesheet" href="styles.css?v=11.8.1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="config.js"></script>
 </head>
 <body data-page="inspections">
   <header class="topbar">
-    <div><strong>SSOMAC Digital</strong><span>Inspecciones SSOMAC</span></div>
+    <div><strong>SSOMAC Digital</strong><span>Inspecciones y formatos corporativos</span></div>
     <div class="top-actions">
-      <a class="button-link secondary-link" href="app.html">← Inicio</a>
+      <a class="button-link" href="inspecciones.html?new=1">+ Nueva inspección</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
       <button id="logoutBtn" class="secondary">Cerrar sesión</button>
     </div>
   </header>
 
-  <main class="container inspection-page-v47">
-    <section class="page-head inspection-head-v47">
-      <div>
-        <p class="eyebrow">Gestión SSOMAC</p>
-        <h1>Inspecciones</h1>
-        <p class="muted">Ejecuta listas de verificación, registra incumplimientos y conserva el historial por proyecto.</p>
-      </div>
-      <div class="inspection-head-actions-v47">
-        <button id="inspectionTemplatesBtn" type="button" class="secondary hidden">Plantillas</button>
-        <button id="newInspectionBtn" type="button">+ Nueva inspección</button>
-      </div>
-    </section>
-
-    <section class="kpi-grid inspection-kpis-v47">
-      <article class="kpi"><span>Inspecciones</span><strong id="inspectionKpiTotal">—</strong><small>Con filtros actuales</small></article>
-      <article class="kpi"><span>Este mes</span><strong id="inspectionKpiMonth">—</strong><small>Ejecutadas</small></article>
-      <article class="kpi kpi-info"><span>Cumplimiento promedio</span><strong id="inspectionKpiCompliance">—</strong><small>Solo criterios aplicables</small></article>
-      <article class="kpi kpi-warning"><span>Con incumplimientos</span><strong id="inspectionKpiNc">—</strong><small>Requieren atención</small></article>
-      <article class="kpi kpi-danger"><span>Falla crítica</span><strong id="inspectionKpiCritical">—</strong><small>Control crítico ausente</small></article>
-    </section>
-
-    <section class="card inspection-list-card-v47">
-      <div class="filters inspection-filters-v47">
-        <div class="field">
-          <label for="inspectionProjectFilter">Proyecto</label>
-          <select id="inspectionProjectFilter"><option value="ALL">Todos</option></select>
-        </div>
-        <div class="field">
-          <label for="inspectionTypeFilter">Tipo</label>
-          <select id="inspectionTypeFilter"><option value="ALL">Todos</option></select>
-        </div>
-        <div class="field">
-          <label for="inspectionResultFilter">Resultado</label>
-          <select id="inspectionResultFilter">
-            <option value="ALL">Todos</option>
-            <option value="CONFORME">Sin incumplimientos</option>
-            <option value="NO_CONFORME">Con incumplimientos</option>
-            <option value="CRITICO">Falla crítica</option>
-          </select>
-        </div>
-        <div class="field grow">
-          <label for="inspectionSearch">Buscar</label>
-          <input id="inspectionSearch" type="search" placeholder="N.°, lugar, área o activo">
-        </div>
-      </div>
-      <div id="inspectionList" class="inspection-list-v47">Cargando inspecciones...</div>
-      <p id="inspectionListMessage" class="message"></p>
-    </section>
-
-    <section id="inspectionFormCard" class="card mt hidden">
+  <main class="container">
+    <section class="card e47-hero">
       <div class="page-head">
         <div>
-          <p class="eyebrow">Nueva ejecución</p>
-          <h2>Registrar inspección</h2>
-          <p class="muted">Selecciona una plantilla y responde todos los criterios antes de guardar.</p>
+          <p class="eyebrow">GESTIÓN SSOMAC</p>
+          <h1>Inspecciones</h1>
+          <p class="muted">Cada tipo de inspección conserva el formato oficial definido por el SIG.</p>
         </div>
-        <button id="cancelInspectionBtn" type="button" class="secondary">Cancelar</button>
+        <button id="e47NewBtn">+ Inspección general</button>
       </div>
 
-      <form id="inspectionForm" class="inspection-form-v47">
+      <div class="e47-format-grid">
+        <article class="e47-format-card active">
+          <span class="e47-format-icon">✓</span>
+          <div><small>ACTIVO</small><h3>Inspección General</h3><p>EDP-SIG-SSOMAC-RE-PA-191-03</p><strong>No genera ocurrencia</strong></div>
+        </article>
+        <article class="e47-format-card pending">
+          <span class="e47-format-icon">✚</span>
+          <div><small>FORMATO PENDIENTE</small><h3>Botiquines</h3><p>Se incorporará con tu formato SIG.</p><strong>Observaciones → Ocurrencias</strong></div>
+        </article>
+        <article class="e47-format-card pending">
+          <span class="e47-format-icon">◉</span>
+          <div><small>FORMATO PENDIENTE</small><h3>Extintores</h3><p>Se incorporará con tu formato SIG.</p><strong>Observaciones → Ocurrencias</strong></div>
+        </article>
+        <article class="e47-format-card pending">
+          <span class="e47-format-icon">＋</span>
+          <div><small>PRÓXIMOS FORMATOS</small><h3>Otros</h3><p>Vehículos, herramientas, equipos de emergencia, etc.</p><strong>Según formato corporativo</strong></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="e47ListCard" class="card">
+      <div class="page-head">
+        <div><p class="eyebrow">FORMATO GENERAL</p><h2>Inspecciones generales registradas</h2></div>
+      </div>
+      <div class="e47-kpis">
+        <article><span>Total</span><strong id="e47KpiTotal">0</strong></article>
+        <article><span>Pendientes de corrección</span><strong id="e47KpiPending">0</strong></article>
+        <article><span>Completadas</span><strong id="e47KpiClosed">0</strong></article>
+      </div>
+      <div class="filters">
+        <div class="field"><label for="e47FilterProject">Proyecto / sede</label><select id="e47FilterProject"></select></div>
+        <div class="field"><label for="e47FilterStatus">Estado</label><select id="e47FilterStatus"><option value="">Todos</option><option value="PENDIENTE_CORRECCION">Pendiente de corrección</option><option value="COMPLETADA">Completada</option></select></div>
+        <div class="field grow"><label for="e47FilterText">Buscar</label><input id="e47FilterText" placeholder="N.º, inspector o área"></div>
+      </div>
+      <div id="e47List" class="e47-list">Cargando...</div>
+      <p id="e47Message" class="message"></p>
+    </section>
+
+    <section id="e47FormCard" class="card hidden">
+      <div class="page-head">
+        <div><p class="eyebrow">EDP-SIG-SSOMAC-RE-PA-191-03</p><h2 id="e47FormTitle">Nueva inspección general</h2><p class="muted">Este formato se gestiona dentro del módulo de inspecciones. No crea registros en Ocurrencias.</p></div>
+      </div>
+      <form id="e47Form">
+        <div class="e47-section-title">Datos de la inspección</div>
         <div class="form-grid">
-          <div class="field">
-            <label for="inspectionProject">Proyecto / sede *</label>
-            <select id="inspectionProject" required></select>
-          </div>
-          <div class="field">
-            <label for="inspectionType">Tipo de inspección *</label>
-            <select id="inspectionType" required></select>
-          </div>
-          <div class="field">
-            <label for="inspectionDate">Fecha *</label>
-            <input id="inspectionDate" type="date" required>
-          </div>
-          <div class="field">
-            <label for="inspectionArea">Área</label>
-            <input id="inspectionArea" type="text" maxlength="160" placeholder="Ej.: Almacén, Mantenimiento, Plataforma 02">
-          </div>
-          <div class="field full">
-            <label for="inspectionPlace">Lugar de inspección *</label>
-            <input id="inspectionPlace" type="text" maxlength="250" required placeholder="Ubicación exacta donde se realiza la inspección">
-          </div>
-          <div class="field full">
-            <label for="inspectionAsset">Código / identificación del equipo o activo</label>
-            <input id="inspectionAsset" type="text" maxlength="160" placeholder="Opcional. Ej.: EXT-001, BOT-003, CAM-07">
-          </div>
+          <div class="field"><label for="e47Project">Proyecto / sede *</label><select id="e47Project" required></select></div>
+          <div class="field"><label for="e47Inspector">Nombre del inspector *</label><input id="e47Inspector" required></div>
+          <div class="field"><label for="e47Area">Área inspeccionada *</label><input id="e47Area" required></div>
+          <div class="field"><label for="e47Date">Fecha de inspección *</label><input id="e47Date" type="date" required></div>
+          <div class="field"><label for="e47Type">Tipo de inspección *</label><select id="e47Type" required><option value="IP">IP · Inspección planeada</option><option value="INP">INP · Inspección no planeada</option><option value="IC">IC · Inspección cruzada</option></select></div>
+          <div class="field"><label for="e47Workers">N.º trabajadores en el centro laboral</label><input id="e47Workers" type="number" min="0" inputmode="numeric"></div>
         </div>
 
-        <div class="inspection-checklist-head-v47">
-          <div>
-            <h3>Lista de verificación</h3>
-            <p id="inspectionTemplateDescription" class="muted">Selecciona un tipo de inspección.</p>
-          </div>
-          <span id="inspectionChecklistProgress" class="inspection-progress-pill-v47">0 / 0</span>
-        </div>
-        <div id="inspectionChecklist" class="inspection-checklist-v47">
-          <div class="inspection-empty-v47">Selecciona un tipo de inspección para cargar el checklist.</div>
+        <div class="e47-risk-guide">
+          <div class="A"><strong>A · Alto</strong><span>Muerte de varias personas. Acción inmediata y terminada antes de 24 horas.</span></div>
+          <div class="B"><strong>B · Medio</strong><span>Múltiples lesiones irreversibles. Acción completada antes de 72 horas.</span></div>
+          <div class="C"><strong>C · Bajo</strong><span>Lesión leve / no lesión. Acción completada antes de dos semanas.</span></div>
         </div>
 
-        <div class="form-grid inspection-extra-v47">
-          <div class="field full">
-            <label for="inspectionGeneralObservation">Observaciones generales</label>
-            <textarea id="inspectionGeneralObservation" rows="3" maxlength="3000" placeholder="Observaciones adicionales de la inspección."></textarea>
-          </div>
-          <div class="field full">
-            <label for="inspectionPhotos">Evidencias fotográficas</label>
-            <input id="inspectionPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-            <small>Puedes adjuntar hasta 4 fotografías generales. Las imágenes se optimizan antes de subir.</small>
-            <div id="inspectionPhotoPreview" class="inspection-photo-preview-v47"></div>
-          </div>
+        <div class="e47-section-head"><div><div class="e47-section-title">Observaciones de la inspección</div><small>Máximo 10 ítems, igual que el formato oficial.</small></div><button type="button" id="e47AddItem" class="secondary">+ Agregar observación</button></div>
+        <div id="e47Items"></div>
+
+        <div class="e47-section-title">Responsable del registro</div>
+        <div class="form-grid">
+          <div class="field"><label for="e47RecordName">Nombre *</label><input id="e47RecordName" required></div>
+          <div class="field"><label for="e47RecordRole">Cargo *</label><input id="e47RecordRole" required></div>
+          <div class="field"><label for="e47RecordDate">Fecha *</label><input id="e47RecordDate" type="date" required></div>
+        </div>
+        <div class="signature-field">
+          <label>Firma del responsable del registro *</label>
+          <div id="e47ExistingSignature" class="e47-existing-signature"></div>
+          <canvas id="e47Signature" class="signature-canvas" width="760" height="200" aria-label="Firma digital"></canvas>
+          <div class="signature-actions"><button id="e47ClearSignature" type="button" class="secondary">Limpiar firma</button><small>En una edición puedes dejar el recuadro vacío para conservar la firma registrada.</small></div>
         </div>
 
-        <div id="inspectionLiveResult" class="inspection-live-result-v47 hidden"></div>
-        <div class="form-actions inspection-save-row-v47">
-          <button id="saveInspectionBtn" type="submit">Guardar inspección</button>
+        <p id="e47FormMessage" class="message"></p>
+        <div class="workflow-actions">
+          <button type="button" id="e47Cancel" class="secondary">Volver</button>
+          <button type="submit" id="e47Save">Guardar inspección</button>
         </div>
-        <p id="inspectionFormMessage" class="message"></p>
       </form>
-    </section>
-
-    <section id="inspectionDetailCard" class="card mt hidden">
-      <div class="page-head">
-        <div>
-          <p class="eyebrow">Detalle de inspección</p>
-          <h2 id="inspectionDetailTitle">Inspección</h2>
-          <p id="inspectionDetailMeta" class="muted"></p>
-        </div>
-        <button id="closeInspectionDetailBtn" type="button" class="secondary">Cerrar detalle</button>
-      </div>
-      <div id="inspectionDetailSummary" class="inspection-detail-summary-v47"></div>
-      <div id="inspectionDetailResponses" class="inspection-detail-responses-v47"></div>
-      <div id="inspectionDetailEvidence" class="evidence-grid mt"></div>
-      <div id="inspectionDetailActions" class="workflow-actions"></div>
-      <p id="inspectionDetailMessage" class="message"></p>
-    </section>
-
-    <section id="inspectionTemplatesCard" class="card mt hidden">
-      <div class="page-head">
-        <div>
-          <p class="eyebrow">Administración</p>
-          <h2>Plantillas de inspección</h2>
-          <p class="muted">Solo ADMIN. Crea tipos de inspección y sus criterios sin modificar el código.</p>
-        </div>
-        <button id="closeInspectionTemplatesBtn" type="button" class="secondary">Cerrar</button>
-      </div>
-
-      <div class="inspection-template-layout-v47">
-        <div class="inspection-template-panel-v47">
-          <h3>Tipos de inspección</h3>
-          <form id="inspectionTypeAdminForm" class="form-grid">
-            <input id="inspectionTypeAdminId" type="hidden">
-            <div class="field">
-              <label for="inspectionTypeCode">Código *</label>
-              <input id="inspectionTypeCode" type="text" maxlength="30" required placeholder="Ej.: BOTIQUIN">
-            </div>
-            <div class="field">
-              <label for="inspectionTypeOrder">Orden</label>
-              <input id="inspectionTypeOrder" type="number" value="100" min="1" max="9999">
-            </div>
-            <div class="field full">
-              <label for="inspectionTypeName">Nombre *</label>
-              <input id="inspectionTypeName" type="text" maxlength="160" required placeholder="Ej.: Inspección de botiquines">
-            </div>
-            <div class="field full">
-              <label for="inspectionTypeDescription">Descripción</label>
-              <textarea id="inspectionTypeDescription" rows="2" maxlength="500"></textarea>
-            </div>
-            <div class="field full inspection-admin-actions-v47">
-              <button id="saveInspectionTypeBtn" type="submit">Guardar tipo</button>
-              <button id="cancelInspectionTypeEditBtn" type="button" class="secondary hidden">Cancelar edición</button>
-            </div>
-          </form>
-          <div id="inspectionTypeAdminList" class="inspection-template-list-v47"></div>
-        </div>
-
-        <div class="inspection-template-panel-v47">
-          <h3>Criterios del checklist</h3>
-          <div class="field">
-            <label for="inspectionTemplateSelect">Plantilla</label>
-            <select id="inspectionTemplateSelect"></select>
-          </div>
-          <form id="inspectionItemAdminForm" class="form-grid mt-sm">
-            <input id="inspectionItemAdminId" type="hidden">
-            <div class="field">
-              <label for="inspectionItemSection">Sección *</label>
-              <input id="inspectionItemSection" type="text" required maxlength="160" value="GENERAL">
-            </div>
-            <div class="field">
-              <label for="inspectionItemCode">Código *</label>
-              <input id="inspectionItemCode" type="text" required maxlength="40" placeholder="Ej.: BOT-01">
-            </div>
-            <div class="field full">
-              <label for="inspectionItemCriterion">Criterio de verificación *</label>
-              <textarea id="inspectionItemCriterion" rows="2" required maxlength="700"></textarea>
-            </div>
-            <div class="field">
-              <label for="inspectionItemCriticality">Criticidad</label>
-              <select id="inspectionItemCriticality">
-                <option value="NORMAL">Normal</option>
-                <option value="CRITICO">Crítico</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="inspectionItemOrder">Orden</label>
-              <input id="inspectionItemOrder" type="number" value="100" min="1" max="9999">
-            </div>
-            <div class="field full inspection-admin-actions-v47">
-              <button id="saveInspectionItemBtn" type="submit">Guardar criterio</button>
-              <button id="cancelInspectionItemEditBtn" type="button" class="secondary hidden">Cancelar edición</button>
-            </div>
-          </form>
-          <div id="inspectionItemAdminList" class="inspection-template-list-v47"></div>
-        </div>
-      </div>
-      <p id="inspectionTemplatesMessage" class="message"></p>
     </section>
   </main>
 
-  <script src="app.js?v=11.8"></script>
+  <script src="app.js?v=11.8.1"></script>
+  <script src="inspecciones-general.js?v=11.8.1"></script>
 </body>
 </html>

@@ -1,0 +1,31 @@
+ETAPA 47 REVISADA - INSPECCIONES POR FORMATOS CORPORATIVOS
+Versión: v11.8.1
+
+BASE
+- Construida nuevamente desde v11.7 ETAPA 46.
+- NO utilizar la v11.8 anterior del motor genérico.
+
+IMPLEMENTADO
+1. Inspección General basada en el archivo oficial:
+   EDP-SIG-SSOMAC-RE-PA-191-03 Formato de Inspecciones.
+2. La Inspección General NO genera ocurrencias.
+3. Hasta 10 observaciones, igual al formato Excel.
+4. Causas inmediatas y básicas tomadas de la hoja TABLA DE CAUSAS.
+5. Fotografías de observación y corrección.
+6. Potencial A/B/C y fechas de corrección.
+7. Firma digital del responsable del registro.
+8. Edición posterior para completar correcciones.
+9. Descarga de un Excel por cada inspección usando la plantilla corporativa original.
+10. Acceso restringido por proyecto según ETAPA 43.
+
+FORMATOS ESPECÍFICOS
+- Botiquines: pendiente de incorporar el formato SIG del usuario.
+- Extintores: pendiente de incorporar el formato SIG del usuario.
+- Esos formatos sí podrán convertir sus observaciones en Ocurrencias.
+
+INSTALACIÓN
+1. Ejecutar ETAPA_47_REVISADA_INSPECCIONES_GENERALES.sql en Supabase.
+2. Subir/reemplazar todos los archivos del ZIP en GitHub.
+3. No reemplazar config.js.
+4. Ctrl + F5.
+5. Abrir Gestión SSOMAC > Inspecciones.
