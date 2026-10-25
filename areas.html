@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <title>SSOMAC Digital | Áreas por proyecto</title>
+  <title>SSOMAC Digital | Áreas / procesos</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.8.2">
+  <link rel="stylesheet" href="styles.css?v=11.8.3">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
 <body data-page="areas-admin">
   <header class="topbar">
-    <div><strong>SSOMAC Digital</strong><span>Áreas por proyecto / sede</span></div>
+    <div><strong>SSOMAC Digital</strong><span>Áreas / procesos por proyecto / sede</span></div>
     <div class="top-actions">
-      <button id="newAreaBtn">+ Nueva área</button>
+      <button id="newAreaBtn">+ Nueva área / proceso</button>
       <a class="button-link secondary-link" href="app.html">Inicio</a>
       <button id="logoutBtn" class="secondary">Cerrar sesión</button>
     </div>
@@ -23,15 +23,15 @@
       <div class="page-head">
         <div>
           <p class="eyebrow">ADMINISTRACIÓN</p>
-          <h1>Áreas por proyecto / sede</h1>
-          <p class="muted">Catálogo único para inspecciones, ocurrencias y revisión de reportes.</p>
+          <h1>Áreas / procesos por proyecto / sede</h1>
+          <p class="muted">Catálogo de áreas o procesos organizacionales. Los lugares físicos se administran por separado.</p>
         </div>
       </div>
 
       <div class="filters">
         <div class="field"><label for="areaFilterProject">Proyecto / sede</label><select id="areaFilterProject"></select></div>
         <div class="field"><label for="areaFilterStatus">Estado</label><select id="areaFilterStatus"><option value="ALL">Todos</option><option value="ACTIVE">Activas</option><option value="INACTIVE">Inactivas</option></select></div>
-        <div class="field grow"><label for="areaSearch">Buscar</label><input id="areaSearch" placeholder="Nombre del área"></div>
+        <div class="field grow"><label for="areaSearch">Buscar</label><input id="areaSearch" placeholder="Nombre del área / proceso"></div>
       </div>
 
       <div id="areasList">Cargando...</div>
@@ -40,24 +40,24 @@
 
     <section id="areaFormCard" class="card hidden">
       <div class="page-head">
-        <div><p class="eyebrow">CATÁLOGO</p><h2 id="areaFormTitle">Nueva área</h2></div>
+        <div><p class="eyebrow">CATÁLOGO</p><h2 id="areaFormTitle">Nueva área / proceso</h2></div>
       </div>
       <form id="areaForm">
         <input id="areaEditId" type="hidden">
         <div class="form-grid">
           <div class="field"><label for="areaProject">Proyecto / sede *</label><select id="areaProject" required></select></div>
-          <div class="field"><label for="areaName">Nombre del área *</label><input id="areaName" maxlength="120" required placeholder="Ej.: TALLER DE MANTENIMIENTO"></div>
+          <div class="field"><label for="areaName">Nombre del área / proceso *</label><input id="areaName" maxlength="120" required placeholder="Ej.: MANTENIMIENTO"></div>
         </div>
         <p id="areaFormMessage" class="message"></p>
         <div class="workflow-actions">
           <button id="cancelAreaBtn" type="button" class="secondary">Cancelar</button>
-          <button id="saveAreaBtn" type="submit">Guardar área</button>
+          <button id="saveAreaBtn" type="submit">Guardar área / proceso</button>
         </div>
       </form>
     </section>
   </main>
 
-  <script src="app.js?v=11.8.2"></script>
-  <script src="areas.js?v=11.8.2"></script>
+  <script src="app.js?v=11.8.3"></script>
+  <script src="areas.js?v=11.8.3"></script>
 </body>
 </html>

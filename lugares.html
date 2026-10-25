@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Lugares / ubicaciones</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.8.3">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="places-admin">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Lugares / ubicaciones</span></div>
+    <div class="top-actions">
+      <button id="newPlaceBtn">+ Nuevo lugar</button>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">ADMINISTRACIÓN</p>
+          <h1>Lugares / ubicaciones por proyecto / sede</h1>
+          <p class="muted">Ubicaciones físicas utilizadas en inspecciones, ocurrencias y reportes. El vínculo con un área / proceso es opcional.</p>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="field"><label for="placeFilterProject">Proyecto / sede</label><select id="placeFilterProject"></select></div>
+        <div class="field"><label for="placeFilterArea">Área / proceso</label><select id="placeFilterArea"><option value="ALL">Todas</option><option value="NONE">Sin área asociada</option></select></div>
+        <div class="field"><label for="placeFilterStatus">Estado</label><select id="placeFilterStatus"><option value="ALL">Todos</option><option value="ACTIVE">Activos</option><option value="INACTIVE">Inactivos</option></select></div>
+        <div class="field grow"><label for="placeSearch">Buscar</label><input id="placeSearch" placeholder="Taller, almacén, comedor, plataforma..."></div>
+      </div>
+      <div id="placesList">Cargando...</div>
+      <p id="placesMessage" class="message"></p>
+    </section>
+
+    <section id="placeFormCard" class="card hidden">
+      <div class="page-head"><div><p class="eyebrow">CATÁLOGO</p><h2 id="placeFormTitle">Nuevo lugar / ubicación</h2></div></div>
+      <form id="placeForm">
+        <input id="placeEditId" type="hidden">
+        <div class="form-grid">
+          <div class="field"><label for="placeProject">Proyecto / sede *</label><select id="placeProject" required></select></div>
+          <div class="field"><label for="placeName">Nombre del lugar / ubicación *</label><input id="placeName" maxlength="160" required placeholder="Ej.: TALLER DE MANTENIMIENTO"></div>
+          <div class="field full"><label for="placeArea">Área / proceso relacionado</label><select id="placeArea"><option value="">Sin área asociada / N.A.</option></select><small>Ej.: TALLER DE PINTURA → MANTENIMIENTO. COMEDOR puede quedar sin área asociada.</small></div>
+        </div>
+        <p id="placeFormMessage" class="message"></p>
+        <div class="workflow-actions"><button id="cancelPlaceBtn" type="button" class="secondary">Cancelar</button><button id="savePlaceBtn" type="submit">Guardar lugar</button></div>
+      </form>
+    </section>
+  </main>
+  <script src="app.js?v=11.8.3"></script>
+  <script src="lugares.js?v=11.8.3"></script>
+</body>
+</html>

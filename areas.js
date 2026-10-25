@@ -17,7 +17,7 @@ async function initAreasV472(){
 
   function openForm(r=null){
     if(!canManage)return;
-    form.reset();document.getElementById('areaEditId').value=r?.id||'';document.getElementById('areaFormTitle').textContent=r?'Editar área':'Nueva área';
+    form.reset();document.getElementById('areaEditId').value=r?.id||'';document.getElementById('areaFormTitle').textContent=r?'Editar área / proceso':'Nueva área / proceso';
     document.getElementById('areaName').value=r?.nombre||'';
     if(ctx.isProject&&projects.length===1)projectEl.value=projects[0].id;else projectEl.value=r?.proyecto_id||'';
     showMessage(formMsg,'');formCard.classList.remove('hidden');formCard.scrollIntoView({behavior:'smooth',block:'start'});
@@ -28,7 +28,7 @@ async function initAreasV472(){
   async function load(){
     list.innerHTML='Cargando...';
     const {data,error}=await sb.from('areas_proyecto').select('id,proyecto_id,nombre,activo,creado_en,proyecto:proyectos(id,nombre)').order('nombre');
-    if(error){showMessage(msg,'No se pudieron cargar las áreas: '+error.message);list.innerHTML='';return;}
+    if(error){showMessage(msg,'No se pudieron cargar las áreas / procesos: '+error.message);list.innerHTML='';return;}
     rows=data||[];render();
   }
   function render(){
@@ -42,14 +42,14 @@ async function initAreasV472(){
   form.addEventListener('submit',async e=>{
     e.preventDefault();if(!canManage)return;showMessage(formMsg,'');
     const id=document.getElementById('areaEditId').value,name=document.getElementById('areaName').value.trim().toUpperCase(),projectId=projectEl.value;
-    if(!projectId||!name){showMessage(formMsg,'Completa proyecto y nombre del área.');return;}
+    if(!projectId||!name){showMessage(formMsg,'Completa proyecto y nombre del área / proceso.');return;}
     const btn=document.getElementById('saveAreaBtn');btn.disabled=true;btn.textContent='Guardando...';
     try{
       const payload={proyecto_id:projectId,nombre:name};
       const result=id?await sb.from('areas_proyecto').update(payload).eq('id',id):await sb.from('areas_proyecto').insert({...payload,creado_por_id:session.user.id,activo:true});
-      if(result.error)throw result.error;showMessage(formMsg,id?'Área actualizada.':'Área agregada.',true);await load();setTimeout(()=>formCard.classList.add('hidden'),450);
-    }catch(err){showMessage(formMsg,'No se pudo guardar: '+((err.message||'').includes('duplicate')?'Ya existe esta área en el proyecto.':(err.message||err)));}
-    finally{btn.disabled=false;btn.textContent='Guardar área';}
+      if(result.error)throw result.error;showMessage(formMsg,id?'Área / proceso actualizada.':'Área / proceso agregada.',true);await load();setTimeout(()=>formCard.classList.add('hidden'),450);
+    }catch(err){showMessage(formMsg,'No se pudo guardar: '+((err.message||'').includes('duplicate')?'Ya existe esta área / proceso en el proyecto.':(err.message||err)));}
+    finally{btn.disabled=false;btn.textContent='Guardar área / proceso';}
   });
   await load();
 }

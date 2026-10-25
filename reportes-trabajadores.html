@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SSOMAC Digital | Reportes de trabajadores</title>
-  <link rel="stylesheet" href="styles.css?v=11.8.2">
+  <link rel="stylesheet" href="styles.css?v=11.8.3">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -92,9 +92,13 @@
             <input id="reviewReporter" type="text" required>
           </div>
 
-          <div class="field full">
-            <label for="reviewPlace">Lugar del hallazgo *</label>
-            <input id="reviewPlace" type="text" required>
+          <div class="field">
+            <label for="reviewPlace">Lugar / ubicación del hallazgo *</label>
+            <select id="reviewPlace" required><option value="">Selecciona primero el proyecto...</option></select>
+          </div>
+          <div class="field">
+            <label for="reviewDetectedArea">Área / proceso del lugar</label>
+            <input id="reviewDetectedArea" type="text" readonly>
           </div>
 
           <div class="field full">
@@ -133,7 +137,7 @@
           </div>
 
           <div class="field">
-            <label for="reviewArea">Área responsable de seguimiento *</label>
+            <label for="reviewArea">Área / proceso responsable de seguimiento *</label>
             <select id="reviewArea" required></select>
           </div>
 
@@ -183,6 +187,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=11.8.2"></script>
+  <script src="app.js?v=11.8.3"></script>
 </body>
 </html>

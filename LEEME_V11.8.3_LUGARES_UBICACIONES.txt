@@ -1,0 +1,10 @@
+V11.8.3 · AJUSTE ETAPA 47 · ÁREAS/PROCESOS + LUGARES/UBICACIONES
+
+1. Ejecutar ETAPA_47_AJUSTE_03_LUGARES_UBICACIONES.sql después de la v11.8.2.
+2. Subir/reemplazar todos los archivos del ZIP en GitHub.
+3. No reemplazar config.js.
+4. Nuevo menú: Administración → Áreas / procesos y Administración → Lugares / ubicaciones.
+5. Inspección General: selecciona LUGAR; el Área/Proceso se completa automáticamente.
+6. Nueva Ocurrencia: Lugar/Ubicación es desplegable; muestra Área/Proceso del lugar y mantiene aparte el Área responsable del seguimiento.
+7. Revisión de Reportes: Lugar/Ubicación es desplegable y conserva por separado el Área responsable.
+8. El formulario público Yo Reporto también carga los lugares desde Supabase mediante RPC; después de publicar usa Ctrl+F5 para forzar el app.js actualizado.

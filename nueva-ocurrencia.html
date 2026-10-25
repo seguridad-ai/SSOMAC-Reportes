@@ -5,7 +5,7 @@
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.8.2">
+  <link rel="stylesheet" href="styles.css?v=11.8.3">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 
@@ -42,9 +42,15 @@
           <label for="classification">Acto / Condición subestándar *</label>
           <select id="classification"><option value="">Seleccione...</option></select>
         </div>
-        <div class="field full">
-          <label for="place">Lugar del hallazgo *</label>
-          <input id="place" type="text" maxlength="200" required placeholder="Ej. Plataforma de perforación">
+        <div class="field">
+          <label for="place">Lugar / ubicación del hallazgo *</label>
+          <select id="place" required><option value="">Selecciona primero el proyecto...</option></select>
+          <small>Los lugares se administran desde Administración → Lugares / ubicaciones.</small>
+        </div>
+        <div class="field">
+          <label for="detectedArea">Área / proceso del lugar</label>
+          <input id="detectedArea" type="text" readonly value="">
+          <small>Se completa automáticamente según el lugar seleccionado.</small>
         </div>
         <div class="field full">
           <label id="descriptionLabel" for="description">Descripción del hallazgo *</label>
@@ -73,7 +79,7 @@
               <select id="potential"></select>
             </div>
             <div class="field">
-              <label for="area">Área responsable</label>
+              <label for="area">Área / proceso responsable del seguimiento</label>
               <select id="area"></select>
             </div>
             <div class="field">
@@ -129,6 +135,6 @@
       </form>
     </section>
   </main>
-  <script src="app.js?v=11.8.2"></script>
+  <script src="app.js?v=11.8.3"></script>
 </body>
 </html>

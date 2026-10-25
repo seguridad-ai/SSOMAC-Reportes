@@ -315,6 +315,14 @@ async function getProjectAreasV472(projectId,includeInactive=false){
 }
 function normalizeAreaNameV472(v=''){return String(v||'').trim().toUpperCase();}
 
+// V11.8.3 - Lugares / ubicaciones por proyecto / sede
+async function getProjectPlacesV483(projectId,includeInactive=false){
+  if(!projectId)return [];
+  let q=sb.from('lugares_proyecto').select('id,proyecto_id,area_proyecto_id,nombre,activo,area:areas_proyecto(id,nombre)').eq('proyecto_id',projectId).order('nombre');
+  if(!includeInactive)q=q.eq('activo',true);
+  const {data,error}=await q;if(error)throw error;return data||[];
+}
+
 async function initAccessShellV43(){
   if(['login','public-worker-report','public-lift'].includes(page))return;
   const {data}=await sb.auth.getSession();if(!data.session)return;
@@ -629,7 +637,7 @@ async function initNewOccurrence(){
   const form=document.getElementById('occurrenceForm'),msg=document.getElementById('formMessage'),saveBtn=document.getElementById('saveBtn');
   const projectEl=document.getElementById('project'),dateEl=document.getElementById('date'),originEl=document.getElementById('origin'),classificationEl=document.getElementById('classification');
   const classificationSection=document.getElementById('classificationSection'),causesSection=document.getElementById('causesSection'),correctiveSection=document.getElementById('correctiveSection');
-  const potentialEl=document.getElementById('potential'),areaEl=document.getElementById('area'),responsibleEl=document.getElementById('responsibleId'),responsibleInfo=document.getElementById('responsibleInfo'),photoEl=document.getElementById('photo'),preview=document.getElementById('photoPreview'),descriptionLabel=document.getElementById('descriptionLabel');
+  const potentialEl=document.getElementById('potential'),areaEl=document.getElementById('area'),placeEl=document.getElementById('place'),detectedAreaEl=document.getElementById('detectedArea'),responsibleEl=document.getElementById('responsibleId'),responsibleInfo=document.getElementById('responsibleInfo'),photoEl=document.getElementById('photo'),preview=document.getElementById('photoPreview'),descriptionLabel=document.getElementById('descriptionLabel');
   const immediateLiftFields=document.getElementById('immediateLiftFields'),immediateLiftComment=document.getElementById('immediateLiftComment'),immediateLiftPhoto=document.getElementById('immediateLiftPhoto'),immediateLiftPreview=document.getElementById('immediateLiftPreview');
   const immediateLiftSigner=document.getElementById('immediateLiftSigner'),immediateLiftSignature=document.getElementById('immediateLiftSignature'),immediateLiftClearSignature=document.getElementById('immediateLiftClearSignature');
   const immediateSignaturePad=createSignaturePad(immediateLiftSignature,immediateLiftClearSignature);
@@ -671,7 +679,7 @@ async function initNewOccurrence(){
   const error=[projectsRes.error,originsRes.error,typesRes.error,potentialsRes.error,legacyAreasRes.error,responsiblesRes.error].find(Boolean);
   if(error){showMessage(msg,'No se pudieron cargar los catálogos: '+error.message);saveBtn.disabled=true;return;}
   const origins=originsRes.data||[],types=typesRes.data||[],responsibles=responsiblesRes.data||[],legacyAreas=legacyAreasRes.data||[];
-  let projectAreas=[];
+  let projectAreas=[],projectPlaces=[];
 
   projectEl.innerHTML='<option value="">Seleccione...</option>'+(projectsRes.data||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
   v43LockProjectSelect(projectEl,accessCtx);
@@ -691,6 +699,21 @@ async function initNewOccurrence(){
     }catch(err){areaEl.innerHTML='<option value="">No se pudieron cargar las áreas</option>';areaEl.disabled=true;console.warn(err);}
   }
 
+  async function renderProjectPlacesV483(selected=''){
+    const projectId=projectEl.value;projectPlaces=[];
+    if(!projectId){placeEl.innerHTML='<option value="">Selecciona primero el proyecto...</option>';placeEl.disabled=true;if(detectedAreaEl)detectedAreaEl.value='';return;}
+    try{
+      projectPlaces=await getProjectPlacesV483(projectId,false);
+      placeEl.innerHTML='<option value="">Seleccione...</option>'+projectPlaces.map(l=>`<option value="${l.id}">${escapeHtml(l.nombre)}</option>`).join('');
+      placeEl.disabled=false;if(selected&&projectPlaces.some(l=>l.id===selected))placeEl.value=selected;
+      if(!projectPlaces.length)placeEl.innerHTML='<option value="">No hay lugares configurados para este proyecto</option>';
+      syncDetectedAreaV483();
+    }catch(err){placeEl.innerHTML='<option value="">No se pudieron cargar los lugares</option>';placeEl.disabled=true;console.warn(err);}
+  }
+  function selectedPlaceV483(){return projectPlaces.find(l=>l.id===placeEl.value)||null;}
+  function selectedPlaceNameV483(){return selectedPlaceV483()?.nombre||'';}
+  function syncDetectedAreaV483(){const l=selectedPlaceV483();if(detectedAreaEl)detectedAreaEl.value=l?.area?.nombre||'N.A. / SIN ÁREA ASOCIADA';}
+
   function renderResponsibles(){
     const projectId=projectEl.value;
     const available=responsibles.filter(r=>r.aplica_todos_proyectos===true || (projectId && r.proyecto_id===projectId));
@@ -704,7 +727,8 @@ async function initNewOccurrence(){
     responsibleInfo.textContent=!projectId?'Selecciona el proyecto para cargar los responsables disponibles.':(available.length?`${available.length} responsable(s) disponible(s).`:'No hay responsables activos disponibles para este proyecto.');
   }
 
-  projectEl.addEventListener('change',async()=>{renderResponsibles();await renderProjectAreas();});
+  projectEl.addEventListener('change',async()=>{renderResponsibles();await renderProjectAreas();await renderProjectPlacesV483();});
+  placeEl?.addEventListener('change',syncDetectedAreaV483);
   responsibleEl.addEventListener('change',()=>{
     if(!isImmediateLift()||!immediateLiftSigner)return;
     const r=responsibles.find(x=>x.id===responsibleEl.value);
@@ -712,6 +736,7 @@ async function initNewOccurrence(){
   });
   renderResponsibles();
   await renderProjectAreas();
+  await renderProjectPlacesV483();
 
   originEl.addEventListener('change',()=>{
     const origin=origins.find(o=>o.id===originEl.value),good=origin?.nombre==='BUENA PRACTICA';
@@ -748,7 +773,7 @@ async function initNewOccurrence(){
     try{
       const payload={
         proyecto_id:projectEl.value,fecha:dateEl.value,origen_hallazgo_id:originEl.value,tipo_hallazgo_id:good?null:classificationEl.value,
-        lugar_hallazgo:document.getElementById('place').value.trim(),descripcion:document.getElementById('description').value.trim(),
+        lugar_hallazgo:selectedPlaceNameV483(),lugar_id:placeEl.value||null,area_hallazgo_proyecto_id:selectedPlaceV483()?.area_proyecto_id||null,descripcion:document.getElementById('description').value.trim(),
         acciones_implementar:good?null:(document.getElementById('action').value.trim()||null),
         potencial_perdida_id:good?null:(potentialEl.value||null),
         responsable_correccion_id:good?null:(selectedResponsible?.id||null),
@@ -827,7 +852,7 @@ async function initNewOccurrence(){
               nombre_responsable:`${selectedResponsible.nombres||''} ${selectedResponsible.apellidos||''}`.trim(),
               proyecto:project?.nombre||projectEl.options[projectEl.selectedIndex]?.text||'',
               fecha:formatDateEsV6(dateEl.value),
-              lugar:document.getElementById('place').value.trim(),
+              lugar:selectedPlaceNameV483(),
               tipo_hallazgo:selectedType?.nombre||'',
               descripcion:document.getElementById('description').value.trim(),
               accion:document.getElementById('action').value.trim()||'Por definir',
@@ -1617,7 +1642,8 @@ function initStage46ShellV46(ctx){
   }
   // ADMIN y usuario operativo del proyecto pueden mantener el catálogo de áreas.
   if(ctx?.isAdmin||ctx?.isProject||ctx?.role==='ING_SEGURIDAD'){
-    admin.push(linkItemV46('▦','Áreas por proyecto','areas.html','Catálogo para inspecciones y reportes'));
+    admin.push(linkItemV46('▦','Áreas / procesos','areas.html','Procesos organizacionales'));
+    admin.push(linkItemV46('⌖','Lugares / ubicaciones','lugares.html','Talleres, almacenes, comedor, plataformas'));
   }
   if(ctx?.isAdmin){
     admin.push(linkItemV46('♙','Responsables','responsables.html','Asignaciones y correos'));
@@ -2308,6 +2334,9 @@ async function initPublicWorkerReport(){
   const dateEl=document.getElementById('workerDate');
   const typeEl=document.getElementById('workerType');
   const responsibleEl=document.getElementById('workerResponsible');
+  let workerPlaceEl=document.getElementById('workerPlace');
+  if(workerPlaceEl&&workerPlaceEl.tagName!=='SELECT'){const sel=document.createElement('select');sel.id='workerPlace';sel.required=true;sel.innerHTML='<option value="">Selecciona primero el proyecto...</option>';workerPlaceEl.replaceWith(sel);workerPlaceEl=sel;}
+  let publicPlaces=[];
   const photoEl=document.getElementById('workerPhoto');
   const preview=document.getElementById('workerPhotoPreview');
   const submitBtn=document.getElementById('workerSubmitBtn');
@@ -2352,11 +2381,19 @@ async function initPublicWorkerReport(){
       projectEl.value=matched.id;
       projectEl.disabled=true;
       projectInfo.textContent=`Proyecto preseleccionado por QR: ${matched.nombre}.`;
-      await loadPublicResponsibles();
+      await Promise.all([loadPublicResponsibles(),loadPublicPlacesV483()]);
     }
   }
 
-  projectEl.addEventListener('change',loadPublicResponsibles);
+  projectEl.addEventListener('change',async()=>{await Promise.all([loadPublicResponsibles(),loadPublicPlacesV483()]);});
+
+  async function loadPublicPlacesV483(){
+    publicPlaces=[];if(!workerPlaceEl)return;workerPlaceEl.disabled=true;workerPlaceEl.innerHTML='<option value="">Cargando...</option>';
+    if(!projectEl.value){workerPlaceEl.innerHTML='<option value="">Selecciona primero el proyecto...</option>';return;}
+    const {data,error}=await sb.rpc('public_listar_lugares_reporte',{p_proyecto_id:projectEl.value});
+    if(error){workerPlaceEl.innerHTML='<option value="">No se pudieron cargar los lugares</option>';return;}
+    publicPlaces=data||[];workerPlaceEl.innerHTML='<option value="">Seleccione...</option>'+publicPlaces.map(l=>`<option value="${l.id}">${escapeHtml(l.nombre)}</option>`).join('');workerPlaceEl.disabled=false;
+  }
 
   async function loadPublicResponsibles(){
     responsibleEl.disabled=true;
@@ -2391,7 +2428,7 @@ async function initPublicWorkerReport(){
 
     const file=photoEl.files?.[0];
     if(!file){showMessage(msg,'Debes adjuntar una fotografía de la observación.');return;}
-    if(!projectEl.value||!typeEl.value||!responsibleEl.value){showMessage(msg,'Completa todos los campos obligatorios.');return;}
+    if(!projectEl.value||!typeEl.value||!responsibleEl.value||!workerPlaceEl?.value){showMessage(msg,'Completa todos los campos obligatorios, incluido el lugar.');return;}
 
     submitBtn.disabled=true;
     submitBtn.textContent='Enviando reporte...';
@@ -2402,7 +2439,7 @@ async function initPublicWorkerReport(){
         p_fecha:dateEl.value,
         p_reportado_por_nombre:document.getElementById('workerName').value.trim(),
         p_tipo_hallazgo_id:typeEl.value,
-        p_lugar_hallazgo:document.getElementById('workerPlace').value.trim(),
+        p_lugar_hallazgo:(publicPlaces.find(l=>l.id===workerPlaceEl.value)?.nombre||''),
         p_descripcion:document.getElementById('workerDescription').value.trim(),
         p_responsable_id:responsibleEl.value
       });
@@ -2410,6 +2447,8 @@ async function initPublicWorkerReport(){
 
       const createdRow=Array.isArray(created)?created[0]:created;
       if(!createdRow?.reporte_id)throw new Error('No se recibió el identificador del reporte.');
+      const selectedPublicPlaceId=workerPlaceEl?.value||null;
+      if(selectedPublicPlaceId){const {error:placeError}=await sb.rpc('public_asignar_lugar_reporte',{p_reporte_id:createdRow.reporte_id,p_token_publico:createdRow.token_publico,p_lugar_id:selectedPublicPlaceId});if(placeError)throw new Error('El reporte fue creado, pero no se pudo asociar el lugar: '+placeError.message);}
 
       const blob=await optimizeImage(file);
       const path=`reportes-trabajadores/${createdRow.reporte_id}/hallazgo/${Date.now()}_${uid()}.webp`;
@@ -2442,7 +2481,7 @@ async function initPublicWorkerReport(){
       preview.src='';preview.classList.add('hidden');
       if(projectCode){
         const matched=projects.find(p=>(p.codigo||'').toUpperCase()===projectCode);
-        if(matched){projectEl.value=matched.id;projectEl.disabled=true;await loadPublicResponsibles();}
+        if(matched){projectEl.value=matched.id;projectEl.disabled=true;await Promise.all([loadPublicResponsibles(),loadPublicPlacesV483()]);}
       } else {
         responsibleEl.disabled=true;
         responsibleEl.innerHTML='<option value="">Selecciona primero el proyecto...</option>';
@@ -2481,7 +2520,7 @@ async function initWorkerReportsAdmin(){
   let responsibles=[];
   let potentials=[];
   let legacyAreas=[];
-  let reviewProjectAreas=[];
+  let reviewProjectAreas=[],reviewProjectPlaces=[];
   let current=null;
 
   const accessCtx=await getAccessContextV43(session);
@@ -2540,7 +2579,8 @@ async function initWorkerReportsAdmin(){
   projectFilter.addEventListener('change',renderList);
   searchEl.addEventListener('input',renderList);
   document.getElementById('workerCloseReviewBtn').addEventListener('click',()=>{reviewCard.classList.add('hidden');current=null;showMessage(reviewMsg,'');});
-  document.getElementById('reviewProject').addEventListener('change',async()=>{renderReviewResponsibles();await renderReviewAreas();});
+  document.getElementById('reviewProject').addEventListener('change',async()=>{renderReviewResponsibles();await renderReviewAreas();await renderReviewPlacesV483();});
+  document.getElementById('reviewPlace')?.addEventListener('change',syncReviewDetectedAreaV483);
   document.getElementById('reviewResponsible').addEventListener('change',()=>{
     if(!isReviewImmediateLift()||!reviewImmediateSigner)return;
     const r=responsibles.find(x=>x.id===document.getElementById('reviewResponsible').value);
@@ -2551,7 +2591,7 @@ async function initWorkerReportsAdmin(){
   async function loadRows(){
     const {data,error}=await sb.from('reportes_trabajadores').select(`
       id,numero,proyecto_id,fecha,reportado_por_nombre,lugar_hallazgo,tipo_hallazgo_id,
-      descripcion,responsable_propuesto_id,ruta_foto,estado_revision,observacion_revision,area_proyecto_id,
+      descripcion,responsable_propuesto_id,ruta_foto,estado_revision,observacion_revision,area_proyecto_id,lugar_id,area_hallazgo_proyecto_id,
       creado_en,fecha_revision,ocurrencia_id,
       proyecto:proyectos(id,nombre,cliente),
       tipo:tipos_hallazgo(id,codigo,nombre),
@@ -2611,7 +2651,7 @@ async function initWorkerReportsAdmin(){
     document.getElementById('reviewProject').value=current.proyecto_id||'';
     document.getElementById('reviewDate').value=current.fecha||today();
     document.getElementById('reviewReporter').value=current.reportado_por_nombre||'';
-    document.getElementById('reviewPlace').value=current.lugar_hallazgo||'';
+    document.getElementById('reviewPlace').value='';
     document.getElementById('reviewType').value=current.tipo_hallazgo_id||'';
     document.getElementById('reviewDescription').value=current.descripcion||'';
     document.getElementById('reviewObservation').value=current.observacion_revision||'';
@@ -2629,6 +2669,7 @@ async function initWorkerReportsAdmin(){
 
     renderReviewResponsibles(current.responsable_propuesto_id);
     await renderReviewAreas(current.area_proyecto_id||'');
+    await renderReviewPlacesV483(current.lugar_id||'',current.lugar_hallazgo||'');
     await loadReviewCauses(current.tipo_hallazgo_id);
     await renderOriginalPhoto(current);
 
@@ -2666,6 +2707,17 @@ async function initWorkerReportsAdmin(){
       if(!reviewProjectAreas.length)el.innerHTML='<option value="">No hay áreas configuradas</option>';
     }catch(err){el.innerHTML='<option value="">No se pudieron cargar las áreas</option>';el.disabled=true;console.warn(err);}
   }
+
+  async function renderReviewPlacesV483(selectedId='',legacyName=''){
+    const projectId=document.getElementById('reviewProject').value,el=document.getElementById('reviewPlace');reviewProjectPlaces=[];
+    if(!projectId){el.innerHTML='<option value="">Selecciona primero el proyecto...</option>';el.disabled=true;syncReviewDetectedAreaV483();return;}
+    try{reviewProjectPlaces=await getProjectPlacesV483(projectId,false);el.innerHTML='<option value="">Seleccione...</option>'+reviewProjectPlaces.map(l=>`<option value="${l.id}">${escapeHtml(l.nombre)}</option>`).join('');el.disabled=false;
+      if(selectedId&&reviewProjectPlaces.some(l=>l.id===selectedId))el.value=selectedId;else if(legacyName){const m=reviewProjectPlaces.find(l=>String(l.nombre||'').trim().toUpperCase()===String(legacyName||'').trim().toUpperCase());if(m)el.value=m.id;}
+      if(!reviewProjectPlaces.length)el.innerHTML='<option value="">No hay lugares configurados</option>';syncReviewDetectedAreaV483();
+    }catch(err){el.innerHTML='<option value="">No se pudieron cargar los lugares</option>';el.disabled=true;console.warn(err);}
+  }
+  function selectedReviewPlaceV483(){return reviewProjectPlaces.find(l=>l.id===document.getElementById('reviewPlace').value)||null;}
+  function syncReviewDetectedAreaV483(){const el=document.getElementById('reviewDetectedArea'),l=selectedReviewPlaceV483();if(el)el.value=l?.area?.nombre||'N.A. / SIN ÁREA ASOCIADA';}
 
   async function loadReviewCauses(typeId){
     const ib=document.getElementById('reviewImmediateCauses'),bb=document.getElementById('reviewBasicCauses');
@@ -2714,7 +2766,7 @@ async function initWorkerReportsAdmin(){
         p_fecha:document.getElementById('reviewDate').value,
         p_reportado_por_nombre:document.getElementById('reviewReporter').value.trim(),
         p_tipo_hallazgo_id:document.getElementById('reviewType').value,
-        p_lugar_hallazgo:document.getElementById('reviewPlace').value.trim(),
+        p_lugar_hallazgo:selectedReviewPlaceV483()?.nombre||'',
         p_descripcion:document.getElementById('reviewDescription').value.trim(),
         p_responsable_id:document.getElementById('reviewResponsible').value,
         p_acciones:document.getElementById('reviewAction').value.trim(),
@@ -2728,10 +2780,10 @@ async function initWorkerReportsAdmin(){
       if(error)throw error;
       const out=Array.isArray(data)?data[0]:data;
       const selectedProjectAreaId=document.getElementById('reviewArea').value||null;
-      if(selectedProjectAreaId){
-        await sb.from('reportes_trabajadores').update({area_proyecto_id:selectedProjectAreaId}).eq('id',current.id);
-        if(out?.ocurrencia_id)await sb.from('ocurrencias').update({area_proyecto_id:selectedProjectAreaId}).eq('id',out.ocurrencia_id);
-      }
+      const selectedReviewPlace=selectedReviewPlaceV483();
+      const locationPatch={area_proyecto_id:selectedProjectAreaId,lugar_id:selectedReviewPlace?.id||null,area_hallazgo_proyecto_id:selectedReviewPlace?.area_proyecto_id||null,lugar_hallazgo:selectedReviewPlace?.nombre||current.lugar_hallazgo||''};
+      await sb.from('reportes_trabajadores').update(locationPatch).eq('id',current.id);
+      if(out?.ocurrencia_id)await sb.from('ocurrencias').update(locationPatch).eq('id',out.ocurrencia_id);
       let emailStatus='';
       const responsible=responsibles.find(r=>r.id===document.getElementById('reviewResponsible').value);
       const project=projects.find(p=>p.id===document.getElementById('reviewProject').value);
@@ -2784,7 +2836,7 @@ async function initWorkerReportsAdmin(){
             nombre_responsable:`${responsible.nombres||''} ${responsible.apellidos||''}`.trim(),
             proyecto:project?.nombre||'',
             fecha:formatDateEsV6(document.getElementById('reviewDate').value),
-            lugar:document.getElementById('reviewPlace').value.trim(),
+            lugar:selectedReviewPlaceV483()?.nombre||current.lugar_hallazgo||'',
             tipo_hallazgo:type?.nombre||'',
             descripcion:document.getElementById('reviewDescription').value.trim(),
             accion:document.getElementById('reviewAction').value.trim(),
