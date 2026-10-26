@@ -1,0 +1,31 @@
+ETAPA 49 - INSPECCIÓN DE EXTINTORES
+Versión: v11.10.0
+
+1. Ejecutar primero en Supabase SQL Editor:
+   ETAPA_49_INSPECCION_EXTINTORES.sql
+
+2. Subir/reemplazar los archivos de esta carpeta en GitHub.
+   NO reemplazar config.js.
+
+3. Archivos nuevos principales:
+   - extintores.html
+   - extintores.js
+   - ETAPA_49_INSPECCION_EXTINTORES.sql
+   - assets/templates/formato-extintores.xlsx
+
+4. Flujo implementado:
+   - Catálogo de extintores por proyecto/sede.
+   - Inspección mensual de todos los extintores activos.
+   - Criterios: √ Buen estado / X Mal estado / N/A.
+   - Observaciones con foto opcional.
+   - Plan de acción por cada extintor observado.
+   - Una ocurrencia por extintor observado, con asignación y correo de levantamiento.
+   - PDF global basado en EDP-SIG-SSOMAC-RE-PO-181-03.
+   - PDF individual por extintor e inspección.
+   - Si hay más de 16 extintores, el PDF global crea páginas adicionales repitiendo el encabezado.
+
+5. Commit sugerido:
+   V11.10.0 - Etapa 49 inspeccion de extintores
+
+6. Después del despliegue:
+   Ctrl + F5

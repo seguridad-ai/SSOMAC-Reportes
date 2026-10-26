@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Inspección de Extintores</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.10.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="extinguisher-inspections">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Inspección mensual de extintores</span></div>
+    <div class="top-actions">
+      <button id="e49NewBtn">+ Nueva inspección mensual</button>
+      <button id="e49CatalogBtn" class="secondary">Catálogo de extintores</button>
+      <a class="button-link secondary-link" href="inspecciones.html">Inspecciones</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="e49ListCard" class="card">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">ETAPA 49</p>
+          <h1>Inspección de Extintores</h1>
+          <p class="muted">Formato global EDP-SIG-SSOMAC-RE-PO-181-03 + ficha individual digital por extintor.</p>
+        </div>
+      </div>
+
+      <div class="e49-kpis">
+        <article><span>Inspecciones</span><strong id="e49KpiTotal">0</strong></article>
+        <article><span>Conformes</span><strong id="e49KpiOk">0</strong></article>
+        <article><span>Observadas</span><strong id="e49KpiObs">0</strong></article>
+        <article><span>Extintores activos</span><strong id="e49KpiAssets">0</strong></article>
+      </div>
+
+      <div class="filters">
+        <div class="field"><label for="e49FilterProject">Proyecto / sede</label><select id="e49FilterProject"></select></div>
+        <div class="field"><label for="e49FilterStatus">Estado</label><select id="e49FilterStatus"><option value="">Todos</option><option value="CONFORME">Conforme</option><option value="OBSERVADO">Observado</option></select></div>
+        <div class="field grow"><label for="e49FilterText">Buscar</label><input id="e49FilterText" placeholder="N.º, proyecto, inspector o residente"></div>
+      </div>
+      <div id="e49List" class="e49-list">Cargando...</div>
+      <p id="e49ListMessage" class="message"></p>
+    </section>
+
+    <section id="e49CatalogCard" class="card hidden">
+      <div class="page-head">
+        <div><p class="eyebrow">CATÁLOGO</p><h2>Extintores por proyecto / sede</h2><p class="muted">Cada extintor conserva un código único, ubicación y datos técnicos para su historial individual.</p></div>
+        <div class="e49-actions"><button id="e49AddAsset" type="button">+ Agregar extintor</button><button id="e49CloseCatalog" type="button" class="secondary">Volver</button></div>
+      </div>
+      <div class="filters">
+        <div class="field"><label for="e49CatalogProject">Proyecto / sede</label><select id="e49CatalogProject"></select></div>
+        <div class="field"><label for="e49CatalogStatus">Estado</label><select id="e49CatalogStatus"><option value="">Todos</option><option value="ACTIVE">Activos</option><option value="INACTIVE">Inactivos</option></select></div>
+        <div class="field grow"><label for="e49CatalogSearch">Buscar</label><input id="e49CatalogSearch" placeholder="Código, ubicación, tipo, agente o marca"></div>
+      </div>
+      <div id="e49CatalogList" class="e49-list"></div>
+      <p id="e49CatalogMessage" class="message"></p>
+    </section>
+
+    <section id="e49AssetFormCard" class="card hidden">
+      <div class="page-head"><div><p class="eyebrow">EXTINTOR</p><h2 id="e49AssetFormTitle">Agregar extintor</h2></div></div>
+      <form id="e49AssetForm">
+        <input id="e49AssetId" type="hidden">
+        <div class="form-grid">
+          <div class="field"><label for="e49AssetProject">Proyecto / sede *</label><select id="e49AssetProject" required></select></div>
+          <div class="field"><label for="e49AssetCode">Código de extintor *</label><input id="e49AssetCode" required placeholder="Ej. EXT-001"></div>
+          <div class="field"><label for="e49AssetPlace">Ubicación *</label><select id="e49AssetPlace" required><option value="">Selecciona primero el proyecto...</option></select></div>
+          <div class="field"><label for="e49AssetType">Tipo de extintor *</label><input id="e49AssetType" required placeholder="Ej. PQS / CO2 / Agua presurizada"></div>
+          <div class="field"><label for="e49AssetAgent">Agente extintor *</label><input id="e49AssetAgent" required placeholder="Ej. Polvo químico seco ABC"></div>
+          <div class="field"><label for="e49AssetCapacity">Capacidad *</label><input id="e49AssetCapacity" required placeholder="Ej. 9 kg"></div>
+          <div class="field"><label for="e49AssetBrand">Marca del extintor</label><input id="e49AssetBrand"></div>
+          <div class="field"><label for="e49AssetRechargeBrand">Marca / proveedor de recarga</label><input id="e49AssetRechargeBrand"></div>
+          <div class="field"><label for="e49AssetRechargeCurrent">Fecha recarga actual</label><input id="e49AssetRechargeCurrent" type="date"></div>
+          <div class="field"><label for="e49AssetRechargeNext">Próxima recarga</label><input id="e49AssetRechargeNext" type="date"></div>
+          <div class="field"><label for="e49AssetHydroCurrent">P. hidrostática actual</label><input id="e49AssetHydroCurrent" type="date"></div>
+          <div class="field"><label for="e49AssetHydroNext">Próxima P. hidrostática</label><input id="e49AssetHydroNext" type="date"></div>
+        </div>
+        <p id="e49AssetMessage" class="message"></p>
+        <div class="workflow-actions"><button id="e49AssetCancel" type="button" class="secondary">Cancelar</button><button id="e49AssetSave" type="submit">Guardar extintor</button></div>
+      </form>
+    </section>
+
+    <section id="e49FormCard" class="card hidden">
+      <div class="page-head">
+        <div><p class="eyebrow">EDP-SIG-SSOMAC-RE-PO-181-03</p><h2>Nueva inspección mensual</h2><p class="muted">Revisa los extintores activos del proyecto. Puedes marcar cada criterio como √ Buen estado, X Mal estado o N/A.</p></div>
+        <button id="e49AllOk" type="button" class="secondary">Marcar todos en buen estado</button>
+      </div>
+      <form id="e49Form">
+        <div class="e47-section-title">Datos generales</div>
+        <div class="form-grid">
+          <div class="field"><label for="e49Project">Proyecto / sede *</label><select id="e49Project" required></select></div>
+          <div class="field"><label for="e49Date">Fecha de inspección *</label><input id="e49Date" type="date" required></div>
+          <div class="field"><label for="e49Inspector">Inspeccionado por *</label><input id="e49Inspector" required></div>
+          <div class="field"><label for="e49Resident">V°B° Residente</label><input id="e49Resident" placeholder="Nombre del residente / responsable"></div>
+        </div>
+        <div class="e49-legend"><span>√ Buen estado</span><span>X Mal estado</span><span>N/A No aplica</span></div>
+        <div id="e49InspectionRows" class="e49-inspection-rows"></div>
+        <p id="e49FormMessage" class="message"></p>
+        <div class="workflow-actions"><button id="e49Cancel" type="button" class="secondary">Volver</button><button id="e49Save" type="submit">Guardar inspección mensual</button></div>
+      </form>
+    </section>
+
+    <section id="e49DetailCard" class="card hidden">
+      <div class="page-head">
+        <div><p class="eyebrow">DETALLE</p><h2 id="e49DetailTitle">Inspección mensual de extintores</h2></div>
+        <div class="e49-actions"><button id="e49GlobalPdf" type="button">Descargar PDF global</button><button id="e49DetailBack" type="button" class="secondary">Volver</button></div>
+      </div>
+      <div id="e49Detail"></div>
+      <p id="e49DetailMessage" class="message"></p>
+    </section>
+  </main>
+
+  <script src="app.js?v=11.10.0"></script>
+  <script src="extintores.js?v=11.10.0"></script>
+</body>
+</html>

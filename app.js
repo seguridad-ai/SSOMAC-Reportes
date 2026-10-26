@@ -1677,6 +1677,7 @@ function initStage46ShellV46(ctx){
       ${linkItemV46('◎','Yo Reporto',reportPublicHref,'Abrir formulario público')}
       ${linkItemV46('✓','Inspección general','inspecciones.html?new=1','Formato EDP-SIG-SSOMAC-RE-PA-191-03')}
       ${linkItemV46('✚','Inspección de botiquín','botiquines.html?new=1','Formato EDP-SIG-SSOMAC-RE-PO-181-01')}
+      ${linkItemV46('◉','Inspección de extintores','extintores.html?new=1','Formato EDP-SIG-SSOMAC-RE-PO-181-03')}
       ${futureItemV46('◫','OPT')}
       ${futureItemV46('★','Liderazgo visible')}
       ${futureItemV46('◆','Riesgo crítico')}
