@@ -132,7 +132,33 @@
   }
   function renderInspections(){const pf=$('e49FilterProject').value,sf=$('e49FilterStatus').value,q=norm($('e49FilterText').value).toLowerCase();const rows=inspections.filter(x=>(!pf||x.proyecto_id===pf)&&(!sf||x.estado===sf)&&(!q||`${code(x.numero)} ${x.proyecto?.nombre||''} ${x.inspector_nombre||''} ${x.vb_residente||''}`.toLowerCase().includes(q)));if(!rows.length){list.innerHTML='<div class="list-item">No hay inspecciones con esos filtros.</div>';return;}list.innerHTML=rows.map(x=>`<article class="e49-card"><div><div class="e49-card-top"><strong>${esc(code(x.numero))} · ${esc(x.proyecto?.nombre||'')}</strong><span class="e49-status ${x.estado}">${esc(x.estado)}</span></div><h3>${esc(fmt(x.fecha_inspeccion))}</h3><p>Inspector: ${esc(x.inspector_nombre||'')} ${x.vb_residente?`· V°B°: ${esc(x.vb_residente)}`:''}</p></div><div class="e49-actions"><button class="secondary e49-view" data-id="${x.id}">Ver / fichas</button><button class="e49-pdf" data-id="${x.id}">PDF global</button></div></article>`).join('');list.querySelectorAll('.e49-view').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));list.querySelectorAll('.e49-pdf').forEach(b=>b.onclick=()=>downloadGlobalPdf(b.dataset.id,b));}
 
-  async function getFull(id){const {data:h,error}=await sb.from('inspecciones_extintores').select('*,proyecto:proyectos(id,nombre,cliente)').eq('id',id).single();if(error)throw error;const {data:d,error:de}=await sb.from('inspeccion_extintor_detalles').select('*,responsable:responsables_correccion(id,nombres,apellidos,cargo,email),ocurrencia:ocurrencias(id,numero)').eq('inspeccion_id',id).order('orden');if(de)throw de;h.detalles=d||[];return h;}
+  async function getFull(id){
+    const {data:h,error}=await sb.from('inspecciones_extintores')
+      .select('*,proyecto:proyectos(id,nombre,cliente)')
+      .eq('id',id).single();
+    if(error)throw error;
+
+    // No embebemos ocurrencias aquí porque existe una relación en ambos sentidos:
+    // inspeccion_extintor_detalles.ocurrencia_id -> ocurrencias.id
+    // ocurrencias.extintor_detalle_id -> inspeccion_extintor_detalles.id
+    // PostgREST la considera ambigua. Se cargan en una segunda consulta por ID.
+    const {data:d,error:de}=await sb.from('inspeccion_extintor_detalles')
+      .select('*,responsable:responsables_correccion(id,nombres,apellidos,cargo,email)')
+      .eq('inspeccion_id',id).order('orden');
+    if(de)throw de;
+
+    const detalles=d||[];
+    const occurrenceIds=[...new Set(detalles.map(x=>x.ocurrencia_id).filter(Boolean))];
+    let occMap=new Map();
+    if(occurrenceIds.length){
+      const {data:occ,error:oe}=await sb.from('ocurrencias')
+        .select('id,numero').in('id',occurrenceIds);
+      if(oe)throw oe;
+      occMap=new Map((occ||[]).map(o=>[o.id,o]));
+    }
+    h.detalles=detalles.map(x=>({...x,ocurrencia:x.ocurrencia_id?occMap.get(x.ocurrencia_id)||null:null}));
+    return h;
+  }
   async function openDetail(id){hideAll();detailCard.classList.remove('hidden');msg(detailMessage,'');try{detailCurrent=await getFull(id);$('e49DetailTitle').textContent=`${code(detailCurrent.numero)} · ${detailCurrent.proyecto?.nombre||''}`;$('e49Detail').innerHTML=`<div class="detail-grid"><div class="detail-item"><span>Proyecto</span><strong>${esc(detailCurrent.proyecto?.nombre||'')}</strong></div><div class="detail-item"><span>Fecha</span><strong>${esc(fmt(detailCurrent.fecha_inspeccion))}</strong></div><div class="detail-item"><span>Inspector</span><strong>${esc(detailCurrent.inspector_nombre||'')}</strong></div><div class="detail-item"><span>V°B° Residente</span><strong>${esc(detailCurrent.vb_residente||'—')}</strong></div></div><div class="e49-detail-list">${detailCurrent.detalles.map(d=>`<article class="e49-detail-ext"><div><div class="e49-card-top"><strong>${esc(d.codigo_extintor)}</strong><span class="e49-status ${d.resultado}">${esc(d.resultado)}</span></div><h3>${esc(d.ubicacion_nombre||'')}</h3><p>${esc(d.tipo_extintor||'')} · ${esc(d.agente_extintor||'')} · ${esc(d.capacidad||'')}</p>${d.observacion?`<small>${esc(d.observacion)}</small>`:''}</div><div class="e49-actions"><button class="secondary e49-individual-pdf" data-id="${d.id}">PDF individual</button>${d.ocurrencia?`<a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${d.ocurrencia.id}">OC-${String(d.ocurrencia.numero).padStart(6,'0')}</a>`:''}</div></article>`).join('')}</div>`;$('e49Detail').querySelectorAll('.e49-individual-pdf').forEach(b=>b.onclick=()=>downloadIndividualPdf(detailCurrent,b.dataset.id,b));}catch(err){msg(detailMessage,'No se pudo cargar: '+(err.message||err));}}
 
   // ---------------- PDF helpers ----------------
