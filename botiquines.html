@@ -4,7 +4,7 @@
   <title>SSOMAC Digital | Inspección de Botiquines</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.9.0">
+  <link rel="stylesheet" href="styles.css?v=11.9.1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -97,6 +97,18 @@
           <div class="field"><label for="e48Inspector">Inspector *</label><input id="e48Inspector" required></div>
           <div class="field"><label for="e48InspectorRole">Cargo del inspector</label><input id="e48InspectorRole"></div>
         </div>
+        <div class="e48-general-photo-block">
+          <div class="field">
+            <label for="e48GeneralPhoto">Fotografía general del botiquín (opcional)</label>
+            <input id="e48GeneralPhoto" type="file" accept="image/jpeg,image/png,image/webp">
+            <small>Se mostrará centrada en el bloque OBSERVACIONES (Fotos) del PDF.</small>
+          </div>
+          <div class="field">
+            <label for="e48GeneralPhotoDescription">Descripción de la fotografía</label>
+            <input id="e48GeneralPhotoDescription" maxlength="160" placeholder="Ej. Vista general del botiquín inspeccionado">
+          </div>
+          <div id="e48GeneralPhotoPreview" class="e48-general-photo-preview">Sin fotografía general</div>
+        </div>
         <div class="e48-template-note">Componentes aplicados: <strong id="e48TemplateSource">—</strong></div>
 
         <div class="e47-section-title">Checklist</div>
@@ -140,7 +152,7 @@
     </section>
   </main>
 
-  <script src="app.js?v=11.9.0"></script>
-  <script src="botiquines.js?v=11.9.0"></script>
+  <script src="app.js?v=11.9.1"></script>
+  <script src="botiquines.js?v=11.9.1"></script>
 </body>
 </html>

@@ -1,0 +1,15 @@
+# SSOMAC Digital v11.9.1 - Corrección ETAPA 48
+
+## Correcciones
+1. Corrige el error `Could not embed because more than one relationship was found for inspecciones_botiquin and areas_proyecto` usando explícitamente la FK de `area_proyecto_id`.
+2. Agrega fotografía general opcional del botiquín y descripción.
+3. La foto general se guarda en el bucket privado `evidencias-ssomac` bajo `inspecciones-botiquin/<id>/general/`.
+4. En el PDF de botiquín de ubicación, la foto general aparece centrada en `OBSERVACIONES (Fotos)`. Si no existen observaciones por componentes, reemplaza `Sin observaciones`. Si existen, aparece primero y luego las evidencias de los componentes observados.
+5. En botiquín vehicular, la foto general aparece como bloque adicional antes de la firma.
+
+## Instalación
+1. Ejecutar `CORRECCION_V11.9.1_BOTIQUINES_RELACION_Y_FOTO.sql` en Supabase SQL Editor.
+2. Reemplazar/subir los archivos del ZIP a GitHub.
+3. No reemplazar `config.js`.
+4. Commit sugerido: `V11.9.1 - Fix botiquines relacion area y foto general`.
+5. Hacer Ctrl+F5.

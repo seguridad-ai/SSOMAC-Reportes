@@ -67,6 +67,8 @@ create table if not exists public.inspecciones_botiquin (
   inspector_nombre text not null,
   inspector_cargo text,
   firma_ruta text,
+  foto_botiquin_ruta text,
+  foto_botiquin_descripcion text,
   estado text not null default 'CONFORME'
     check (estado in ('CONFORME','OBSERVADO','OCURRENCIA_GENERADA')),
   responsable_correccion_id uuid references public.responsables_correccion(id) on delete set null,

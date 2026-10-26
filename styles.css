@@ -945,3 +945,10 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 
 @media(max-width:900px){.e48-kpis{grid-template-columns:repeat(2,1fr)}.e48-item{grid-template-columns:1fr}.e48-result{justify-content:flex-start}.e48-observation{grid-template-columns:1fr}.e48-config-row{grid-template-columns:40px 1fr 90px}.e48-config-row button{width:100%}.e48-card{align-items:stretch;flex-direction:column}.e48-card-actions>*{flex:1}.e48-detail-actions{width:100%}.e48-detail-actions>*{flex:1}}
 @media(max-width:620px){.e48-kpis{grid-template-columns:1fr}.e48-config-row{grid-template-columns:1fr}.e48-drag-no{display:none}}
+
+
+/* ============================================================
+   V11.9.1 · FIX ETAPA 48 - FOTO GENERAL DEL BOTIQUIN
+   ============================================================ */
+.e48-general-photo-block{display:grid;grid-template-columns:1fr 1fr 220px;gap:12px;align-items:end;margin:14px 0;padding:14px;border:1px solid #e4e7ec;border-radius:12px;background:#fbfcfd}.e48-general-photo-preview{height:140px;display:grid;place-items:center;border:1px dashed #cbd5e1;border-radius:10px;background:#fff;color:#98a2b3;font-size:11px;overflow:hidden}.e48-general-photo-preview img{width:100%;height:100%;object-fit:contain}.e48-general-detail{margin:14px 0;padding:14px;border:1px solid #e4e7ec;border-radius:12px;background:#fff;text-align:center}.e48-general-detail strong,.e48-general-detail small{display:block}.e48-general-detail img{display:block;max-width:420px;max-height:280px;object-fit:contain;margin:10px auto;border-radius:8px;border:1px solid #eaecf0}.e48p-general-vehicle{text-align:center!important;padding:8px!important}.e48p-general-vehicle img{display:block;max-width:320px;max-height:150px;object-fit:contain;margin:6px auto}.e48p-general-vehicle div:last-child{font-size:11px}.e48p-gallery figure:first-child img{max-height:190px}.e48p-gallery figure:first-child figcaption{font-weight:700}
+@media(max-width:900px){.e48-general-photo-block{grid-template-columns:1fr}.e48-general-photo-preview{height:180px}}
