@@ -1,0 +1,41 @@
+SSOMAC DIGITAL V11.9.0 - ETAPA 48
+INSPECCION DE BOTIQUINES
+
+BASE: V11.8.9
+
+1. EJECUTAR PRIMERO EN SUPABASE:
+   ETAPA_48_INSPECCION_BOTIQUINES.sql
+
+2. SUBIR/REEMPLAZAR LOS ARCHIVOS DEL ZIP EN GITHUB.
+   No reemplazar config.js.
+
+NUEVOS ARCHIVOS PRINCIPALES:
+- botiquines.html
+- botiquines.js
+- ETAPA_48_INSPECCION_BOTIQUINES.sql
+- assets/templates/formato-botiquin.xlsx
+
+FUNCIONES:
+- Botiquin de ubicacion.
+- Botiquin vehicular.
+- Componentes corporativos base tomados del Excel oficial adjunto.
+- Personalizacion por proyecto/cliente.
+- Personalizacion general de vehiculos o exclusiva por placa.
+- Agregar/quitar/reordenar componentes y cambiar cantidades.
+- Inspeccion con SI/NO por componente.
+- Descripcion y foto por componente NO conforme.
+- Foto centrada y descripcion en PDF.
+- Firma digital del inspector.
+- PDF en formato corporativo.
+- Si existe NO conformidad, crea una ocurrencia consolidada y envia el correo de levantamiento al responsable.
+- RLS por proyecto.
+
+PRUEBA RECOMENDADA:
+1. Gestion SSOMAC > Inspecciones > Botiquines.
+2. Configurar componentes para LIMA / UBICACION.
+3. Crear una inspeccion.
+4. Marcar un componente NO, agregar descripcion y foto.
+5. Completar responsable, potencial y fecha limite.
+6. Guardar.
+7. Confirmar que se genero la ocurrencia y el correo.
+8. Descargar PDF y revisar foto + descripcion.

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Inspección de Botiquines</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.9.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="first-aid-inspections">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Inspección de botiquines</span></div>
+    <div class="top-actions">
+      <button id="e48NewBtn">+ Nueva inspección</button>
+      <a class="button-link secondary-link" href="inspecciones.html">Inspecciones</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="e48ListCard" class="card">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">ETAPA 48</p>
+          <h1>Inspección de Botiquines</h1>
+          <p class="muted">Formato corporativo EDP-SIG-SSOMAC-RE-PO-181-01. Incluye botiquines de ubicación y vehiculares.</p>
+        </div>
+        <button id="e48ConfigBtn" type="button" class="secondary">Configurar componentes</button>
+      </div>
+
+      <div class="e48-kpis">
+        <article><span>Total</span><strong id="e48KpiTotal">0</strong></article>
+        <article><span>Conformes</span><strong id="e48KpiOk">0</strong></article>
+        <article><span>Observados</span><strong id="e48KpiObs">0</strong></article>
+        <article><span>Con ocurrencia</span><strong id="e48KpiOcc">0</strong></article>
+      </div>
+
+      <div class="filters">
+        <div class="field"><label for="e48FilterProject">Proyecto / sede</label><select id="e48FilterProject"></select></div>
+        <div class="field"><label for="e48FilterType">Tipo</label><select id="e48FilterType"><option value="">Todos</option><option value="UBICACION">Ubicación</option><option value="VEHICULO">Vehículo</option></select></div>
+        <div class="field"><label for="e48FilterStatus">Estado</label><select id="e48FilterStatus"><option value="">Todos</option><option value="CONFORME">Conforme</option><option value="OBSERVADO">Observado</option><option value="OCURRENCIA_GENERADA">Ocurrencia generada</option></select></div>
+        <div class="field grow"><label for="e48FilterText">Buscar</label><input id="e48FilterText" placeholder="Código, lugar, placa, responsable o inspector"></div>
+      </div>
+      <div id="e48List" class="e48-list">Cargando...</div>
+      <p id="e48ListMessage" class="message"></p>
+    </section>
+
+    <section id="e48ConfigCard" class="card hidden">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">CONFIGURACIÓN</p>
+          <h2>Componentes del botiquín</h2>
+          <p class="muted">Personaliza la lista por proyecto/cliente. Para vehículos puedes crear una lista general o una lista exclusiva por placa.</p>
+        </div>
+        <button id="e48CloseConfig" type="button" class="secondary">Volver</button>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label for="e48CfgProject">Proyecto / sede *</label><select id="e48CfgProject"></select></div>
+        <div class="field"><label for="e48CfgType">Tipo *</label><select id="e48CfgType"><option value="UBICACION">Botiquín de ubicación</option><option value="VEHICULO">Botiquín vehicular</option></select></div>
+        <div id="e48CfgPlateField" class="field hidden"><label for="e48CfgPlate">Placa específica (opcional)</label><input id="e48CfgPlate" placeholder="Ej. ABC-123"><small>Déjalo vacío para aplicar a todos los vehículos del proyecto.</small></div>
+        <div class="field"><label>Origen actual</label><div id="e48CfgSource" class="e48-source-pill">—</div></div>
+      </div>
+      <div class="e48-config-head">
+        <strong>Lista de componentes</strong>
+        <button id="e48CfgAdd" type="button" class="secondary">+ Agregar componente</button>
+      </div>
+      <div id="e48CfgRows" class="e48-config-rows"></div>
+      <p id="e48CfgMessage" class="message"></p>
+      <div class="workflow-actions">
+        <button id="e48CfgRestore" type="button" class="warning">Restaurar formato corporativo</button>
+        <button id="e48CfgSave" type="button">Guardar configuración</button>
+      </div>
+    </section>
+
+    <section id="e48FormCard" class="card hidden">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">EDP-SIG-SSOMAC-RE-PO-181-01</p>
+          <h2>Nueva inspección de botiquín</h2>
+          <p class="muted">Marca SI o NO para cada componente. Cuando exista un NO, registra la observación y su evidencia.</p>
+        </div>
+      </div>
+      <form id="e48Form">
+        <div class="e47-section-title">Datos de la inspección</div>
+        <div class="form-grid">
+          <div class="field"><label for="e48Project">Proyecto / sede *</label><select id="e48Project" required></select></div>
+          <div class="field"><label for="e48Type">Tipo de botiquín *</label><select id="e48Type" required><option value="UBICACION">Botiquín de ubicación</option><option value="VEHICULO">Botiquín vehicular</option></select></div>
+          <div id="e48PlaceField" class="field"><label for="e48Place">Lugar / ubicación *</label><select id="e48Place"><option value="">Selecciona primero el proyecto...</option></select></div>
+          <div id="e48CodeField" class="field"><label for="e48Code">Código del botiquín</label><input id="e48Code" placeholder="Ej. BOT-001"></div>
+          <div id="e48PlateField" class="field hidden"><label for="e48Plate">Placa del vehículo *</label><input id="e48Plate" placeholder="Ej. ABC-123"></div>
+          <div class="field"><label for="e48Responsible">Responsable del botiquín *</label><input id="e48Responsible" required></div>
+          <div class="field"><label for="e48Date">Fecha de inspección *</label><input id="e48Date" type="date" required></div>
+          <div class="field"><label for="e48Inspector">Inspector *</label><input id="e48Inspector" required></div>
+          <div class="field"><label for="e48InspectorRole">Cargo del inspector</label><input id="e48InspectorRole"></div>
+        </div>
+        <div class="e48-template-note">Componentes aplicados: <strong id="e48TemplateSource">—</strong></div>
+
+        <div class="e47-section-title">Checklist</div>
+        <div id="e48Checklist" class="e48-checklist"></div>
+
+        <section id="e48Treatment" class="e48-treatment hidden">
+          <div class="e47-section-title">Tratamiento de observaciones</div>
+          <p class="muted">Al existir componentes marcados NO, se generará una ocurrencia para su levantamiento y seguimiento.</p>
+          <div class="form-grid">
+            <div class="field"><label for="e48CorrectionResponsible">Responsable de corrección *</label><select id="e48CorrectionResponsible"></select></div>
+            <div class="field"><label for="e48ResponsibleArea">Área responsable del seguimiento *</label><select id="e48ResponsibleArea"></select></div>
+            <div class="field"><label for="e48Potential">Potencial de pérdida *</label><select id="e48Potential"></select></div>
+            <div class="field"><label for="e48DueDate">Fecha límite *</label><input id="e48DueDate" type="date"></div>
+            <div class="field full"><label for="e48Action">Acción requerida *</label><textarea id="e48Action" rows="3">Reponer, completar o regularizar los componentes observados del botiquín y evidenciar su corrección.</textarea></div>
+          </div>
+        </section>
+
+        <div class="e47-section-title">Firma del inspector</div>
+        <canvas id="e48Signature" class="signature-canvas" width="760" height="200" aria-label="Firma digital del inspector"></canvas>
+        <div class="signature-actions"><button id="e48ClearSignature" type="button" class="secondary">Limpiar firma</button></div>
+
+        <p id="e48FormMessage" class="message"></p>
+        <div class="workflow-actions">
+          <button type="button" id="e48Cancel" class="secondary">Volver</button>
+          <button type="submit" id="e48Save">Guardar inspección</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="e48DetailCard" class="card hidden">
+      <div class="page-head">
+        <div><p class="eyebrow">DETALLE</p><h2 id="e48DetailTitle">Inspección de botiquín</h2></div>
+        <div class="e48-detail-actions">
+          <button id="e48DetailPdf" type="button">Descargar PDF</button>
+          <a id="e48DetailOccurrence" class="button-link secondary-link hidden" href="#">Ver ocurrencia</a>
+          <button id="e48DetailBack" type="button" class="secondary">Volver</button>
+        </div>
+      </div>
+      <div id="e48Detail"></div>
+      <p id="e48DetailMessage" class="message"></p>
+    </section>
+  </main>
+
+  <script src="app.js?v=11.9.0"></script>
+  <script src="botiquines.js?v=11.9.0"></script>
+</body>
+</html>
