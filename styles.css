@@ -966,3 +966,136 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 
 @media(max-width:1000px){.e49-kpis{grid-template-columns:repeat(2,1fr)}.e49-condition-grid{grid-template-columns:repeat(2,1fr)}.e49-tech-grid{grid-template-columns:repeat(2,1fr)}.e49-bad-block{grid-template-columns:1fr 1fr}.e49-card,.e49-detail-ext{align-items:stretch;flex-direction:column}.e49-actions>*{flex:1}}
 @media(max-width:620px){.e49-kpis,.e49-condition-grid,.e49-tech-grid,.e49-bad-block{grid-template-columns:1fr}.e49-ext-head{align-items:stretch;flex-direction:column}}
+
+
+/* ============================================================
+   ETAPA 49.1 - FICHA INDIVIDUAL COMPLETA DE EXTINTOR
+   ============================================================ */
+.e49-individual-root{
+  width:1600px!important;
+}
+.e49-individual-root .e49i-sheet{
+  margin:0 auto;
+}
+.e49i-evidence-title,
+.e49i-section-title{
+  margin-top:10px;
+  padding:7px 10px;
+  border:1.5px solid #111;
+  background:#595959;
+  color:#fff;
+  text-align:center;
+  font-weight:900;
+  font-size:16px;
+}
+.e49i-evidence-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:0;
+}
+.e49i-evidence-box{
+  min-height:205px;
+  border:1.5px solid #111;
+  padding:9px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  box-sizing:border-box;
+}
+.e49i-evidence-box>b{
+  font-size:14px;
+  margin-bottom:5px;
+}
+.e49i-evidence-box img{
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:95%;
+  max-height:145px;
+  object-fit:contain;
+  margin:5px auto;
+}
+.e49i-evidence-box p{
+  margin:4px 0 0;
+  font-size:12px;
+  line-height:1.25;
+  text-align:center;
+}
+.e49i-no-photo{
+  width:95%;
+  min-height:118px;
+  border:1px dashed #aaa;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:6px auto;
+  color:#777;
+  font-style:italic;
+  font-size:12px;
+}
+.e49i-action-grid,
+.e49i-follow-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  border-left:1.5px solid #111;
+  border-top:0;
+}
+.e49i-track-item{
+  min-height:52px;
+  padding:7px 10px;
+  border-right:1.5px solid #111;
+  border-bottom:1.5px solid #111;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.e49i-track-item span{
+  display:block;
+  color:#555;
+  font-size:11px;
+  margin-bottom:4px;
+}
+.e49i-track-item b{
+  font-size:13px;
+  line-height:1.25;
+  word-break:break-word;
+}
+.e49i-span-2{
+  grid-column:1 / -1;
+}
+.e49i-status-pill{
+  display:inline-block;
+  min-width:145px;
+  padding:5px 10px;
+  border-radius:999px;
+  text-align:center;
+}
+.e49i-status-pill.CERRADO{
+  color:#067647;
+  background:#dcfae6;
+}
+.e49i-status-pill.PENDIENTE_VALIDACION{
+  color:#854d0e;
+  background:#fef3c7;
+}
+.e49i-status-pill.EN_PROCESO,
+.e49i-status-pill.CORREO_ENVIADO{
+  color:#175cd3;
+  background:#eff8ff;
+}
+.e49i-status-pill.ABIERTO{
+  color:#b42318;
+  background:#fee4e2;
+}
+.e49i-result.e49i-ok{
+  background:#ecfdf3;
+}
+.e49i-result.e49i-observed{
+  background:#fff4ed;
+}

@@ -152,7 +152,8 @@
     let occMap=new Map();
     if(occurrenceIds.length){
       const {data:occ,error:oe}=await sb.from('ocurrencias')
-        .select('id,numero').in('id',occurrenceIds);
+        .select('id,numero,acciones_implementar,responsable_correccion,fecha_levantamiento,fecha_ejecutada,fecha_validacion,observacion_validacion,levantado_por_id,levantado_por_externo,estado:estados_ocurrencia(codigo,nombre)')
+        .in('id',occurrenceIds);
       if(oe)throw oe;
       occMap=new Map((occ||[]).map(o=>[o.id,o]));
     }
@@ -160,6 +161,57 @@
     return h;
   }
   async function openDetail(id){hideAll();detailCard.classList.remove('hidden');msg(detailMessage,'');try{detailCurrent=await getFull(id);$('e49DetailTitle').textContent=`${code(detailCurrent.numero)} · ${detailCurrent.proyecto?.nombre||''}`;$('e49Detail').innerHTML=`<div class="detail-grid"><div class="detail-item"><span>Proyecto</span><strong>${esc(detailCurrent.proyecto?.nombre||'')}</strong></div><div class="detail-item"><span>Fecha</span><strong>${esc(fmt(detailCurrent.fecha_inspeccion))}</strong></div><div class="detail-item"><span>Inspector</span><strong>${esc(detailCurrent.inspector_nombre||'')}</strong></div><div class="detail-item"><span>V°B° Residente</span><strong>${esc(detailCurrent.vb_residente||'—')}</strong></div></div><div class="e49-detail-list">${detailCurrent.detalles.map(d=>`<article class="e49-detail-ext"><div><div class="e49-card-top"><strong>${esc(d.codigo_extintor)}</strong><span class="e49-status ${d.resultado}">${esc(d.resultado)}</span></div><h3>${esc(d.ubicacion_nombre||'')}</h3><p>${esc(d.tipo_extintor||'')} · ${esc(d.agente_extintor||'')} · ${esc(d.capacidad||'')}</p>${d.observacion?`<small>${esc(d.observacion)}</small>`:''}</div><div class="e49-actions"><button class="secondary e49-individual-pdf" data-id="${d.id}">PDF individual</button>${d.ocurrencia?`<a class="button-link secondary-link" href="detalle-ocurrencia.html?id=${d.ocurrencia.id}">OC-${String(d.ocurrencia.numero).padStart(6,'0')}</a>`:''}</div></article>`).join('')}</div>`;$('e49Detail').querySelectorAll('.e49-individual-pdf').forEach(b=>b.onclick=()=>downloadIndividualPdf(detailCurrent,b.dataset.id,b));}catch(err){msg(detailMessage,'No se pudo cargar: '+(err.message||err));}}
+
+
+  async function getIndividualFollowup(d){
+    const result={
+      occurrence:d?.ocurrencia||null,
+      liftEvidence:null,
+      liftPhoto:'',
+      executedAction:'',
+      liftedBy:'',
+      closeDate:null
+    };
+    const occ=result.occurrence;
+    if(!occ?.id)return result;
+
+    const {data:evidences,error:evidenceError}=await sb.from('evidencias')
+      .select('id,tipo_evidencia,ruta_archivo,comentario,creado_en')
+      .eq('ocurrencia_id',occ.id)
+      .order('creado_en',{ascending:false});
+    if(evidenceError)throw evidenceError;
+
+    const lift=(evidences||[]).find(x=>x.tipo_evidencia==='LEVANTAMIENTO')||null;
+    result.liftEvidence=lift;
+    result.executedAction=norm(lift?.comentario)||norm(occ.observacion_validacion)||'';
+    if(lift?.ruta_archivo){
+      const liftUrl=await signed(lift.ruta_archivo);
+      result.liftPhoto=liftUrl?await dataUrl(liftUrl):'';
+    }
+
+    result.liftedBy=norm(occ.levantado_por_externo);
+    if(!result.liftedBy&&occ.levantado_por_id){
+      const {data:p}=await sb.from('perfiles')
+        .select('nombres,apellidos')
+        .eq('id',occ.levantado_por_id)
+        .maybeSingle();
+      if(p)result.liftedBy=`${p.nombres||''} ${p.apellidos||''}`.trim();
+    }
+    result.closeDate=occ.estado?.codigo==='CERRADO'
+      ?(occ.fecha_validacion||occ.fecha_ejecutada||null)
+      :(occ.fecha_ejecutada||null);
+    return result;
+  }
+
+  function individualStatusClass(occ,d){
+    if(!occ)return d?.resultado==='CONFORME'?'CERRADO':'ABIERTO';
+    return occ.estado?.codigo||'ABIERTO';
+  }
+
+  function individualStatusText(occ,d){
+    if(!occ)return d?.resultado==='CONFORME'?'CONFORME · SIN PLAN DE ACCIÓN':'SIN OCURRENCIA VINCULADA';
+    return occ.estado?.nombre||String(occ.estado?.codigo||'ABIERTO').replaceAll('_',' ');
+  }
 
   // ---------------- PDF helpers ----------------
   async function signed(path){if(!path)return'';const {data}=await sb.storage.from('evidencias-ssomac').createSignedUrl(path,1800);return data?.signedUrl||'';}
@@ -172,7 +224,128 @@
   function globalRow(d,i){return `<tr><td>${i}</td><td>${esc(d.codigo_extintor)}</td><td>${esc(d.ubicacion_nombre||'')}</td><td>${esc(d.tipo_extintor||'')}</td><td>${esc(d.agente_extintor||'')}</td><td>${esc(d.capacidad||'')}</td><td>${esc(d.marca_extintor||'')}</td><td>${esc(d.marca_recarga||'')}</td><td>${esc(fmt(d.fecha_recarga_actual))}</td><td>${esc(fmt(d.fecha_recarga_proxima))}</td><td>${esc(fmt(d.fecha_hidrostatica_actual))}</td><td>${esc(fmt(d.fecha_hidrostatica_proxima))}</td>${['etiqueta_mantenimiento','instrucciones_uso','prueba_hidrostatica','collar_verificacion','tarjeta_inspeccion','manometro','botella','valvula','manguera','precinto_seguridad'].map(k=>`<td>${mark(d[k])}</td>`).join('')}</tr>`;}
   function planHtml(rows){const obs=rows.filter(x=>x.resultado==='OBSERVADO');return `<tr><td colspan="22" class="e49p-legend">(√) Buen estado &nbsp;&nbsp;&nbsp; (x) Mal estado &nbsp;&nbsp;&nbsp; (N/A) No aplica</td></tr><tr><td colspan="22" class="e49p-plan-title">Plan de Acción</td></tr><tr class="e49p-plan-head"><th>Item</th><th colspan="16">Medida de Control</th><th colspan="3">Responsable de control</th><th colspan="2">Fecha de Verificación</th></tr>${obs.length?obs.map((d,i)=>`<tr class="e49p-plan-row"><td>${i+1}</td><td colspan="16">${esc(d.medida_control||'')}</td><td colspan="3">${esc(d.responsable_control_nombre||'')}</td><td colspan="2">${esc(fmt(d.fecha_verificacion))}</td></tr>`).join(''):`<tr class="e49p-plan-row"><td>—</td><td colspan="16">Sin observaciones</td><td colspan="3">—</td><td colspan="2">—</td></tr>`}`;}
   async function downloadGlobalPdf(id,button){if(!id)return;const old=button?.textContent;if(button){button.disabled=true;button.textContent='Generando...';}let root=null;try{const h=await getFull(id),logo=await logoData();const chunks=[];for(let i=0;i<h.detalles.length;i+=16)chunks.push(h.detalles.slice(i,i+16));if(!chunks.length)chunks.push([]);const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});for(let p=0;p<chunks.length;p++){root=document.createElement('div');root.className='e49-pdf-root';const start=p*16;root.innerHTML=`<div class="e49p-sheet">${globalHeader(h,logo)}${globalColumns}${chunks[p].map((d,i)=>globalRow(d,start+i+1)).join('')}${p===chunks.length-1?planHtml(h.detalles):'<tr><td colspan="22" class="e49p-legend">Continúa en la siguiente página</td></tr>'}</table></div>`;document.body.appendChild(root);await canvasToPdfPage(root,pdf,p>0);root.remove();root=null;}pdf.save(`EDP-SIG-SSOMAC-RE-PO-181-03_${code(h.numero)}_${h.fecha_inspeccion}.pdf`);}catch(err){console.error(err);msg(detailCard.classList.contains('hidden')?listMessage:detailMessage,'No se pudo generar el PDF global: '+(err.message||err));}finally{root?.remove();if(button){button.disabled=false;button.textContent=old;}}}
-  async function downloadIndividualPdf(h,detailId,button){const d=h.detalles.find(x=>x.id===detailId);if(!d)return;const old=button?.textContent;if(button){button.disabled=true;button.textContent='Generando...';}let root=null;try{const logo=await logoData(),photo=d.foto_ruta?await dataUrl(await signed(d.foto_ruta)):'';root=document.createElement('div');root.className='e49-pdf-root';root.innerHTML=`<div class="e49i-sheet"><table><tr><td rowspan="3" class="e49i-logo">${logo?`<img src="${logo}">`:''}</td><td class="e49i-sig">SIG - SSOMAC</td><td class="e49i-code">${esc(d.codigo_extintor)}</td></tr><tr><td class="e49i-title">FICHA INDIVIDUAL DE INSPECCIÓN DE EXTINTOR</td><td>Registro digital complementario</td></tr><tr><td colspan="2">Inspección mensual ${esc(code(h.numero))} · ${esc(fmt(h.fecha_inspeccion))}</td></tr></table><div class="e49i-meta"><div><span>Proyecto</span><b>${esc(h.proyecto?.nombre||'')}</b></div><div><span>Ubicación</span><b>${esc(d.ubicacion_nombre||'')}</b></div><div><span>Tipo</span><b>${esc(d.tipo_extintor||'')}</b></div><div><span>Agente</span><b>${esc(d.agente_extintor||'')}</b></div><div><span>Capacidad</span><b>${esc(d.capacidad||'')}</b></div><div><span>Marca</span><b>${esc(d.marca_extintor||'—')}</b></div><div><span>Recarga actual / próxima</span><b>${esc(fmt(d.fecha_recarga_actual))} / ${esc(fmt(d.fecha_recarga_proxima))}</b></div><div><span>P. hidrostática actual / próxima</span><b>${esc(fmt(d.fecha_hidrostatica_actual))} / ${esc(fmt(d.fecha_hidrostatica_proxima))}</b></div></div><table class="e49i-check"><tr><th>Criterio</th><th>Resultado</th><th>Criterio</th><th>Resultado</th></tr>${Array.from({length:5},(_,i)=>{const a=CONDITION_KEYS[i],b=CONDITION_KEYS[i+5];return `<tr><td>${esc(a[1])}</td><td>${mark(d[a[0]])}</td><td>${esc(b[1])}</td><td>${mark(d[b[0]])}</td></tr>`;}).join('')}</table><div class="e49i-result"><b>RESULTADO: ${esc(d.resultado)}</b></div>${photo||d.observacion?`<div class="e49i-photo"><b>Evidencia / observación</b>${photo?`<img src="${photo}">`:''}<p>${esc(d.foto_descripcion||d.observacion||'')}</p></div>`:''}${d.resultado==='OBSERVADO'?`<div class="e49i-action"><b>Plan de acción</b><p>${esc(d.medida_control||'')}</p><div>Responsable: <strong>${esc(d.responsable_control_nombre||'')}</strong> · Verificación: <strong>${esc(fmt(d.fecha_verificacion))}</strong></div></div>`:''}<div class="e49i-footer">Inspeccionado por: <b>${esc(h.inspector_nombre||'')}</b>${h.vb_residente?` · V°B° Residente: <b>${esc(h.vb_residente)}</b>`:''}</div></div>`;document.body.appendChild(root);await waitImages(root);const canvas=await html2canvas(root,{scale:1.7,backgroundColor:'#fff',useCORS:true,logging:false});const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),r=Math.min((pw-10)/canvas.width,(ph-10)/canvas.height),w=canvas.width*r,hh=canvas.height*r;pdf.addImage(canvas.toDataURL('image/jpeg',0.94),'JPEG',(pw-w)/2,(ph-hh)/2,w,hh,'','FAST');pdf.save(`Ficha_Extintor_${d.codigo_extintor}_${h.fecha_inspeccion}.pdf`);}catch(err){console.error(err);msg(detailMessage,'No se pudo generar el PDF individual: '+(err.message||err));}finally{root?.remove();if(button){button.disabled=false;button.textContent=old;}}}
+  async function downloadIndividualPdf(h,detailId,button){
+    const d=h.detalles.find(x=>x.id===detailId);if(!d)return;
+    const old=button?.textContent;
+    if(button){button.disabled=true;button.textContent='Generando...';}
+    let root=null;
+    try{
+      const [logo,initialPhoto,follow]=await Promise.all([
+        logoData(),
+        d.foto_ruta?(async()=>{const u=await signed(d.foto_ruta);return u?await dataUrl(u):'';})():'',
+        getIndividualFollowup(d)
+      ]);
+      const occ=follow.occurrence;
+      const statusClass=individualStatusClass(occ,d);
+      const statusText=individualStatusText(occ,d);
+      const isClosed=occ?.estado?.codigo==='CERRADO';
+      const occurrenceCode=occ?.numero?`OC-${String(occ.numero).padStart(6,'0')}`:'—';
+      const actionRequired=norm(occ?.acciones_implementar)||norm(d.medida_control)||'No aplica';
+      const actionExecuted=norm(follow.executedAction)||(isClosed?'Cierre registrado sin comentario de levantamiento.':'Pendiente de ejecución');
+      const responsible=norm(occ?.responsable_correccion)||norm(d.responsable_control_nombre)||'No aplica';
+      const due=occ?.fecha_levantamiento||d.fecha_verificacion||null;
+      const closeDate=follow.closeDate;
+      const observation=norm(d.observacion)||(d.resultado==='CONFORME'?'Sin observaciones.':'—');
+
+      root=document.createElement('div');
+      root.className='e49-pdf-root e49-individual-root';
+      root.innerHTML=`
+        <div class="e49i-sheet">
+          <table class="e49i-head">
+            <tr>
+              <td rowspan="3" class="e49i-logo">${logo?`<img src="${logo}">`:''}</td>
+              <td class="e49i-sig">SIG - SSOMAC</td>
+              <td class="e49i-code">${esc(d.codigo_extintor)}</td>
+            </tr>
+            <tr>
+              <td class="e49i-title">FICHA INDIVIDUAL DE INSPECCIÓN DE EXTINTOR</td>
+              <td>Registro digital complementario</td>
+            </tr>
+            <tr>
+              <td colspan="2">Inspección mensual ${esc(code(h.numero))} · ${esc(fmt(h.fecha_inspeccion))}</td>
+            </tr>
+          </table>
+
+          <div class="e49i-meta">
+            <div><span>Proyecto</span><b>${esc(h.proyecto?.nombre||'')}</b></div>
+            <div><span>Ubicación</span><b>${esc(d.ubicacion_nombre||'')}</b></div>
+            <div><span>Tipo</span><b>${esc(d.tipo_extintor||'')}</b></div>
+            <div><span>Agente</span><b>${esc(d.agente_extintor||'')}</b></div>
+            <div><span>Capacidad</span><b>${esc(d.capacidad||'')}</b></div>
+            <div><span>Marca</span><b>${esc(d.marca_extintor||'—')}</b></div>
+            <div><span>Recarga actual / próxima</span><b>${esc(fmt(d.fecha_recarga_actual))} / ${esc(fmt(d.fecha_recarga_proxima))}</b></div>
+            <div><span>P. hidrostática actual / próxima</span><b>${esc(fmt(d.fecha_hidrostatica_actual))} / ${esc(fmt(d.fecha_hidrostatica_proxima))}</b></div>
+          </div>
+
+          <table class="e49i-check">
+            <tr><th>Criterio</th><th>Resultado</th><th>Criterio</th><th>Resultado</th></tr>
+            ${Array.from({length:5},(_,i)=>{
+              const a=CONDITION_KEYS[i],b=CONDITION_KEYS[i+5];
+              return `<tr><td>${esc(a[1])}</td><td>${mark(d[a[0]])}</td><td>${esc(b[1])}</td><td>${mark(d[b[0]])}</td></tr>`;
+            }).join('')}
+          </table>
+
+          <div class="e49i-result ${d.resultado==='CONFORME'?'e49i-ok':'e49i-observed'}">
+            <b>RESULTADO DE INSPECCIÓN: ${esc(d.resultado)}</b>
+          </div>
+
+          <div class="e49i-evidence-title">EVIDENCIAS FOTOGRÁFICAS</div>
+          <div class="e49i-evidence-grid">
+            <div class="e49i-evidence-box">
+              <b>Evidencia de la inspección</b>
+              ${initialPhoto?`<img src="${initialPhoto}" alt="Evidencia de inspección">`:`<div class="e49i-no-photo">Sin fotografía registrada</div>`}
+              <p>${esc(d.foto_descripcion||observation)}</p>
+            </div>
+            <div class="e49i-evidence-box">
+              <b>Evidencia de corrección</b>
+              ${follow.liftPhoto?`<img src="${follow.liftPhoto}" alt="Evidencia de corrección">`:`<div class="e49i-no-photo">${isClosed?'Sin fotografía de corrección registrada':'Pendiente de levantamiento'}</div>`}
+              <p>${esc(follow.liftEvidence?.comentario||'')}</p>
+            </div>
+          </div>
+
+          <div class="e49i-section-title">OBSERVACIÓN Y PLAN DE ACCIÓN</div>
+          <div class="e49i-action-grid">
+            <div class="e49i-track-item e49i-span-2"><span>Observación detectada</span><b>${esc(observation)}</b></div>
+            <div class="e49i-track-item e49i-span-2"><span>Plan de acción / acción requerida</span><b>${esc(actionRequired)}</b></div>
+            <div class="e49i-track-item"><span>Responsable</span><b>${esc(responsible)}</b></div>
+            <div class="e49i-track-item"><span>Fecha límite / verificación</span><b>${esc(fmt(due))}</b></div>
+          </div>
+
+          <div class="e49i-section-title">SEGUIMIENTO DEL LEVANTAMIENTO</div>
+          <div class="e49i-follow-grid">
+            <div class="e49i-track-item"><span>Ocurrencia</span><b>${esc(occurrenceCode)}</b></div>
+            <div class="e49i-track-item"><span>Estado</span><b class="e49i-status-pill ${esc(statusClass)}">${esc(statusText)}</b></div>
+            <div class="e49i-track-item"><span>Fecha ejecutada</span><b>${esc(fmt(occ?.fecha_ejecutada))}</b></div>
+            <div class="e49i-track-item"><span>Fecha de cierre</span><b>${esc(isClosed?fmt(closeDate):'Pendiente')}</b></div>
+            <div class="e49i-track-item e49i-span-2"><span>Acción correctiva ejecutada</span><b>${esc(actionExecuted)}</b></div>
+            <div class="e49i-track-item e49i-span-2"><span>Levantado por</span><b>${esc(follow.liftedBy||'—')}</b></div>
+          </div>
+
+          <div class="e49i-footer">
+            Inspeccionado por: <b>${esc(h.inspector_nombre||'')}</b>
+            ${h.vb_residente?` · V°B° Residente: <b>${esc(h.vb_residente)}</b>`:''}
+          </div>
+        </div>`;
+
+      document.body.appendChild(root);
+      await waitImages(root);
+      const canvas=await html2canvas(root,{scale:1.8,backgroundColor:'#fff',useCORS:true,logging:false});
+      const {jsPDF}=window.jspdf;
+      const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+      const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+      const margin=6;
+      const r=Math.min((pw-margin*2)/canvas.width,(ph-margin*2)/canvas.height);
+      const w=canvas.width*r,hh=canvas.height*r;
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',(pw-w)/2,(ph-hh)/2,w,hh,'','FAST');
+      pdf.save(`Ficha_Extintor_${d.codigo_extintor}_${h.fecha_inspeccion}.pdf`);
+    }catch(err){
+      console.error(err);
+      msg(detailMessage,'No se pudo generar el PDF individual: '+(err.message||err));
+    }finally{
+      root?.remove();
+      if(button){button.disabled=false;button.textContent=old;}
+    }
+  }
 
   boot().catch(err=>{console.error(err);msg(listMessage,'No se pudo iniciar el módulo: '+(err.message||err));});
 })();
