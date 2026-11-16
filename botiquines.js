@@ -1,5 +1,5 @@
 // ============================================================
-// V11.9.1 - ETAPA 48 · INSPECCION DE BOTIQUINES
+// V11.10.8 - ETAPA 48 + ETAPA 49.2.5 · BOTIQUINES CON IDENTIDAD PARA MAPA
 // Basado en EDP-SIG-SSOMAC-RE-PO-181-01
 // ============================================================
 (function(){
@@ -140,7 +140,7 @@
   function syncInspectionType(){
     const vehicle=$('e48Type').value==='VEHICULO';
     $('e48PlaceField').classList.toggle('hidden',vehicle);$('e48CodeField').classList.toggle('hidden',vehicle);$('e48PlateField').classList.toggle('hidden',!vehicle);
-    $('e48Place').required=!vehicle;$('e48Plate').required=vehicle;
+    $('e48Place').required=!vehicle;$('e48Code').required=!vehicle;$('e48Plate').required=vehicle;
   }
 
   async function loadProjectContext(){
@@ -201,6 +201,21 @@
     const d=new Date(($('e48Date').value||today())+'T12:00:00');d.setDate(d.getDate()+days);$('e48DueDate').value=d.toISOString().slice(0,10);
   }
 
+  async function ensureBotiquinMaster(projectId,vehicle,place){
+    const type=vehicle?'VEHICULO':'UBICACION';
+    const codeValue=vehicle?null:upper($('e48Code').value);
+    const plateValue=vehicle?upper($('e48Plate').value):null;
+    let q=sb.from('botiquines').select('*').eq('proyecto_id',projectId).eq('tipo',type).eq('activo',true);
+    q=vehicle?q.ilike('placa_vehiculo',plateValue):q.ilike('codigo_botiquin',codeValue);
+    const {data:rows,error:qe}=await q.limit(1);if(qe)throw qe;
+    const payload={proyecto_id:projectId,tipo:type,codigo_botiquin:codeValue,placa_vehiculo:plateValue,lugar_id:vehicle?null:(place?.id||null),area_proyecto_id:vehicle?null:(place?.area_proyecto_id||null),ubicacion_nombre:vehicle?`VEHÍCULO ${plateValue}`:(place?.nombre||''),responsable_botiquin:norm($('e48Responsible').value),activo:true,actualizado_en:new Date().toISOString()};
+    if(rows?.[0]){
+      const {data,error}=await sb.from('botiquines').update(payload).eq('id',rows[0].id).select('id').single();if(error)throw error;return data.id;
+    }
+    payload.creado_por=session.user.id;
+    const {data,error}=await sb.from('botiquines').insert(payload).select('id').single();if(error)throw error;return data.id;
+  }
+
   async function saveInspection(e){
     e.preventDefault();msg(formMessage,'');
     if(!checklistModels.length){msg(formMessage,'No hay componentes para inspeccionar.');return;}
@@ -210,14 +225,16 @@
     const vehicle=$('e48Type').value==='VEHICULO';
     if(vehicle&&!norm($('e48Plate').value)){msg(formMessage,'Ingresa la placa del vehículo.');return;}
     if(!vehicle&&!$('e48Place').value){msg(formMessage,'Selecciona el lugar / ubicación del botiquín.');return;}
+    if(!vehicle&&!norm($('e48Code').value)){msg(formMessage,'Ingresa el código del botiquín para mantener su historial y poder ubicarlo en el mapa.');return;}
     if(no.length&&(!$('e48CorrectionResponsible').value||!$('e48ResponsibleArea').value||!$('e48Potential').value||!$('e48DueDate').value||norm($('e48Action').value).length<5)){msg(formMessage,'Completa el tratamiento de las observaciones para generar su ocurrencia.');return;}
 
     const btn=$('e48Save');btn.disabled=true;btn.textContent='Guardando...';
     let inspection=null;const uploaded=[];
     try{
       const projectId=$('e48Project').value;const place=places.find(x=>x.id===$('e48Place').value);const status=no.length?'OBSERVADO':'CONFORME';
+      const botiquinId=await ensureBotiquinMaster(projectId,vehicle,place);
       const header={
-        proyecto_id:projectId,tipo:$('e48Type').value,lugar_id:vehicle?null:(place?.id||null),area_proyecto_id:vehicle?null:(place?.area_proyecto_id||null),ubicacion_nombre:vehicle?`VEHÍCULO ${upper($('e48Plate').value)}`:(place?.nombre||''),codigo_botiquin:vehicle?null:(norm($('e48Code').value)||null),placa_vehiculo:vehicle?upper($('e48Plate').value):null,responsable_botiquin:norm($('e48Responsible').value),fecha_inspeccion:$('e48Date').value,inspector_id:session.user.id,inspector_nombre:norm($('e48Inspector').value),inspector_cargo:norm($('e48InspectorRole').value)||null,foto_botiquin_descripcion:generalPhotoFile?(norm($('e48GeneralPhotoDescription').value)||'Foto general del botiquín'):null,estado:status,responsable_correccion_id:no.length?$('e48CorrectionResponsible').value:null,area_responsable_proyecto_id:no.length?$('e48ResponsibleArea').value:null,accion_requerida:no.length?norm($('e48Action').value):null,potencial_perdida_id:no.length?$('e48Potential').value:null,fecha_limite:no.length?$('e48DueDate').value:null,creado_por:session.user.id
+        botiquin_id:botiquinId,proyecto_id:projectId,tipo:$('e48Type').value,lugar_id:vehicle?null:(place?.id||null),area_proyecto_id:vehicle?null:(place?.area_proyecto_id||null),ubicacion_nombre:vehicle?`VEHÍCULO ${upper($('e48Plate').value)}`:(place?.nombre||''),codigo_botiquin:vehicle?null:upper($('e48Code').value),placa_vehiculo:vehicle?upper($('e48Plate').value):null,responsable_botiquin:norm($('e48Responsible').value),fecha_inspeccion:$('e48Date').value,inspector_id:session.user.id,inspector_nombre:norm($('e48Inspector').value),inspector_cargo:norm($('e48InspectorRole').value)||null,foto_botiquin_descripcion:generalPhotoFile?(norm($('e48GeneralPhotoDescription').value)||'Foto general del botiquín'):null,estado:status,responsable_correccion_id:no.length?$('e48CorrectionResponsible').value:null,area_responsable_proyecto_id:no.length?$('e48ResponsibleArea').value:null,accion_requerida:no.length?norm($('e48Action').value):null,potencial_perdida_id:no.length?$('e48Potential').value:null,fecha_limite:no.length?$('e48DueDate').value:null,creado_por:session.user.id
       };
       const {data:h,error:he}=await sb.from('inspecciones_botiquin').insert(header).select('*').single();if(he)throw he;inspection=h;
 

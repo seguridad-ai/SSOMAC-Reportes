@@ -1,5 +1,5 @@
 // ============================================================
-// ETAPA 49.2.4 - ZOOM Y DESPLAZAMIENTO DEL MAPA + POSICIONAMIENTO
+// ETAPA 49.2.5 - EXTINTORES + BOTIQUINES EN MAPA INTERACTIVO
 // - Selecciona extintores activos aun no ubicados y colocalos con clic.
 // - Arrastra marcadores existentes para cambiar su posicion.
 // - Guarda coordenadas relativas X/Y (0-100) en Supabase.
@@ -31,8 +31,8 @@
   const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
   const isUuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));
 
-  let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],currentMap=null,currentProject=null;
-  let editMode=false,selectedUnplacedId='',selectedElementId='',dirtyMoves=new Map();
+  let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],botiquines=[],botiquinInspections=[],currentMap=null,currentProject=null;
+  let editMode=false,editTargetType='EXTINTOR',selectedUnplacedId='',selectedElementId='',dirtyMoves=new Map();
   let mapView={zoom:1,panX:0,panY:0},panMode=false,spaceHeld=false,suppressMapClick=false;
 
   async function boot(){
@@ -56,11 +56,12 @@
     $('mapPlan').onchange=()=>{if(editMode&&!confirmDiscard())return;selectMap();};
     $('mapPeriod').onchange=render;
     $('layerExt').onchange=render;
+    $('layerBot').onchange=render;
     $('layerOther').onchange=render;
     $('mapEditBtn').onclick=enterEditMode;
     $('mapSaveBtn').onclick=savePositions;
     $('mapCancelEditBtn').onclick=cancelEditMode;
-    $('mapCanvas').addEventListener('click',placeSelectedExtinguisher);
+    $('mapCanvas').addEventListener('click',placeSelectedEquipment);
     $('mapCanvas').addEventListener('pointerdown',startCanvasPan);
     $('mapStage').addEventListener('wheel',handleMapWheel,{passive:false});
     $('mapFitBtn').onclick=()=>resetMapView(true);
@@ -174,32 +175,36 @@
     const projectId=$('mapProject').value;
     currentProject=projects.find(p=>p.id===projectId)||null;
     editMode=false;selectedUnplacedId='';selectedElementId='';dirtyMoves.clear();
-    currentMap=null;maps=[];elements=[];extinguishers=[];inspectionDetails=[];
+    currentMap=null;maps=[];elements=[];extinguishers=[];inspectionDetails=[];botiquines=[];botiquinInspections=[];
     resetMapView(false);
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>';
     syncEditUi();
     if(!projectId){render();return;}
     msg('Cargando plano y extintores...');
-    const [m,e,x,d]=await Promise.all([
+    const [m,e,x,d,b,bi]=await Promise.all([
       sb.from('mapas_seguridad').select('*').eq('proyecto_id',projectId).eq('activo',true).order('principal',{ascending:false}).order('nombre'),
       sb.from('mapa_seguridad_elementos').select('*').eq('proyecto_id',projectId).eq('activo',true),
       sb.from('extintores').select('id,proyecto_id,codigo_extintor,ubicacion_nombre,tipo_extintor,agente_extintor,capacidad,marca_extintor,activo').eq('proyecto_id',projectId).order('codigo_extintor'),
-      sb.from('inspeccion_extintor_detalles').select('extintor_id,resultado,inspeccion:inspecciones_extintores!inner(fecha_inspeccion,proyecto_id)').eq('inspeccion.proyecto_id',projectId)
+      sb.from('inspeccion_extintor_detalles').select('extintor_id,resultado,inspeccion:inspecciones_extintores!inner(fecha_inspeccion,proyecto_id)').eq('inspeccion.proyecto_id',projectId),
+      sb.from('botiquines').select('id,proyecto_id,tipo,codigo_botiquin,lugar_id,area_proyecto_id,ubicacion_nombre,responsable_botiquin,activo').eq('proyecto_id',projectId).eq('tipo','UBICACION').order('codigo_botiquin'),
+      sb.from('inspecciones_botiquin').select('id,botiquin_id,fecha_inspeccion,estado,codigo_botiquin,ubicacion_nombre,responsable_botiquin').eq('proyecto_id',projectId).eq('tipo','UBICACION').order('fecha_inspeccion',{ascending:false})
     ]);
-    const firstError=m.error||e.error||x.error||d.error;
+    const firstError=m.error||e.error||x.error||d.error||b.error||bi.error;
     if(firstError){
-      if(String(firstError.message||'').toLowerCase().includes('mapas_seguridad')) msg('Primero ejecuta ETAPA_49_2_1_MAPA_SEGURIDAD.sql en Supabase.');
+      const em=String(firstError.message||'').toLowerCase();
+      if(em.includes('mapas_seguridad')) msg('Primero ejecuta ETAPA_49_2_1_MAPA_SEGURIDAD.sql en Supabase.');
+      else if(em.includes('botiquines')||em.includes('botiquin_id')) msg('Primero ejecuta ETAPA_49_2_5_BOTIQUINES_MAPA.sql en Supabase y recarga.');
       else msg('No se pudo cargar el mapa: '+(firstError.message||firstError));
       render();return;
     }
-    maps=m.data||[];elements=e.data||[];extinguishers=x.data||[];inspectionDetails=d.data||[];
+    maps=m.data||[];elements=e.data||[];extinguishers=x.data||[];inspectionDetails=d.data||[];botiquines=b.data||[];botiquinInspections=bi.data||[];
     if(!maps.length&&isCentralProject(currentProject)) maps=[{...LOCAL_SEDE_MAP,proyecto_id:projectId}];
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>'+maps.map(v=>`<option value="${v.id}">${esc(v.nombre)}${v.principal?' · Principal':''}</option>`).join('');
     const principal=maps.find(v=>v.principal)||maps[0];
     if(principal){
       $('mapPlan').value=principal.id;selectMap();
       if(principal.localOnly) msg('Planta cargada desde GitHub. Para guardar ubicaciones debes ejecutar el SQL de la Etapa 49.2.2 y recargar.',false);
-      else msg('Plano y catálogo de extintores cargados correctamente.',true);
+      else msg('Plano, extintores y botiquines cargados correctamente.',true);
     }else{render();msg('Este proyecto todavía no tiene un plano de seguridad asociado.');}
   }
 
@@ -220,10 +225,22 @@
     return rows[0].resultado==='OBSERVADO'?'OBSERVADO':'CONFORME';
   }
 
+  function stateForBotiquin(botiquinId){
+    const period=$('mapPeriod').value;
+    const rows=botiquinInspections.filter(r=>r.botiquin_id===botiquinId&&String(r.fecha_inspeccion||'').slice(0,7)===period)
+      .sort((a,b)=>String(b.fecha_inspeccion||'').localeCompare(String(a.fecha_inspeccion||'')));
+    if(!rows.length)return'PENDIENTE';
+    return rows[0].estado==='CONFORME'?'CONFORME':'OBSERVADO';
+  }
+
   function currentElements(){return currentMap?elements.filter(el=>el.mapa_id===currentMap.id&&el.activo!==false):[];}
   function placedExtIds(){return new Set(currentElements().filter(el=>el.tipo_elemento==='EXTINTOR'&&el.extintor_id).map(el=>el.extintor_id));}
+  function placedBotIds(){return new Set(currentElements().filter(el=>el.tipo_elemento==='BOTIQUIN'&&el.botiquin_id).map(el=>el.botiquin_id));}
   function activeExtinguishers(){return extinguishers.filter(x=>x.activo!==false);}
+  function activeBotiquines(){return botiquines.filter(x=>x.activo!==false&&x.tipo==='UBICACION');}
   function unplacedExtinguishers(){const used=placedExtIds();return activeExtinguishers().filter(x=>!used.has(x.id));}
+  function unplacedBotiquines(){const used=placedBotIds();return activeBotiquines().filter(x=>!used.has(x.id));}
+  function unplacedForType(){return editTargetType==='BOTIQUIN'?unplacedBotiquines():unplacedExtinguishers();}
 
   function render(){
     const img=$('mapImage'),empty=$('mapEmpty'),canvas=$('mapCanvas'),markers=$('mapMarkers'),side=$('mapSide'),stage=$('mapStage'),caption=$('mapPlanCaption');
@@ -241,11 +258,13 @@
 
     syncEditUi();applyMapTransform();markers.innerHTML='';
     if(!currentMap){updateKpis();side.innerHTML=sideEmpty();bindSideEmptyAction();return;}
-    const showExt=$('layerExt').checked,showOther=$('layerOther').checked;
+    const showExt=$('layerExt').checked,showBot=$('layerBot').checked,showOther=$('layerOther').checked;
     const visible=currentElements().filter(el=>{
       if(el.tipo_elemento==='EXTINTOR'){
-        const ext=extinguishers.find(x=>x.id===el.extintor_id);
-        return showExt&&!!ext&&ext.activo!==false;
+        const ext=extinguishers.find(x=>x.id===el.extintor_id);return showExt&&!!ext&&ext.activo!==false;
+      }
+      if(el.tipo_elemento==='BOTIQUIN'){
+        const bot=botiquines.find(x=>x.id===el.botiquin_id);return showBot&&!!bot&&bot.activo!==false;
       }
       return showOther;
     });
@@ -253,19 +272,20 @@
     updateKpis();
     if(editMode)renderEditPanel();
     else if(selectedElementId){
-      const el=currentElements().find(x=>x.id===selectedElementId);if(el)showElement(el,el.extintor_id?extinguishers.find(x=>x.id===el.extintor_id):null,el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):'OTRO');else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
+      const el=currentElements().find(x=>x.id===selectedElementId);if(el){const entity=el.tipo_elemento==='EXTINTOR'?extinguishers.find(x=>x.id===el.extintor_id):el.tipo_elemento==='BOTIQUIN'?botiquines.find(x=>x.id===el.botiquin_id):null;const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):el.tipo_elemento==='BOTIQUIN'?stateForBotiquin(el.botiquin_id):'OTRO';showElement(el,entity,state);}else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
     }else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
   }
 
   function renderMarker(el,markers){
     const ext=el.extintor_id?extinguishers.find(x=>x.id===el.extintor_id):null;
-    const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):'OTRO';
+    const bot=el.botiquin_id?botiquines.find(x=>x.id===el.botiquin_id):null;
+    const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):el.tipo_elemento==='BOTIQUIN'?stateForBotiquin(el.botiquin_id):'OTRO';
     const b=document.createElement('button');
     b.type='button';b.className=`safety-marker ${state.toLowerCase()}${dirtyMoves.has(el.id)?' map-dirty':''}${selectedElementId===el.id?' selected':''}`;
     b.style.left=`${Number(el.pos_x)||50}%`;b.style.top=`${Number(el.pos_y)||50}%`;
     b.style.transform=`translate(-50%,-50%) scale(${Number(el.escala)||1}) rotate(${Number(el.rotacion)||0}deg)`;
-    b.title=ext?.codigo_extintor||el.codigo||el.nombre||el.tipo_elemento;
-    b.innerHTML=`<span class="safety-marker-icon">${markerIcon(el.tipo_elemento)}</span><small>${esc(ext?.codigo_extintor||el.codigo||'')}</small>`;
+    b.title=ext?.codigo_extintor||bot?.codigo_botiquin||el.codigo||el.nombre||el.tipo_elemento;
+    b.innerHTML=`<span class="safety-marker-icon">${markerIcon(el.tipo_elemento)}</span><small>${esc(ext?.codigo_extintor||bot?.codigo_botiquin||el.codigo||'')}</small>`;
     b.onclick=e=>{e.preventDefault();e.stopPropagation();selectedElementId=el.id;if(editMode)renderEditPanel();else showElement(el,ext,state);};
     if(editMode)b.addEventListener('pointerdown',e=>startDrag(e,el,b));
     markers.appendChild(b);
@@ -281,15 +301,17 @@
     let ok=0,obs=0,pending=0;
     active.forEach(ext=>{const st=stateForExtinguisher(ext.id);if(st==='CONFORME')ok++;else if(st==='OBSERVADO')obs++;else pending++;});
     $('mapKpiTotal').textContent=active.length;$('mapKpiOk').textContent=ok;$('mapKpiObs').textContent=obs;$('mapKpiPending').textContent=pending;
+    const bots=activeBotiquines();let botObs=0;bots.forEach(b=>{if(stateForBotiquin(b.id)==='OBSERVADO')botObs++;});
+    if($('mapKpiBotTotal'))$('mapKpiBotTotal').textContent=bots.length;if($('mapKpiBotObs'))$('mapKpiBotObs').textContent=botObs;
   }
 
   function sideEmpty(){
     if(currentMap){
-      const placed=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length;
-      const unplaced=unplacedExtinguishers().length;
+      const placedExt=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length,placedBot=currentElements().filter(x=>x.tipo_elemento==='BOTIQUIN').length;
+      const unplacedExt=unplacedExtinguishers().length,unplacedBot=unplacedBotiquines().length;
       const disabled=canPersistCurrentMap()?'':' disabled';
-      const hint=canPersistCurrentMap()?'Coloca los extintores del catálogo sobre su ubicación real en la planta.':'Ejecuta primero el SQL de la Etapa 49.2.2 para habilitar el guardado de ubicaciones.';
-      return `<div class="safety-map-side-empty"><span class="map-type">MAPA LISTO</span><strong>${placed} ubicados · ${unplaced} sin ubicar</strong><span>${hint}</span><button id="mapSideEditBtn" type="button" class="map-side-edit-btn"${disabled}>Ubicar extintores</button></div>`;
+      const hint=canPersistCurrentMap()?'Ubica los equipos del catálogo sobre su posición real en la planta.':'Ejecuta primero el SQL de la Etapa 49.2.2 para habilitar el guardado de ubicaciones.';
+      return `<div class="safety-map-side-empty"><span class="map-type">MAPA LISTO</span><strong>${placedExt} extintores · ${placedBot} botiquines ubicados</strong><span>${unplacedExt} extintor(es) y ${unplacedBot} botiquín(es) sin ubicar.</span><span>${hint}</span><button id="mapSideEditBtn" type="button" class="map-side-edit-btn"${disabled}>Ubicar equipos</button></div>`;
     }
     return '<div class="safety-map-side-empty"><strong>Selecciona un equipo</strong><span>Aquí aparecerán sus datos, estado e historial.</span></div>';
   }
@@ -303,6 +325,9 @@
     if(el.tipo_elemento==='EXTINTOR'&&ext){
       const last=inspectionDetails.filter(r=>r.extintor_id===ext.id).sort((a,b)=>String(b.inspeccion?.fecha_inspeccion||'').localeCompare(String(a.inspeccion?.fecha_inspeccion||'')))[0];
       side.innerHTML=`<div class="safety-side-head"><div><span class="map-type">EXTINTOR</span><h3>${esc(ext.codigo_extintor)}</h3></div><span class="e49-status ${state==='PENDIENTE'?'INACTIVO':state}">${esc(state)}</span></div><div class="safety-side-grid"><span>Ubicación</span><strong>${esc(ext.ubicacion_nombre||'—')}</strong><span>Tipo</span><strong>${esc(ext.tipo_extintor||'—')}</strong><span>Agente</span><strong>${esc(ext.agente_extintor||'—')}</strong><span>Capacidad</span><strong>${esc(ext.capacidad||'—')}</strong><span>Posición mapa</span><strong>X ${Number(el.pos_x).toFixed(2)}% · Y ${Number(el.pos_y).toFixed(2)}%</strong><span>Última inspección</span><strong>${esc(fmt(last?.inspeccion?.fecha_inspeccion))}</strong></div><div class="workflow-actions"><a class="button-link secondary-link" href="extintores.html">Ir a inspecciones</a></div>`;
+    }else if(el.tipo_elemento==='BOTIQUIN'&&ext){
+      const last=botiquinInspections.filter(r=>r.botiquin_id===ext.id).sort((a,b)=>String(b.fecha_inspeccion||'').localeCompare(String(a.fecha_inspeccion||'')))[0];
+      side.innerHTML=`<div class="safety-side-head"><div><span class="map-type">BOTIQUÍN</span><h3>${esc(ext.codigo_botiquin||'BOTIQUÍN')}</h3></div><span class="e49-status ${state==='PENDIENTE'?'INACTIVO':state}">${esc(state)}</span></div><div class="safety-side-grid"><span>Ubicación</span><strong>${esc(ext.ubicacion_nombre||'—')}</strong><span>Responsable</span><strong>${esc(ext.responsable_botiquin||'—')}</strong><span>Posición mapa</span><strong>X ${Number(el.pos_x).toFixed(2)}% · Y ${Number(el.pos_y).toFixed(2)}%</strong><span>Última inspección</span><strong>${esc(fmt(last?.fecha_inspeccion))}</strong><span>Resultado</span><strong>${esc(last?.estado||'Sin inspección')}</strong></div><div class="workflow-actions"><a class="button-link secondary-link" href="botiquines.html">Ir a botiquines</a></div>`;
     }else side.innerHTML=`<div class="safety-side-head"><div><span class="map-type">${esc(el.tipo_elemento)}</span><h3>${esc(el.codigo||el.nombre||'Equipo')}</h3></div></div><p>${esc(el.descripcion||'Sin descripción registrada.')}</p>`;
   }
 
@@ -318,16 +343,20 @@
   function enterEditMode(){
     if(!currentMap)return;
     if(!canPersistCurrentMap()){msg('Este plano todavía no está registrado en Supabase. Ejecuta ETAPA_49_2_2_PLANTA_ISOMETRICA_SEDE_CENTRAL.sql y recarga la página.');return;}
-    editMode=true;panMode=false;selectedElementId='';selectedUnplacedId=unplacedExtinguishers()[0]?.id||'';syncEditUi();render();
-    msg('Modo edición activo: clic para ubicar, arrastra marcadores y activa “Mover plano” cuando necesites desplazarte.');
+    editMode=true;panMode=false;selectedElementId='';editTargetType=unplacedExtinguishers().length?'EXTINTOR':unplacedBotiquines().length?'BOTIQUIN':'EXTINTOR';selectedUnplacedId=unplacedForType()[0]?.id||'';syncEditUi();render();
+    msg('Modo edición activo: selecciona Extintor o Botiquín, ubícalo con clic y ajusta arrastrando.');
   }
 
   function renderEditPanel(){
-    const side=$('mapSide'),unplaced=unplacedExtinguishers(),placed=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length;
+    const side=$('mapSide'),unplaced=unplacedForType();
+    const placedExt=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length,placedBot=currentElements().filter(x=>x.tipo_elemento==='BOTIQUIN').length;
     if(selectedUnplacedId&&!unplaced.some(x=>x.id===selectedUnplacedId))selectedUnplacedId=unplaced[0]?.id||'';
     const selectedEl=selectedElementId?currentElements().find(x=>x.id===selectedElementId):null;
-    const selectedExt=selectedEl?.extintor_id?extinguishers.find(x=>x.id===selectedEl.extintor_id):null;
-    side.innerHTML=`<div class="safety-edit-panel"><span class="map-type">MODO EDICIÓN</span><h3>Ubicar extintores</h3><div class="safety-edit-counts"><span><strong>${placed}</strong> ubicados</span><span><strong>${unplaced.length}</strong> sin ubicar</span></div>${unplaced.length?`<div class="field"><label for="mapUnplacedSelect">Extintor por ubicar</label><select id="mapUnplacedSelect"><option value="">Seleccione...</option>${unplaced.map(x=>`<option value="${x.id}" ${selectedUnplacedId===x.id?'selected':''}>${esc(x.codigo_extintor)} · ${esc(x.ubicacion_nombre||'Sin ubicación')}</option>`).join('')}</select></div><div class="map-edit-help"><strong>1.</strong> Selecciona el extintor.<br><strong>2.</strong> Haz clic en su posición real sobre la planta.<br><strong>3.</strong> Ajusta arrastrando el marcador.<br><strong>4.</strong> Usa <em>Mover plano</em> si necesitas desplazarte con zoom.</div>`:'<div class="map-edit-complete">Todos los extintores activos ya tienen una posición en este plano.</div>'}${selectedEl&&selectedExt?`<div class="map-edit-selected"><span>Seleccionado</span><strong>${esc(selectedExt.codigo_extintor)}</strong><small>${esc(selectedExt.ubicacion_nombre||'')}</small><small>X ${Number(selectedEl.pos_x).toFixed(2)}% · Y ${Number(selectedEl.pos_y).toFixed(2)}%</small></div>`:''}<div class="map-edit-note">Los cambios se guardan únicamente al pulsar <strong>Guardar ubicaciones</strong>.</div></div>`;
+    const selectedEntity=selectedEl?.tipo_elemento==='EXTINTOR'?extinguishers.find(x=>x.id===selectedEl.extintor_id):selectedEl?.tipo_elemento==='BOTIQUIN'?botiquines.find(x=>x.id===selectedEl.botiquin_id):null;
+    const label=editTargetType==='BOTIQUIN'?'botiquín':'extintor';
+    const opts=unplaced.map(x=>{const code=editTargetType==='BOTIQUIN'?x.codigo_botiquin:x.codigo_extintor;return `<option value="${x.id}" ${selectedUnplacedId===x.id?'selected':''}>${esc(code||'Sin código')} · ${esc(x.ubicacion_nombre||'Sin ubicación')}</option>`;}).join('');
+    side.innerHTML=`<div class="safety-edit-panel"><span class="map-type">MODO EDICIÓN</span><h3>Ubicar equipos</h3><div class="map-edit-type"><button type="button" data-type="EXTINTOR" class="${editTargetType==='EXTINTOR'?'active':''}">🧯 Extintores</button><button type="button" data-type="BOTIQUIN" class="${editTargetType==='BOTIQUIN'?'active':''}">✚ Botiquines</button></div><div class="safety-edit-counts"><span><strong>${placedExt}</strong> extintores ubicados</span><span><strong>${placedBot}</strong> botiquines ubicados</span></div>${unplaced.length?`<div class="field"><label for="mapUnplacedSelect">${editTargetType==='BOTIQUIN'?'Botiquín':'Extintor'} por ubicar</label><select id="mapUnplacedSelect"><option value="">Seleccione...</option>${opts}</select></div><div class="map-edit-help"><strong>1.</strong> Selecciona el ${label}.<br><strong>2.</strong> Haz clic en su posición real sobre la planta.<br><strong>3.</strong> Ajusta arrastrando el marcador.<br><strong>4.</strong> Usa <em>Mover plano</em> si necesitas desplazarte.</div>`:`<div class="map-edit-complete">Todos los ${editTargetType==='BOTIQUIN'?'botiquines':'extintores'} activos ya tienen una posición en este plano.</div>`}${selectedEl&&selectedEntity?`<div class="map-edit-selected"><span>Seleccionado</span><strong>${esc(selectedEl.tipo_elemento==='BOTIQUIN'?selectedEntity.codigo_botiquin:selectedEntity.codigo_extintor)}</strong><small>${esc(selectedEntity.ubicacion_nombre||'')}</small><small>X ${Number(selectedEl.pos_x).toFixed(2)}% · Y ${Number(selectedEl.pos_y).toFixed(2)}%</small></div>`:''}<div class="map-edit-note">Los cambios se guardan únicamente al pulsar <strong>Guardar ubicaciones</strong>.</div></div>`;
+    side.querySelectorAll('[data-type]').forEach(btn=>btn.onclick=()=>{editTargetType=btn.dataset.type;selectedUnplacedId=unplacedForType()[0]?.id||'';selectedElementId='';render();});
     const sel=$('mapUnplacedSelect');if(sel)sel.onchange=e=>{selectedUnplacedId=e.target.value;selectedElementId='';render();};
   }
 
@@ -336,14 +365,14 @@
     return {x:clamp(((e.clientX-r.left)/r.width)*100,0.5,99.5),y:clamp(((e.clientY-r.top)/r.height)*100,0.5,99.5)};
   }
 
-  function placeSelectedExtinguisher(e){
+  function placeSelectedEquipment(e){
     if(!editMode||panMode||spaceHeld||suppressMapClick||!selectedUnplacedId||e.target.closest('.safety-marker')||!currentMap)return;
-    const ext=extinguishers.find(x=>x.id===selectedUnplacedId);if(!ext)return;
-    const p=pointFromPointer(e);const tempId=`tmp_${ext.id}_${Date.now()}`;
-    const el={id:tempId,mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:'EXTINTOR',extintor_id:ext.id,codigo:ext.codigo_extintor,nombre:`Extintor ${ext.codigo_extintor}`,descripcion:null,icono:'EXTINTOR',pos_x:p.x,pos_y:p.y,escala:1,rotacion:0,orden_capa:20,activo:true,_new:true};
-    elements.push(el);selectedElementId=tempId;selectedUnplacedId='';
-    dirtyMoves.set(tempId,{element:el,oldX:null,oldY:null,newX:p.x,newY:p.y,isNew:true});
-    render();msg(`${ext.codigo_extintor} colocado temporalmente. Puedes arrastrarlo para ajustar antes de guardar.`);
+    const p=pointFromPointer(e);const isBot=editTargetType==='BOTIQUIN';
+    const entity=isBot?botiquines.find(x=>x.id===selectedUnplacedId):extinguishers.find(x=>x.id===selectedUnplacedId);if(!entity)return;
+    const code=isBot?entity.codigo_botiquin:entity.codigo_extintor;const tempId=`tmp_${isBot?'bot':'ext'}_${entity.id}_${Date.now()}`;
+    const el={id:tempId,mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:isBot?'BOTIQUIN':'EXTINTOR',extintor_id:isBot?null:entity.id,botiquin_id:isBot?entity.id:null,codigo:code,nombre:`${isBot?'Botiquín':'Extintor'} ${code}`,descripcion:null,icono:isBot?'BOTIQUIN':'EXTINTOR',pos_x:p.x,pos_y:p.y,escala:1,rotacion:0,orden_capa:20,activo:true,_new:true};
+    elements.push(el);selectedElementId=tempId;selectedUnplacedId='';dirtyMoves.set(tempId,{element:el,oldX:null,oldY:null,newX:p.x,newY:p.y,isNew:true});
+    render();msg(`${code} colocado temporalmente. Puedes arrastrarlo para ajustar antes de guardar.`);
   }
 
   function startDrag(e,el,button){
@@ -369,17 +398,17 @@
       for(const change of changes){
         let el=change.element;
         if(change.isNew||el._new){
-          const payload={mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:'EXTINTOR',extintor_id:el.extintor_id,codigo:el.codigo||null,nombre:el.nombre||null,descripcion:el.descripcion||null,icono:el.icono||'EXTINTOR',pos_x:Number(el.pos_x),pos_y:Number(el.pos_y),escala:Number(el.escala)||1,rotacion:Number(el.rotacion)||0,orden_capa:Number(el.orden_capa)||20,activo:true,creado_por:session.user.id,actualizado_en:new Date().toISOString()};
+          const payload={mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:el.tipo_elemento,extintor_id:el.extintor_id||null,botiquin_id:el.botiquin_id||null,codigo:el.codigo||null,nombre:el.nombre||null,descripcion:el.descripcion||null,icono:el.icono||el.tipo_elemento,pos_x:Number(el.pos_x),pos_y:Number(el.pos_y),escala:Number(el.escala)||1,rotacion:Number(el.rotacion)||0,orden_capa:Number(el.orden_capa)||20,activo:true,creado_por:session.user.id,actualizado_en:new Date().toISOString()};
           const {data:saved,error}=await sb.from('mapa_seguridad_elementos').insert(payload).select('*').single();if(error)throw error;
           const idx=elements.findIndex(x=>x.id===el.id);if(idx>=0)elements[idx]=saved;el=saved;
-          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:saved.id,mapa_id:currentMap.id,pos_x_anterior:null,pos_y_anterior:null,pos_x_nueva:Number(saved.pos_x),pos_y_nueva:Number(saved.pos_y),motivo:'Ubicación inicial del extintor en el mapa',movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de ubicación inicial',me);
+          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:saved.id,mapa_id:currentMap.id,pos_x_anterior:null,pos_y_anterior:null,pos_x_nueva:Number(saved.pos_x),pos_y_nueva:Number(saved.pos_y),motivo:`Ubicación inicial de ${el.tipo_elemento==='BOTIQUIN'?'botiquín':'extintor'} en el mapa`,movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de ubicación inicial',me);
         }else{
           const {data:saved,error}=await sb.from('mapa_seguridad_elementos').update({pos_x:Number(el.pos_x),pos_y:Number(el.pos_y),actualizado_en:new Date().toISOString()}).eq('id',el.id).select('*').single();if(error)throw error;
           const idx=elements.findIndex(x=>x.id===el.id);if(idx>=0)elements[idx]=saved;
-          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:el.id,mapa_id:currentMap.id,pos_x_anterior:change.oldX,pos_y_anterior:change.oldY,pos_x_nueva:Number(el.pos_x),pos_y_nueva:Number(el.pos_y),motivo:'Reubicación manual del extintor en el mapa',movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de reubicación',me);
+          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:el.id,mapa_id:currentMap.id,pos_x_anterior:change.oldX,pos_y_anterior:change.oldY,pos_x_nueva:Number(el.pos_x),pos_y_nueva:Number(el.pos_y),motivo:`Reubicación manual de ${el.tipo_elemento==='BOTIQUIN'?'botiquín':'extintor'} en el mapa`,movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de reubicación',me);
         }
       }
-      dirtyMoves.clear();selectedElementId='';selectedUnplacedId=unplacedExtinguishers()[0]?.id||'';syncEditUi();render();msg('Ubicaciones guardadas correctamente en Supabase.',true);
+      dirtyMoves.clear();selectedElementId='';selectedUnplacedId=unplacedForType()[0]?.id||'';syncEditUi();render();msg('Ubicaciones guardadas correctamente en Supabase.',true);
     }catch(err){console.error(err);msg('No se pudieron guardar las ubicaciones: '+(err.message||err));syncEditUi();}
     finally{btn.disabled=!dirtyMoves.size;btn.textContent=dirtyMoves.size?`Guardar ubicaciones (${dirtyMoves.size})`:'Guardar ubicaciones';}
   }

@@ -4,7 +4,7 @@
   <title>SSOMAC Digital | Mapa de Seguridad</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.10.7">
+  <link rel="stylesheet" href="styles.css?v=11.10.8">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -13,6 +13,7 @@
     <div><strong>SSOMAC Digital</strong><span>Mapa interactivo de seguridad y emergencias</span></div>
     <div class="top-actions">
       <a class="button-link secondary-link" href="extintores.html">Extintores</a>
+      <a class="button-link secondary-link" href="botiquines.html">Botiquines</a>
       <a class="button-link secondary-link" href="inspecciones.html">Inspecciones</a>
       <a class="button-link secondary-link" href="app.html">Inicio</a>
       <button id="logoutBtn" class="secondary">Cerrar sesión</button>
@@ -23,9 +24,9 @@
     <section class="card safety-map-card">
       <div class="page-head">
         <div>
-          <p class="eyebrow">ETAPA 49.2.4</p>
+          <p class="eyebrow">ETAPA 49.2.5</p>
           <h1>Mapa interactivo de seguridad</h1>
-          <p class="muted">Explora la planta con zoom y desplazamiento, y ubica o reubica extintores con precisión. Las coordenadas siguen guardándose en porcentaje y conservan trazabilidad.</p>
+          <p class="muted">Visualiza y ubica extintores y botiquines de ubicación sobre la planta. El estado de cada equipo se actualiza según la inspección del periodo seleccionado.</p>
         </div>
         <div class="e49-actions">
           <span class="map-stage-badge"><strong>Vista isométrica</strong><small id="mapVersionLabel">Plano base</small></span>
@@ -39,7 +40,7 @@
         <div class="field"><label for="mapProject">Proyecto / sede</label><select id="mapProject"></select></div>
         <div class="field"><label for="mapPlan">Plano</label><select id="mapPlan"><option value="">Seleccione...</option></select></div>
         <div class="field"><label for="mapPeriod">Periodo de inspección</label><input id="mapPeriod" type="month"></div>
-        <div class="field grow"><label>Capas visibles</label><div class="map-layer-pills"><label><input id="layerExt" type="checkbox" checked> Extintores</label><label><input id="layerOther" type="checkbox" checked> Otros equipos</label></div></div>
+        <div class="field grow"><label>Capas visibles</label><div class="map-layer-pills"><label><input id="layerExt" type="checkbox" checked> Extintores</label><label><input id="layerBot" type="checkbox" checked> Botiquines</label><label><input id="layerOther" type="checkbox" checked> Otros equipos</label></div></div>
       </div>
 
       <div class="safety-map-kpis">
@@ -47,6 +48,8 @@
         <article><span>Conformes</span><strong id="mapKpiOk">0</strong></article>
         <article><span>Observados</span><strong id="mapKpiObs">0</strong></article>
         <article><span>Pendientes</span><strong id="mapKpiPending">0</strong></article>
+        <article class="botiquin-kpi"><span>Botiquines activos</span><strong id="mapKpiBotTotal">0</strong></article>
+        <article class="botiquin-kpi"><span>Botiquines observados</span><strong id="mapKpiBotObs">0</strong></article>
       </div>
 
       <div class="safety-map-layout">
@@ -68,13 +71,14 @@
               <button id="mapZoomInBtn" type="button" class="map-nav-btn icon" title="Acercar">+</button>
               <button id="mapPanBtn" type="button" class="map-nav-btn" title="Activar o desactivar desplazamiento">Mover plano</button>
             </div>
-            <div id="mapEditBanner" class="safety-map-edit-banner hidden">Modo edición · clic para ubicar · arrastra marcadores · usa “Mover plano” para desplazarte.</div>
+            <div id="mapEditBanner" class="safety-map-edit-banner hidden">Modo edición · selecciona Extintor o Botiquín · clic para ubicar · arrastra marcadores · usa “Mover plano” para desplazarte.</div>
             <div id="mapPlanCaption" class="safety-map-caption hidden"></div>
           </div>
           <div class="safety-map-legend">
             <span><i class="dot ok"></i> Conforme</span>
             <span><i class="dot obs"></i> Observado</span>
             <span><i class="dot pending"></i> Pendiente del periodo</span>
+            <span><i class="dot bot"></i> Botiquín</span>
             <span><i class="dot other"></i> Otro equipo</span>
           </div>
         </div>
@@ -90,7 +94,7 @@
     </section>
   </main>
 
-  <script src="app.js?v=11.10.7"></script>
-  <script src="mapa-seguridad.js?v=11.10.7"></script>
+  <script src="app.js?v=11.10.8"></script>
+  <script src="mapa-seguridad.js?v=11.10.8"></script>
 </body>
 </html>

@@ -1106,7 +1106,7 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .safety-map-toolbar{display:grid;grid-template-columns:1.1fr 1.1fr .8fr 1.5fr;gap:12px;align-items:end;margin:16px 0}
 .map-layer-pills{min-height:43px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .map-layer-pills label{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;font-size:12px;font-weight:800;color:#344054;cursor:pointer}
-.safety-map-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0 16px}
+.safety-map-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:12px 0 16px}
 .safety-map-kpis article{padding:13px 15px;border:1px solid #e4e7ec;border-radius:12px;background:#f9fafb}
 .safety-map-kpis span{display:block;color:#667085;font-size:11px}.safety-map-kpis strong{font-size:24px;color:#101828}
 .safety-map-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
@@ -1208,3 +1208,17 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
   .map-zoom-label{min-width:38px;font-size:9px}
   .safety-map-edit-banner{top:45px;max-width:calc(100% - 14px)}
 }
+
+
+/* ============================================================
+   ETAPA 49.2.5 - BOTIQUINES EN MAPA DE SEGURIDAD
+   ============================================================ */
+.safety-marker.botiquin .safety-marker-icon{box-shadow:0 0 0 3px #12b76a;background:#ecfdf3;color:#067647}
+.dot.bot{background:#12b76a}
+.botiquin-kpi{background:#f0fdf4!important;border-color:#bbf7d0!important}
+.botiquin-kpi strong{color:#067647!important}
+.map-edit-type{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0 12px}
+.map-edit-type button{border:1px solid #d0d5dd;border-radius:9px;background:#fff;color:#475467;padding:9px 7px;font-size:10px;font-weight:850;cursor:pointer}
+.map-edit-type button.active{background:#101828;border-color:#101828;color:#fff}
+@media(max-width:1200px){.safety-map-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){.safety-map-kpis{grid-template-columns:1fr 1fr}.map-edit-type{grid-template-columns:1fr 1fr}}
