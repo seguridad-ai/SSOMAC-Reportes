@@ -1613,7 +1613,7 @@ function initStage46ShellV46(ctx){
 
   const mobileHead=actions.querySelector('.mobile-nav-head-v42');
   const logoutBtn=actions.querySelector('#logoutBtn');
-  const contextual=[...actions.querySelectorAll('button:not(#logoutBtn):not(.mobile-nav-close-v42)')];
+  const contextual=[...actions.querySelectorAll('button:not(#logoutBtn):not(.mobile-nav-close-v42), a[href="mapa-seguridad.html"]')];
   contextual.forEach(btn=>btn.classList.add('context-action-v46'));
 
   const code=v43ProjectCodeForContext(ctx);
