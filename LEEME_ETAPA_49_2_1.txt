@@ -1,0 +1,25 @@
+ETAPA 49.2.1 - MAPA INTERACTIVO DE SEGURIDAD
+
+1. Ejecutar en Supabase SQL Editor:
+   ETAPA_49_2_1_MAPA_SEGURIDAD.sql
+
+2. Subir los archivos actualizados al repositorio:
+   - extintores.html
+   - styles.css
+   - mapa-seguridad.html
+   - mapa-seguridad.js
+
+3. Esta etapa crea la infraestructura, NO el plano isométrico final.
+   Al ingresar a Extintores aparecerá el botón "Mapa de seguridad".
+
+4. El mapa está preparado para:
+   - varios proyectos/sedes;
+   - varios planos por proyecto;
+   - coordenadas relativas X/Y;
+   - extintores vinculados por UUID;
+   - otros equipos de emergencia;
+   - estados mensuales de extintores;
+   - historial de movimientos.
+
+5. En la ETAPA 49.2.2 se incorporará la ilustración isométrica de la sede y
+   la administración/carga del plano desde el aplicativo.

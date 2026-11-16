@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>SSOMAC Digital | Mapa de Seguridad</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css?v=11.10.3">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body data-page="safety-map">
+  <header class="topbar">
+    <div><strong>SSOMAC Digital</strong><span>Mapa interactivo de seguridad y emergencias</span></div>
+    <div class="top-actions">
+      <a class="button-link secondary-link" href="extintores.html">Extintores</a>
+      <a class="button-link secondary-link" href="inspecciones.html">Inspecciones</a>
+      <a class="button-link secondary-link" href="app.html">Inicio</a>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card safety-map-card">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">ETAPA 49.2</p>
+          <h1>Mapa interactivo de seguridad</h1>
+          <p class="muted">Base para la planta isométrica y ubicación dinámica de equipos de emergencia.</p>
+        </div>
+        <div class="e49-actions">
+          <button id="mapEditBtn" type="button" class="secondary" disabled>Editar ubicaciones</button>
+        </div>
+      </div>
+
+      <div class="safety-map-toolbar">
+        <div class="field"><label for="mapProject">Proyecto / sede</label><select id="mapProject"></select></div>
+        <div class="field"><label for="mapPlan">Plano</label><select id="mapPlan"><option value="">Seleccione...</option></select></div>
+        <div class="field"><label for="mapPeriod">Periodo de inspección</label><input id="mapPeriod" type="month"></div>
+        <div class="field grow"><label>Capas visibles</label><div class="map-layer-pills"><label><input id="layerExt" type="checkbox" checked> Extintores</label><label><input id="layerOther" type="checkbox" checked> Otros equipos</label></div></div>
+      </div>
+
+      <div class="safety-map-kpis">
+        <article><span>Equipos visibles</span><strong id="mapKpiTotal">0</strong></article>
+        <article><span>Conformes</span><strong id="mapKpiOk">0</strong></article>
+        <article><span>Observados</span><strong id="mapKpiObs">0</strong></article>
+        <article><span>Pendientes</span><strong id="mapKpiPending">0</strong></article>
+      </div>
+
+      <div class="safety-map-layout">
+        <div class="safety-map-stage-wrap">
+          <div id="mapStage" class="safety-map-stage">
+            <div id="mapEmpty" class="safety-map-empty">
+              <strong>Aún no hay un plano configurado.</strong>
+              <span>En la siguiente etapa cargaremos aquí la ilustración isométrica de la planta.</span>
+            </div>
+            <img id="mapImage" class="safety-map-image hidden" alt="Plano de seguridad">
+            <div id="mapMarkers" class="safety-map-markers"></div>
+          </div>
+          <div class="safety-map-legend">
+            <span><i class="dot ok"></i> Conforme</span>
+            <span><i class="dot obs"></i> Observado</span>
+            <span><i class="dot pending"></i> Pendiente del periodo</span>
+            <span><i class="dot other"></i> Otro equipo</span>
+          </div>
+        </div>
+
+        <aside id="mapSide" class="safety-map-side">
+          <div class="safety-map-side-empty">
+            <strong>Selecciona un equipo</strong>
+            <span>Aquí aparecerán sus datos, estado e historial.</span>
+          </div>
+        </aside>
+      </div>
+      <p id="mapMessage" class="message"></p>
+    </section>
+  </main>
+
+  <script src="app.js?v=11.10.3"></script>
+  <script src="mapa-seguridad.js?v=11.10.3"></script>
+</body>
+</html>
