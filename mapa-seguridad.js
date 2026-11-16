@@ -1,17 +1,32 @@
 // ============================================================
-// ETAPA 49.2.1 - MAPA INTERACTIVO DE SEGURIDAD
-// Infraestructura inicial para planta isometrica + capas SSOMAC
+// ETAPA 49.2.2 - PLANTA ISOMETRICA DE LA SEDE CENTRAL
+// Integra el plano base real en el visor del Mapa de Seguridad.
+// Los marcadores continuan separados de la imagen para mantener
+// la ubicacion y los estados como datos dinamicos de Supabase.
 // ============================================================
 (async function(){
   'use strict';
   if(typeof sb==='undefined') return;
+
+  const LOCAL_SEDE_MAP={
+    id:'LOCAL_SEDE_CENTRAL_ISO_V1',
+    nombre:'Planta isométrica - Sede Central',
+    tipo_vista:'ISOMETRICO',
+    imagen_ruta:'assets/mapas/sede-central-isometrica-v1.png',
+    ancho_referencia:1536,
+    alto_referencia:1024,
+    version:'v1',
+    principal:true,
+    localOnly:true
+  };
+
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const msg=(text='',ok=false)=>{const el=$('mapMessage');if(!el)return;el.textContent=text;el.className=`message ${text?'visible':''} ${ok?'success':''}`;};
   const ym=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Lima'}).slice(0,7);
   const fmt=v=>{if(!v)return'—';const p=String(v).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(v);};
 
-  let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],currentMap=null;
+  let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],currentMap=null,currentProject=null;
 
   async function boot(){
     session=await requireSession();if(!session)return;
@@ -22,7 +37,11 @@
     if(error)throw error;
     projects=(data||[]).map(x=>x.proyectos).filter(Boolean);
     $('mapProject').innerHTML='<option value="">Seleccione...</option>'+projects.map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
-    if(projects.length===1){$('mapProject').value=projects[0].id;await loadProject();}
+    const preferred=projects.find(isCentralProject);
+    if(projects.length===1||preferred){
+      $('mapProject').value=(preferred||projects[0]).id;
+      await loadProject();
+    }
   }
 
   function bind(){
@@ -31,14 +50,23 @@
     $('mapPeriod').onchange=render;
     $('layerExt').onchange=render;
     $('layerOther').onchange=render;
+    $('mapImage').addEventListener('error',()=>{
+      msg('No se pudo cargar la imagen del plano. Verifica que assets/mapas/sede-central-isometrica-v1.png esté publicado en GitHub.');
+    });
+  }
+
+  function isCentralProject(p){
+    const text=`${p?.codigo||''} ${p?.nombre||''}`.toUpperCase();
+    return text.includes('LIMA')||text.includes('SEDE CENTRAL')||text.includes('CENTRAL');
   }
 
   async function loadProject(){
     const projectId=$('mapProject').value;
+    currentProject=projects.find(p=>p.id===projectId)||null;
     currentMap=null;maps=[];elements=[];extinguishers=[];inspectionDetails=[];
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>';
     if(!projectId){render();return;}
-    msg('Cargando mapa y equipos...');
+    msg('Cargando plano isométrico y equipos...');
     const [m,e,x,d]=await Promise.all([
       sb.from('mapas_seguridad').select('*').eq('proyecto_id',projectId).eq('activo',true).order('principal',{ascending:false}).order('nombre'),
       sb.from('mapa_seguridad_elementos').select('*').eq('proyecto_id',projectId).eq('activo',true),
@@ -51,11 +79,23 @@
       else msg('No se pudo cargar el mapa: '+(firstError.message||firstError));
       render();return;
     }
+
     maps=m.data||[];elements=e.data||[];extinguishers=x.data||[];inspectionDetails=d.data||[];
+
+    // La sede central siempre puede mostrar el asset incluido en GitHub.
+    // Si el SQL 49.2.2 ya fue ejecutado se utiliza el registro real de Supabase.
+    if(!maps.length&&isCentralProject(currentProject)) maps=[{...LOCAL_SEDE_MAP,proyecto_id:projectId}];
+
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>'+maps.map(v=>`<option value="${v.id}">${esc(v.nombre)}${v.principal?' · Principal':''}</option>`).join('');
     const principal=maps.find(v=>v.principal)||maps[0];
-    if(principal){$('mapPlan').value=principal.id;selectMap();}else render();
-    msg('');
+    if(principal){
+      $('mapPlan').value=principal.id;
+      selectMap();
+      if(principal.localOnly) msg('Planta isométrica cargada desde GitHub. Ejecuta el SQL de la Etapa 49.2.2 para registrarla también en Supabase.',true);
+      else msg('Planta isométrica cargada correctamente.',true);
+    }else{
+      render();msg('Este proyecto todavía no tiene un plano de seguridad asociado.');
+    }
   }
 
   function selectMap(){
@@ -72,12 +112,26 @@
   }
 
   function render(){
-    const img=$('mapImage'),empty=$('mapEmpty'),markers=$('mapMarkers'),side=$('mapSide');
+    const img=$('mapImage'),empty=$('mapEmpty'),markers=$('mapMarkers'),side=$('mapSide'),stage=$('mapStage'),caption=$('mapPlanCaption');
+    const version=$('mapVersionLabel');
+
     if(currentMap?.imagen_ruta){
-      img.src=currentMap.imagen_ruta;img.classList.remove('hidden');empty.classList.add('hidden');
-    }else{img.removeAttribute('src');img.classList.add('hidden');empty.classList.remove('hidden');}
+      img.src=currentMap.imagen_ruta;
+      img.classList.remove('hidden');empty.classList.add('hidden');
+      const w=Number(currentMap.ancho_referencia)||1536,h=Number(currentMap.alto_referencia)||1024;
+      stage.style.aspectRatio=`${w} / ${h}`;
+      caption.textContent=`${currentMap.nombre}${currentMap.version?' · '+currentMap.version:''}`;
+      caption.classList.remove('hidden');
+      if(version)version.textContent=currentMap.version||'Plano base';
+    }else{
+      img.removeAttribute('src');img.classList.add('hidden');empty.classList.remove('hidden');
+      stage.style.aspectRatio='3 / 2';caption.classList.add('hidden');
+      if(version)version.textContent='Sin plano';
+    }
+
     markers.innerHTML='';
     if(!currentMap){updateKpis([]);side.innerHTML=sideEmpty();return;}
+
     const showExt=$('layerExt').checked,showOther=$('layerOther').checked;
     const visible=elements.filter(el=>el.mapa_id===currentMap.id&&((el.tipo_elemento==='EXTINTOR'&&showExt)||(el.tipo_elemento!=='EXTINTOR'&&showOther)));
     visible.forEach(el=>{
@@ -107,7 +161,10 @@
     $('mapKpiTotal').textContent=rows.length;$('mapKpiOk').textContent=ok;$('mapKpiObs').textContent=obs;$('mapKpiPending').textContent=pending;
   }
 
-  function sideEmpty(){return '<div class="safety-map-side-empty"><strong>Selecciona un equipo</strong><span>Aquí aparecerán sus datos, estado e historial.</span></div>';}
+  function sideEmpty(){
+    if(currentMap) return `<div class="safety-map-side-empty"><strong>Planta isométrica lista</strong><span>En la siguiente etapa ubicaremos sobre este plano los extintores y demás equipos de emergencia.</span></div>`;
+    return '<div class="safety-map-side-empty"><strong>Selecciona un equipo</strong><span>Aquí aparecerán sus datos, estado e historial.</span></div>';
+  }
 
   function showElement(el,ext,state){
     const side=$('mapSide');

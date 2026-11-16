@@ -1130,3 +1130,18 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .safety-side-grid{display:grid;grid-template-columns:1fr;gap:3px}.safety-side-grid span{margin-top:8px;font-size:10px;color:#667085}.safety-side-grid strong{font-size:13px;color:#101828}
 @media(max-width:1000px){.safety-map-toolbar{grid-template-columns:1fr 1fr}.safety-map-layout{grid-template-columns:1fr}.safety-map-side{position:static}.safety-map-stage{min-height:480px}.safety-map-image{min-height:480px}.safety-map-kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.safety-map-toolbar,.safety-map-kpis{grid-template-columns:1fr}.safety-map-stage{min-height:380px}.safety-map-image{min-height:380px}.safety-map-side{padding:13px}}
+
+/* ============================================================
+   ETAPA 49.2.2 - PLANTA ISOMETRICA SEDE CENTRAL
+   ============================================================ */
+.map-stage-badge{display:inline-flex;flex-direction:column;gap:1px;padding:7px 11px;border:1px solid #e4e7ec;border-radius:10px;background:#fff;color:#344054;line-height:1.1}
+.map-stage-badge strong{font-size:11px}.map-stage-badge small{font-size:9px;color:#667085;font-weight:700}
+.safety-map-stage{aspect-ratio:3/2;min-height:0;background:#f6f7f9;isolation:isolate}
+.safety-map-image{position:absolute;inset:0;width:100%;height:100%;min-height:0;object-fit:contain;object-position:center;background:#fff;z-index:1}
+.safety-map-grid{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.06;background-image:linear-gradient(rgba(16,24,40,.22) 1px,transparent 1px),linear-gradient(90deg,rgba(16,24,40,.22) 1px,transparent 1px);background-size:5% 5%;mix-blend-mode:multiply}
+.safety-map-markers{z-index:3}
+.safety-map-empty{z-index:4;background:linear-gradient(180deg,#f8fafc,#eef2f6)}
+.safety-map-caption{position:absolute;left:12px;bottom:12px;z-index:5;padding:6px 9px;border-radius:8px;background:rgba(16,24,40,.78);color:#fff;font-size:9px;font-weight:800;letter-spacing:.01em;backdrop-filter:blur(4px);pointer-events:none}
+.safety-map-card .page-head{align-items:flex-start}
+@media(max-width:1000px){.safety-map-stage{min-height:0}.safety-map-image{min-height:0}}
+@media(max-width:620px){.safety-map-stage{min-height:0;border-radius:12px}.safety-map-image{min-height:0}.safety-map-caption{left:7px;bottom:7px;max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
