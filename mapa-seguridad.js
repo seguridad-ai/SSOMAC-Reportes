@@ -1,9 +1,11 @@
 // ============================================================
-// ETAPA 49.2.3 - POSICIONAMIENTO INTERACTIVO DE EXTINTORES (CORREGIDA)
+// ETAPA 49.2.4 - ZOOM Y DESPLAZAMIENTO DEL MAPA + POSICIONAMIENTO
 // - Selecciona extintores activos aun no ubicados y colocalos con clic.
 // - Arrastra marcadores existentes para cambiar su posicion.
 // - Guarda coordenadas relativas X/Y (0-100) en Supabase.
 // - Registra cada alta/movimiento en mapa_seguridad_movimientos.
+// - Zoom 50%-300%, ajuste, rueda del mouse y desplazamiento.
+// - Mantiene coordenadas X/Y correctas aun con zoom o paneo.
 // ============================================================
 (async function(){
   'use strict';
@@ -31,6 +33,7 @@
 
   let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],currentMap=null,currentProject=null;
   let editMode=false,selectedUnplacedId='',selectedElementId='',dirtyMoves=new Map();
+  let mapView={zoom:1,panX:0,panY:0},panMode=false,spaceHeld=false,suppressMapClick=false;
 
   async function boot(){
     session=await requireSession();if(!session)return;
@@ -57,9 +60,104 @@
     $('mapEditBtn').onclick=enterEditMode;
     $('mapSaveBtn').onclick=savePositions;
     $('mapCancelEditBtn').onclick=cancelEditMode;
-    $('mapStage').addEventListener('click',placeSelectedExtinguisher);
+    $('mapCanvas').addEventListener('click',placeSelectedExtinguisher);
+    $('mapCanvas').addEventListener('pointerdown',startCanvasPan);
+    $('mapStage').addEventListener('wheel',handleMapWheel,{passive:false});
+    $('mapFitBtn').onclick=()=>resetMapView(true);
+    $('mapZoomInBtn').onclick=()=>zoomMapTo(mapView.zoom+0.25);
+    $('mapZoomOutBtn').onclick=()=>zoomMapTo(mapView.zoom-0.25);
+    $('mapPanBtn').onclick=()=>{panMode=!panMode;applyMapTransform();};
     $('mapImage').addEventListener('error',()=>msg('No se pudo cargar la imagen del plano. Verifica que assets/mapas/sede-central-isometrica-v1.png esté publicado en GitHub.'));
+    window.addEventListener('keydown',e=>{if(e.code==='Space'&&!isFormTarget(e.target)){spaceHeld=true;applyMapTransform();e.preventDefault();}});
+    window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceHeld=false;applyMapTransform();}});
+    window.addEventListener('resize',()=>{clampMapPan();applyMapTransform();});
     window.addEventListener('beforeunload',e=>{if(editMode&&dirtyMoves.size){e.preventDefault();e.returnValue='';}});
+  }
+
+  function isFormTarget(target){
+    return !!target?.closest?.('input,select,textarea,button,a,[contenteditable="true"]');
+  }
+
+  function resetMapView(showMessage=false){
+    mapView={zoom:1,panX:0,panY:0};
+    panMode=false;
+    applyMapTransform();
+    if(showMessage&&currentMap)msg('Plano ajustado a la ventana.',true);
+  }
+
+  function clampMapPan(){
+    const stage=$('mapStage');
+    if(!stage)return;
+    const w=stage.clientWidth||0,h=stage.clientHeight||0,z=mapView.zoom;
+    if(z<1){mapView.panX=(w-(w*z))/2;mapView.panY=(h-(h*z))/2;return;}
+    if(z===1){mapView.panX=0;mapView.panY=0;return;}
+    const minX=w-(w*z),minY=h-(h*z);
+    mapView.panX=clamp(mapView.panX,minX,0);
+    mapView.panY=clamp(mapView.panY,minY,0);
+  }
+
+  function applyMapTransform(){
+    const canvas=$('mapCanvas'),stage=$('mapStage'),label=$('mapZoomLabel'),panBtn=$('mapPanBtn');
+    if(canvas)canvas.style.transform=`translate(${mapView.panX}px, ${mapView.panY}px) scale(${mapView.zoom})`;
+    if(label)label.textContent=`${Math.round(mapView.zoom*100)}%`;
+    if($('mapZoomOutBtn'))$('mapZoomOutBtn').disabled=mapView.zoom<=0.5;
+    if($('mapZoomInBtn'))$('mapZoomInBtn').disabled=mapView.zoom>=3;
+    if($('mapFitBtn'))$('mapFitBtn').disabled=!currentMap;
+    if(panBtn){panBtn.disabled=!currentMap;panBtn.classList.toggle('active',panMode);panBtn.textContent=panMode?'Mover plano: ON':'Mover plano';}
+    const panningReady=!!currentMap&&(panMode||spaceHeld||(!editMode&&mapView.zoom>1));
+    stage?.classList.toggle('pan-ready',panningReady);
+    stage?.classList.toggle('pan-mode',panMode||spaceHeld);
+  }
+
+  function zoomMapTo(nextZoom,clientX=null,clientY=null){
+    if(!currentMap)return;
+    const stage=$('mapStage');if(!stage)return;
+    const rect=stage.getBoundingClientRect();
+    const oldZoom=mapView.zoom,newZoom=clamp(Math.round(nextZoom*100)/100,0.5,3);
+    const px=(clientX??(rect.left+rect.width/2))-rect.left;
+    const py=(clientY??(rect.top+rect.height/2))-rect.top;
+    const contentX=(px-mapView.panX)/oldZoom;
+    const contentY=(py-mapView.panY)/oldZoom;
+    mapView.zoom=newZoom;
+    mapView.panX=px-contentX*newZoom;
+    mapView.panY=py-contentY*newZoom;
+    clampMapPan();applyMapTransform();
+  }
+
+  function handleMapWheel(e){
+    if(!currentMap||e.target.closest('.safety-map-nav'))return;
+    e.preventDefault();
+    const direction=e.deltaY<0?1:-1;
+    zoomMapTo(mapView.zoom+(direction*0.15),e.clientX,e.clientY);
+  }
+
+  function canPanCanvas(){
+    return !!currentMap&&(panMode||spaceHeld||(!editMode&&mapView.zoom>1));
+  }
+
+  function startCanvasPan(e){
+    if(e.target.closest('.safety-marker')||e.target.closest('.safety-map-nav')||!canPanCanvas())return;
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    e.preventDefault();
+    suppressMapClick=false;
+    const startX=e.clientX,startY=e.clientY,originX=mapView.panX,originY=mapView.panY;
+    const canvas=$('mapCanvas'),stage=$('mapStage');
+    try{canvas.setPointerCapture?.(e.pointerId);}catch(_){}
+    stage?.classList.add('panning');
+    const onMove=ev=>{
+      if(ev.pointerId!==e.pointerId)return;
+      const dx=ev.clientX-startX,dy=ev.clientY-startY;
+      if(Math.abs(dx)>3||Math.abs(dy)>3)suppressMapClick=true;
+      mapView.panX=originX+dx;mapView.panY=originY+dy;clampMapPan();applyMapTransform();
+    };
+    const onUp=ev=>{
+      if(ev.pointerId!==e.pointerId)return;
+      canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('pointercancel',onUp);
+      try{canvas.releasePointerCapture?.(e.pointerId);}catch(_){}
+      stage?.classList.remove('panning');
+      if(suppressMapClick)setTimeout(()=>{suppressMapClick=false;},0);
+    };
+    canvas.addEventListener('pointermove',onMove);canvas.addEventListener('pointerup',onUp);canvas.addEventListener('pointercancel',onUp);
   }
 
   function confirmDiscard(){
@@ -77,6 +175,7 @@
     currentProject=projects.find(p=>p.id===projectId)||null;
     editMode=false;selectedUnplacedId='';selectedElementId='';dirtyMoves.clear();
     currentMap=null;maps=[];elements=[];extinguishers=[];inspectionDetails=[];
+    resetMapView(false);
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>';
     syncEditUi();
     if(!projectId){render();return;}
@@ -107,6 +206,7 @@
   function selectMap(){
     currentMap=maps.find(v=>v.id===$('mapPlan').value)||null;
     editMode=false;selectedUnplacedId='';selectedElementId='';dirtyMoves.clear();
+    resetMapView(false);
     syncEditUi();render();
   }
 
@@ -126,20 +226,20 @@
   function unplacedExtinguishers(){const used=placedExtIds();return activeExtinguishers().filter(x=>!used.has(x.id));}
 
   function render(){
-    const img=$('mapImage'),empty=$('mapEmpty'),markers=$('mapMarkers'),side=$('mapSide'),stage=$('mapStage'),caption=$('mapPlanCaption');
+    const img=$('mapImage'),empty=$('mapEmpty'),canvas=$('mapCanvas'),markers=$('mapMarkers'),side=$('mapSide'),stage=$('mapStage'),caption=$('mapPlanCaption');
     const version=$('mapVersionLabel');
     if(currentMap?.imagen_ruta){
       if(img.getAttribute('src')!==currentMap.imagen_ruta)img.src=currentMap.imagen_ruta;
-      img.classList.remove('hidden');empty.classList.add('hidden');
+      img.classList.remove('hidden');empty.classList.add('hidden');canvas?.classList.remove('hidden');
       const w=Number(currentMap.ancho_referencia)||1536,h=Number(currentMap.alto_referencia)||1024;
       stage.style.aspectRatio=`${w} / ${h}`;
       caption.textContent=`${currentMap.nombre}${currentMap.version?' · '+currentMap.version:''}`;
       caption.classList.remove('hidden');if(version)version.textContent=currentMap.version||'Plano base';
     }else{
-      img.removeAttribute('src');img.classList.add('hidden');empty.classList.remove('hidden');stage.style.aspectRatio='3 / 2';caption.classList.add('hidden');if(version)version.textContent='Sin plano';
+      img.removeAttribute('src');img.classList.add('hidden');empty.classList.remove('hidden');canvas?.classList.add('hidden');stage.style.aspectRatio='3 / 2';caption.classList.add('hidden');if(version)version.textContent='Sin plano';
     }
 
-    syncEditUi();markers.innerHTML='';
+    syncEditUi();applyMapTransform();markers.innerHTML='';
     if(!currentMap){updateKpis();side.innerHTML=sideEmpty();bindSideEmptyAction();return;}
     const showExt=$('layerExt').checked,showOther=$('layerOther').checked;
     const visible=currentElements().filter(el=>{
@@ -212,13 +312,14 @@
     if(editBtn){editBtn.disabled=!currentMap||!persist||editMode;editBtn.textContent=editMode?'Modo edición activo':'Editar ubicaciones';}
     saveBtn?.classList.toggle('hidden',!editMode);cancelBtn?.classList.toggle('hidden',!editMode);banner?.classList.toggle('hidden',!editMode);stage?.classList.toggle('editing',editMode);
     if(saveBtn){saveBtn.disabled=!dirtyMoves.size;saveBtn.textContent=dirtyMoves.size?`Guardar ubicaciones (${dirtyMoves.size})`:'Guardar ubicaciones';}
+    applyMapTransform();
   }
 
   function enterEditMode(){
     if(!currentMap)return;
     if(!canPersistCurrentMap()){msg('Este plano todavía no está registrado en Supabase. Ejecuta ETAPA_49_2_2_PLANTA_ISOMETRICA_SEDE_CENTRAL.sql y recarga la página.');return;}
-    editMode=true;selectedElementId='';selectedUnplacedId=unplacedExtinguishers()[0]?.id||'';syncEditUi();render();
-    msg('Modo edición activo: selecciona un extintor sin ubicar y haz clic en el plano, o arrastra un marcador existente.');
+    editMode=true;panMode=false;selectedElementId='';selectedUnplacedId=unplacedExtinguishers()[0]?.id||'';syncEditUi();render();
+    msg('Modo edición activo: clic para ubicar, arrastra marcadores y activa “Mover plano” cuando necesites desplazarte.');
   }
 
   function renderEditPanel(){
@@ -226,17 +327,17 @@
     if(selectedUnplacedId&&!unplaced.some(x=>x.id===selectedUnplacedId))selectedUnplacedId=unplaced[0]?.id||'';
     const selectedEl=selectedElementId?currentElements().find(x=>x.id===selectedElementId):null;
     const selectedExt=selectedEl?.extintor_id?extinguishers.find(x=>x.id===selectedEl.extintor_id):null;
-    side.innerHTML=`<div class="safety-edit-panel"><span class="map-type">MODO EDICIÓN</span><h3>Ubicar extintores</h3><div class="safety-edit-counts"><span><strong>${placed}</strong> ubicados</span><span><strong>${unplaced.length}</strong> sin ubicar</span></div>${unplaced.length?`<div class="field"><label for="mapUnplacedSelect">Extintor por ubicar</label><select id="mapUnplacedSelect"><option value="">Seleccione...</option>${unplaced.map(x=>`<option value="${x.id}" ${selectedUnplacedId===x.id?'selected':''}>${esc(x.codigo_extintor)} · ${esc(x.ubicacion_nombre||'Sin ubicación')}</option>`).join('')}</select></div><div class="map-edit-help"><strong>1.</strong> Selecciona el extintor.<br><strong>2.</strong> Haz clic en su posición real sobre la planta.<br><strong>3.</strong> Ajusta arrastrando el marcador.</div>`:'<div class="map-edit-complete">Todos los extintores activos ya tienen una posición en este plano.</div>'}${selectedEl&&selectedExt?`<div class="map-edit-selected"><span>Seleccionado</span><strong>${esc(selectedExt.codigo_extintor)}</strong><small>${esc(selectedExt.ubicacion_nombre||'')}</small><small>X ${Number(selectedEl.pos_x).toFixed(2)}% · Y ${Number(selectedEl.pos_y).toFixed(2)}%</small></div>`:''}<div class="map-edit-note">Los cambios se guardan únicamente al pulsar <strong>Guardar ubicaciones</strong>.</div></div>`;
+    side.innerHTML=`<div class="safety-edit-panel"><span class="map-type">MODO EDICIÓN</span><h3>Ubicar extintores</h3><div class="safety-edit-counts"><span><strong>${placed}</strong> ubicados</span><span><strong>${unplaced.length}</strong> sin ubicar</span></div>${unplaced.length?`<div class="field"><label for="mapUnplacedSelect">Extintor por ubicar</label><select id="mapUnplacedSelect"><option value="">Seleccione...</option>${unplaced.map(x=>`<option value="${x.id}" ${selectedUnplacedId===x.id?'selected':''}>${esc(x.codigo_extintor)} · ${esc(x.ubicacion_nombre||'Sin ubicación')}</option>`).join('')}</select></div><div class="map-edit-help"><strong>1.</strong> Selecciona el extintor.<br><strong>2.</strong> Haz clic en su posición real sobre la planta.<br><strong>3.</strong> Ajusta arrastrando el marcador.<br><strong>4.</strong> Usa <em>Mover plano</em> si necesitas desplazarte con zoom.</div>`:'<div class="map-edit-complete">Todos los extintores activos ya tienen una posición en este plano.</div>'}${selectedEl&&selectedExt?`<div class="map-edit-selected"><span>Seleccionado</span><strong>${esc(selectedExt.codigo_extintor)}</strong><small>${esc(selectedExt.ubicacion_nombre||'')}</small><small>X ${Number(selectedEl.pos_x).toFixed(2)}% · Y ${Number(selectedEl.pos_y).toFixed(2)}%</small></div>`:''}<div class="map-edit-note">Los cambios se guardan únicamente al pulsar <strong>Guardar ubicaciones</strong>.</div></div>`;
     const sel=$('mapUnplacedSelect');if(sel)sel.onchange=e=>{selectedUnplacedId=e.target.value;selectedElementId='';render();};
   }
 
   function pointFromPointer(e){
-    const r=$('mapStage').getBoundingClientRect();
+    const r=$('mapCanvas').getBoundingClientRect();
     return {x:clamp(((e.clientX-r.left)/r.width)*100,0.5,99.5),y:clamp(((e.clientY-r.top)/r.height)*100,0.5,99.5)};
   }
 
   function placeSelectedExtinguisher(e){
-    if(!editMode||!selectedUnplacedId||e.target.closest('.safety-marker')||!currentMap)return;
+    if(!editMode||panMode||spaceHeld||suppressMapClick||!selectedUnplacedId||e.target.closest('.safety-marker')||!currentMap)return;
     const ext=extinguishers.find(x=>x.id===selectedUnplacedId);if(!ext)return;
     const p=pointFromPointer(e);const tempId=`tmp_${ext.id}_${Date.now()}`;
     const el={id:tempId,mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:'EXTINTOR',extintor_id:ext.id,codigo:ext.codigo_extintor,nombre:`Extintor ${ext.codigo_extintor}`,descripcion:null,icono:'EXTINTOR',pos_x:p.x,pos_y:p.y,escala:1,rotacion:0,orden_capa:20,activo:true,_new:true};
@@ -289,7 +390,7 @@
       if(change.isNew||change.element?._new){elements=elements.filter(x=>x.id!==id);continue;}
       const el=elements.find(x=>x.id===id);if(el){el.pos_x=change.oldX;el.pos_y=change.oldY;}
     }
-    dirtyMoves.clear();editMode=false;selectedUnplacedId='';selectedElementId='';syncEditUi();render();msg('Modo edición cerrado.');
+    dirtyMoves.clear();editMode=false;panMode=false;selectedUnplacedId='';selectedElementId='';syncEditUi();render();msg('Modo edición cerrado.');
   }
 
   boot().catch(err=>{console.error(err);msg('No se pudo iniciar el mapa: '+(err.message||err));});

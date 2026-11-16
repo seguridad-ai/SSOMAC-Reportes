@@ -1175,3 +1175,36 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .map-side-edit-btn{margin-top:12px;border:0;border-radius:10px;padding:11px 18px;background:#c90000;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(201,0,0,.16)}
 .map-side-edit-btn:hover{filter:brightness(.96)}
 .map-side-edit-btn:disabled{background:#d0d5dd;color:#667085;cursor:not-allowed;box-shadow:none}
+
+
+/* ============================================================
+   ETAPA 49.2.4 - ZOOM Y DESPLAZAMIENTO DEL PLANO
+   ============================================================ */
+.safety-map-stage{overflow:hidden;touch-action:none}
+.safety-map-canvas{position:absolute;inset:0;z-index:1;transform-origin:0 0;will-change:transform;transition:transform .08s ease-out;touch-action:none}
+.safety-map-stage.panning .safety-map-canvas{transition:none}
+.safety-map-stage.pan-ready .safety-map-canvas{cursor:grab}
+.safety-map-stage.panning .safety-map-canvas{cursor:grabbing}
+.safety-map-stage.editing:not(.pan-mode) .safety-map-canvas{cursor:crosshair}
+.safety-map-stage.editing.pan-mode .safety-map-canvas{cursor:grab}
+.safety-map-stage.editing.pan-mode.panning .safety-map-canvas{cursor:grabbing}
+.safety-map-nav{position:absolute;right:10px;top:10px;z-index:20;display:flex;align-items:center;gap:5px;padding:5px;border:1px solid rgba(208,213,221,.92);border-radius:11px;background:rgba(255,255,255,.94);box-shadow:0 5px 18px rgba(16,24,40,.14);backdrop-filter:blur(5px)}
+.map-nav-btn{height:32px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#344054;padding:0 10px;font-size:10px;font-weight:850;cursor:pointer;white-space:nowrap}
+.map-nav-btn.icon{width:32px;padding:0;font-size:19px;line-height:1}
+.map-nav-btn:hover:not(:disabled){background:#f9fafb;border-color:#98a2b3}
+.map-nav-btn:disabled{opacity:.42;cursor:not-allowed}
+.map-nav-btn.active{background:#101828;border-color:#101828;color:#fff}
+.map-zoom-label{min-width:44px;text-align:center;font-size:10px;font-weight:900;color:#344054;font-variant-numeric:tabular-nums}
+.safety-map-empty{z-index:8}
+.safety-map-caption{z-index:18}
+.safety-map-edit-banner{z-index:19;top:55px}
+.safety-map-canvas .safety-map-image{z-index:1}
+.safety-map-canvas .safety-map-grid{z-index:2}
+.safety-map-canvas .safety-map-markers{z-index:3}
+@media(max-width:720px){
+  .safety-map-nav{right:6px;top:6px;gap:3px;padding:4px;max-width:calc(100% - 12px)}
+  .map-nav-btn{height:29px;padding:0 7px;font-size:9px}
+  .map-nav-btn.icon{width:29px;font-size:17px}
+  .map-zoom-label{min-width:38px;font-size:9px}
+  .safety-map-edit-banner{top:45px;max-width:calc(100% - 14px)}
+}

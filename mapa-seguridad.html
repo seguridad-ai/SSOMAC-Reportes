@@ -4,7 +4,7 @@
   <title>SSOMAC Digital | Mapa de Seguridad</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.10.6">
+  <link rel="stylesheet" href="styles.css?v=11.10.7">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -23,9 +23,9 @@
     <section class="card safety-map-card">
       <div class="page-head">
         <div>
-          <p class="eyebrow">ETAPA 49.2.3</p>
+          <p class="eyebrow">ETAPA 49.2.4</p>
           <h1>Mapa interactivo de seguridad</h1>
-          <p class="muted">Ubica y reubica los extintores directamente sobre la planta isométrica. Las coordenadas se guardan en Supabase y conservan trazabilidad.</p>
+          <p class="muted">Explora la planta con zoom y desplazamiento, y ubica o reubica extintores con precisión. Las coordenadas siguen guardándose en porcentaje y conservan trazabilidad.</p>
         </div>
         <div class="e49-actions">
           <span class="map-stage-badge"><strong>Vista isométrica</strong><small id="mapVersionLabel">Plano base</small></span>
@@ -56,10 +56,19 @@
               <strong>No hay un plano asociado a este proyecto.</strong>
               <span>Para la Sede Central se utilizará automáticamente la planta isométrica incluida en esta versión.</span>
             </div>
-            <img id="mapImage" class="safety-map-image hidden" alt="Planta isométrica de seguridad">
-            <div class="safety-map-grid" aria-hidden="true"></div>
-            <div id="mapMarkers" class="safety-map-markers"></div>
-            <div id="mapEditBanner" class="safety-map-edit-banner hidden">Modo edición · selecciona un extintor sin ubicar y haz clic, o arrastra un marcador existente.</div>
+            <div id="mapCanvas" class="safety-map-canvas">
+              <img id="mapImage" class="safety-map-image hidden" alt="Planta isométrica de seguridad">
+              <div class="safety-map-grid" aria-hidden="true"></div>
+              <div id="mapMarkers" class="safety-map-markers"></div>
+            </div>
+            <div class="safety-map-nav" aria-label="Controles de navegación del plano">
+              <button id="mapFitBtn" type="button" class="map-nav-btn" title="Ajustar plano a la ventana">Ajustar</button>
+              <button id="mapZoomOutBtn" type="button" class="map-nav-btn icon" title="Alejar">−</button>
+              <span id="mapZoomLabel" class="map-zoom-label">100%</span>
+              <button id="mapZoomInBtn" type="button" class="map-nav-btn icon" title="Acercar">+</button>
+              <button id="mapPanBtn" type="button" class="map-nav-btn" title="Activar o desactivar desplazamiento">Mover plano</button>
+            </div>
+            <div id="mapEditBanner" class="safety-map-edit-banner hidden">Modo edición · clic para ubicar · arrastra marcadores · usa “Mover plano” para desplazarte.</div>
             <div id="mapPlanCaption" class="safety-map-caption hidden"></div>
           </div>
           <div class="safety-map-legend">
@@ -81,7 +90,7 @@
     </section>
   </main>
 
-  <script src="app.js?v=11.10.6"></script>
-  <script src="mapa-seguridad.js?v=11.10.6"></script>
+  <script src="app.js?v=11.10.7"></script>
+  <script src="mapa-seguridad.js?v=11.10.7"></script>
 </body>
 </html>
