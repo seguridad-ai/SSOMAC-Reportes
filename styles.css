@@ -1168,3 +1168,10 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .map-edit-selected>span{font-size:9px;font-weight:900;letter-spacing:.08em;color:#667085}
 .map-edit-selected>strong{font-size:16px;color:#101828}.map-edit-selected>small{font-size:10px}
 @media(max-width:620px){.safety-map-edit-banner{top:6px;font-size:9px;border-radius:10px}.safety-edit-counts{grid-template-columns:1fr 1fr}}
+
+/* ETAPA 49.2.3 CORREGIDA - acceso visible para ubicar equipos */
+.safety-map-side-empty .map-type{margin-bottom:2px}
+.safety-map-side-empty>strong{font-size:19px;color:#1d2939}
+.map-side-edit-btn{margin-top:12px;border:0;border-radius:10px;padding:11px 18px;background:#c90000;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(201,0,0,.16)}
+.map-side-edit-btn:hover{filter:brightness(.96)}
+.map-side-edit-btn:disabled{background:#d0d5dd;color:#667085;cursor:not-allowed;box-shadow:none}

@@ -1,5 +1,5 @@
 // ============================================================
-// ETAPA 49.2.3 - POSICIONAMIENTO INTERACTIVO DE EXTINTORES
+// ETAPA 49.2.3 - POSICIONAMIENTO INTERACTIVO DE EXTINTORES (CORREGIDA)
 // - Selecciona extintores activos aun no ubicados y colocalos con clic.
 // - Arrastra marcadores existentes para cambiar su posicion.
 // - Guarda coordenadas relativas X/Y (0-100) en Supabase.
@@ -140,7 +140,7 @@
     }
 
     syncEditUi();markers.innerHTML='';
-    if(!currentMap){updateKpis([]);side.innerHTML=sideEmpty();return;}
+    if(!currentMap){updateKpis();side.innerHTML=sideEmpty();bindSideEmptyAction();return;}
     const showExt=$('layerExt').checked,showOther=$('layerOther').checked;
     const visible=currentElements().filter(el=>{
       if(el.tipo_elemento==='EXTINTOR'){
@@ -150,11 +150,11 @@
       return showOther;
     });
     visible.forEach(el=>renderMarker(el,markers));
-    updateKpis(visible);
+    updateKpis();
     if(editMode)renderEditPanel();
     else if(selectedElementId){
-      const el=currentElements().find(x=>x.id===selectedElementId);if(el)showElement(el,el.extintor_id?extinguishers.find(x=>x.id===el.extintor_id):null,el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):'OTRO');else side.innerHTML=sideEmpty();
-    }else side.innerHTML=sideEmpty();
+      const el=currentElements().find(x=>x.id===selectedElementId);if(el)showElement(el,el.extintor_id?extinguishers.find(x=>x.id===el.extintor_id):null,el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):'OTRO');else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
+    }else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
   }
 
   function renderMarker(el,markers){
@@ -176,15 +176,26 @@
     return icons[type]||'◆';
   }
 
-  function updateKpis(rows){
+  function updateKpis(){
+    const active=activeExtinguishers();
     let ok=0,obs=0,pending=0;
-    rows.forEach(el=>{if(el.tipo_elemento!=='EXTINTOR')return;const s=stateForExtinguisher(el.extintor_id);if(s==='CONFORME')ok++;else if(s==='OBSERVADO')obs++;else pending++;});
-    $('mapKpiTotal').textContent=rows.length;$('mapKpiOk').textContent=ok;$('mapKpiObs').textContent=obs;$('mapKpiPending').textContent=pending;
+    active.forEach(ext=>{const st=stateForExtinguisher(ext.id);if(st==='CONFORME')ok++;else if(st==='OBSERVADO')obs++;else pending++;});
+    $('mapKpiTotal').textContent=active.length;$('mapKpiOk').textContent=ok;$('mapKpiObs').textContent=obs;$('mapKpiPending').textContent=pending;
   }
 
   function sideEmpty(){
-    if(currentMap)return `<div class="safety-map-side-empty"><strong>Mapa listo</strong><span>${currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length} extintor(es) ubicados. Pulsa “Editar ubicaciones” para agregar o mover marcadores.</span></div>`;
+    if(currentMap){
+      const placed=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length;
+      const unplaced=unplacedExtinguishers().length;
+      const disabled=canPersistCurrentMap()?'':' disabled';
+      const hint=canPersistCurrentMap()?'Coloca los extintores del catálogo sobre su ubicación real en la planta.':'Ejecuta primero el SQL de la Etapa 49.2.2 para habilitar el guardado de ubicaciones.';
+      return `<div class="safety-map-side-empty"><span class="map-type">MAPA LISTO</span><strong>${placed} ubicados · ${unplaced} sin ubicar</strong><span>${hint}</span><button id="mapSideEditBtn" type="button" class="map-side-edit-btn"${disabled}>Ubicar extintores</button></div>`;
+    }
     return '<div class="safety-map-side-empty"><strong>Selecciona un equipo</strong><span>Aquí aparecerán sus datos, estado e historial.</span></div>';
+  }
+
+  function bindSideEmptyAction(){
+    const btn=$('mapSideEditBtn');if(btn)btn.onclick=enterEditMode;
   }
 
   function showElement(el,ext,state){
