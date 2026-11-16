@@ -1145,3 +1145,26 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .safety-map-card .page-head{align-items:flex-start}
 @media(max-width:1000px){.safety-map-stage{min-height:0}.safety-map-image{min-height:0}}
 @media(max-width:620px){.safety-map-stage{min-height:0;border-radius:12px}.safety-map-image{min-height:0}.safety-map-caption{left:7px;bottom:7px;max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+/* ============================================================
+   ETAPA 49.2.3 - POSICIONAMIENTO INTERACTIVO DE EXTINTORES
+   ============================================================ */
+.safety-map-stage.editing{cursor:crosshair;outline:2px solid rgba(192,0,0,.12);outline-offset:-2px}
+.safety-map-stage.editing .safety-map-grid{opacity:.11}
+.safety-map-stage.editing .safety-marker{cursor:grab;touch-action:none}
+.safety-map-stage.editing .safety-marker.dragging{cursor:grabbing;z-index:12}
+.safety-marker.map-dirty .safety-marker-icon{outline:3px dashed #c00000;outline-offset:3px}
+.safety-marker.selected .safety-marker-icon{transform:scale(1.08)}
+.safety-map-edit-banner{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:7;max-width:calc(100% - 24px);padding:8px 12px;border-radius:999px;background:rgba(16,24,40,.88);color:#fff;font-size:10px;font-weight:800;box-shadow:0 5px 16px rgba(16,24,40,.18);pointer-events:none;text-align:center}
+.safety-edit-panel h3{margin:4px 0 12px}
+.safety-edit-counts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.safety-edit-counts span{padding:10px;border:1px solid #e4e7ec;border-radius:10px;background:#f9fafb;color:#667085;font-size:10px}
+.safety-edit-counts strong{display:block;color:#101828;font-size:20px}
+.map-edit-help,.map-edit-note,.map-edit-complete,.map-edit-selected{margin-top:12px;padding:11px 12px;border-radius:10px;font-size:11px;line-height:1.55}
+.map-edit-help{background:#f8fafc;border:1px dashed #d0d5dd;color:#475467}
+.map-edit-note{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
+.map-edit-complete{background:#ecfdf3;border:1px solid #abefc6;color:#067647;font-weight:800}
+.map-edit-selected{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #e4e7ec;color:#475467}
+.map-edit-selected>span{font-size:9px;font-weight:900;letter-spacing:.08em;color:#667085}
+.map-edit-selected>strong{font-size:16px;color:#101828}.map-edit-selected>small{font-size:10px}
+@media(max-width:620px){.safety-map-edit-banner{top:6px;font-size:9px;border-radius:10px}.safety-edit-counts{grid-template-columns:1fr 1fr}}
