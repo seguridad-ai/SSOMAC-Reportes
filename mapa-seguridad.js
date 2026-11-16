@@ -1,11 +1,12 @@
 // ============================================================
-// ETAPA 49.2.5 - EXTINTORES + BOTIQUINES EN MAPA INTERACTIVO
+// ETAPA 49.2.6 - EXTINTORES + BOTIQUINES + OTROS EQUIPOS
 // - Selecciona extintores activos aun no ubicados y colocalos con clic.
 // - Arrastra marcadores existentes para cambiar su posicion.
 // - Guarda coordenadas relativas X/Y (0-100) en Supabase.
 // - Registra cada alta/movimiento en mapa_seguridad_movimientos.
 // - Zoom 50%-300%, ajuste, rueda del mouse y desplazamiento.
 // - Mantiene coordenadas X/Y correctas aun con zoom o paneo.
+// - Administra camillas, lavaojos, duchas, alarmas, luces y otros equipos.
 // ============================================================
 (async function(){
   'use strict';
@@ -31,7 +32,7 @@
   const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
   const isUuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));
 
-  let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],botiquines=[],botiquinInspections=[],currentMap=null,currentProject=null;
+  let session=null,projects=[],maps=[],elements=[],extinguishers=[],inspectionDetails=[],botiquines=[],botiquinInspections=[],emergencyEquipment=[],currentMap=null,currentProject=null;
   let editMode=false,editTargetType='EXTINTOR',selectedUnplacedId='',selectedElementId='',dirtyMoves=new Map();
   let mapView={zoom:1,panX:0,panY:0},panMode=false,spaceHeld=false,suppressMapClick=false;
 
@@ -58,9 +59,15 @@
     $('layerExt').onchange=render;
     $('layerBot').onchange=render;
     $('layerOther').onchange=render;
+    $('mapEquipmentManageBtn').onclick=openEquipmentManager;
     $('mapEditBtn').onclick=enterEditMode;
     $('mapSaveBtn').onclick=savePositions;
     $('mapCancelEditBtn').onclick=cancelEditMode;
+    $('equipmentModalClose').onclick=closeEquipmentManager;
+    $('equipmentResetBtn').onclick=resetEquipmentForm;
+    $('equipmentForm').onsubmit=e=>saveEquipment(e,false);
+    $('equipmentSavePlaceBtn').onclick=e=>saveEquipment(e,true);
+    $('emergencyEquipmentModal').addEventListener('click',e=>{if(e.target===$('emergencyEquipmentModal'))closeEquipmentManager();});
     $('mapCanvas').addEventListener('click',placeSelectedEquipment);
     $('mapCanvas').addEventListener('pointerdown',startCanvasPan);
     $('mapStage').addEventListener('wheel',handleMapWheel,{passive:false});
@@ -175,36 +182,38 @@
     const projectId=$('mapProject').value;
     currentProject=projects.find(p=>p.id===projectId)||null;
     editMode=false;selectedUnplacedId='';selectedElementId='';dirtyMoves.clear();
-    currentMap=null;maps=[];elements=[];extinguishers=[];inspectionDetails=[];botiquines=[];botiquinInspections=[];
+    currentMap=null;maps=[];elements=[];extinguishers=[];inspectionDetails=[];botiquines=[];botiquinInspections=[];emergencyEquipment=[];
     resetMapView(false);
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>';
     syncEditUi();
     if(!projectId){render();return;}
-    msg('Cargando plano y extintores...');
-    const [m,e,x,d,b,bi]=await Promise.all([
+    msg('Cargando plano y equipos de emergencia...');
+    const [m,e,x,d,b,bi,oe]=await Promise.all([
       sb.from('mapas_seguridad').select('*').eq('proyecto_id',projectId).eq('activo',true).order('principal',{ascending:false}).order('nombre'),
       sb.from('mapa_seguridad_elementos').select('*').eq('proyecto_id',projectId).eq('activo',true),
       sb.from('extintores').select('id,proyecto_id,codigo_extintor,ubicacion_nombre,tipo_extintor,agente_extintor,capacidad,marca_extintor,activo').eq('proyecto_id',projectId).order('codigo_extintor'),
       sb.from('inspeccion_extintor_detalles').select('extintor_id,resultado,inspeccion:inspecciones_extintores!inner(fecha_inspeccion,proyecto_id)').eq('inspeccion.proyecto_id',projectId),
       sb.from('botiquines').select('id,proyecto_id,tipo,codigo_botiquin,lugar_id,area_proyecto_id,ubicacion_nombre,responsable_botiquin,activo').eq('proyecto_id',projectId).eq('tipo','UBICACION').order('codigo_botiquin'),
-      sb.from('inspecciones_botiquin').select('id,botiquin_id,fecha_inspeccion,estado,codigo_botiquin,ubicacion_nombre,responsable_botiquin').eq('proyecto_id',projectId).eq('tipo','UBICACION').order('fecha_inspeccion',{ascending:false})
+      sb.from('inspecciones_botiquin').select('id,botiquin_id,fecha_inspeccion,estado,codigo_botiquin,ubicacion_nombre,responsable_botiquin').eq('proyecto_id',projectId).eq('tipo','UBICACION').order('fecha_inspeccion',{ascending:false}),
+      sb.from('equipos_emergencia').select('*').eq('proyecto_id',projectId).order('tipo_equipo').order('codigo')
     ]);
-    const firstError=m.error||e.error||x.error||d.error||b.error||bi.error;
+    const firstError=m.error||e.error||x.error||d.error||b.error||bi.error||oe.error;
     if(firstError){
       const em=String(firstError.message||'').toLowerCase();
       if(em.includes('mapas_seguridad')) msg('Primero ejecuta ETAPA_49_2_1_MAPA_SEGURIDAD.sql en Supabase.');
       else if(em.includes('botiquines')||em.includes('botiquin_id')) msg('Primero ejecuta ETAPA_49_2_5_BOTIQUINES_MAPA.sql en Supabase y recarga.');
+      else if(em.includes('equipos_emergencia')||em.includes('equipo_emergencia_id')) msg('Primero ejecuta ETAPA_49_2_6_OTROS_EQUIPOS_EMERGENCIA.sql en Supabase y recarga.');
       else msg('No se pudo cargar el mapa: '+(firstError.message||firstError));
       render();return;
     }
-    maps=m.data||[];elements=e.data||[];extinguishers=x.data||[];inspectionDetails=d.data||[];botiquines=b.data||[];botiquinInspections=bi.data||[];
+    maps=m.data||[];elements=e.data||[];extinguishers=x.data||[];inspectionDetails=d.data||[];botiquines=b.data||[];botiquinInspections=bi.data||[];emergencyEquipment=oe.data||[];
     if(!maps.length&&isCentralProject(currentProject)) maps=[{...LOCAL_SEDE_MAP,proyecto_id:projectId}];
     $('mapPlan').innerHTML='<option value="">Seleccione...</option>'+maps.map(v=>`<option value="${v.id}">${esc(v.nombre)}${v.principal?' · Principal':''}</option>`).join('');
     const principal=maps.find(v=>v.principal)||maps[0];
     if(principal){
       $('mapPlan').value=principal.id;selectMap();
       if(principal.localOnly) msg('Planta cargada desde GitHub. Para guardar ubicaciones debes ejecutar el SQL de la Etapa 49.2.2 y recargar.',false);
-      else msg('Plano, extintores y botiquines cargados correctamente.',true);
+      else msg('Plano y equipos de emergencia cargados correctamente.',true);
     }else{render();msg('Este proyecto todavía no tiene un plano de seguridad asociado.');}
   }
 
@@ -236,11 +245,16 @@
   function currentElements(){return currentMap?elements.filter(el=>el.mapa_id===currentMap.id&&el.activo!==false):[];}
   function placedExtIds(){return new Set(currentElements().filter(el=>el.tipo_elemento==='EXTINTOR'&&el.extintor_id).map(el=>el.extintor_id));}
   function placedBotIds(){return new Set(currentElements().filter(el=>el.tipo_elemento==='BOTIQUIN'&&el.botiquin_id).map(el=>el.botiquin_id));}
+  function placedOtherIds(){return new Set(currentElements().filter(el=>el.equipo_emergencia_id).map(el=>el.equipo_emergencia_id));}
   function activeExtinguishers(){return extinguishers.filter(x=>x.activo!==false);}
   function activeBotiquines(){return botiquines.filter(x=>x.activo!==false&&x.tipo==='UBICACION');}
+  function activeEmergencyEquipment(){return emergencyEquipment.filter(x=>x.activo!==false);}
   function unplacedExtinguishers(){const used=placedExtIds();return activeExtinguishers().filter(x=>!used.has(x.id));}
   function unplacedBotiquines(){const used=placedBotIds();return activeBotiquines().filter(x=>!used.has(x.id));}
-  function unplacedForType(){return editTargetType==='BOTIQUIN'?unplacedBotiquines():unplacedExtinguishers();}
+  function unplacedEmergencyEquipment(){const used=placedOtherIds();return activeEmergencyEquipment().filter(x=>!used.has(x.id));}
+  function unplacedForType(){if(editTargetType==='BOTIQUIN')return unplacedBotiquines();if(editTargetType==='OTRO')return unplacedEmergencyEquipment();return unplacedExtinguishers();}
+  function stateForEmergencyEquipment(eq){if(!eq)return'OTRO';if(eq.estado_equipo==='OBSERVADO')return'OBSERVADO';if(eq.estado_equipo==='FUERA_SERVICIO')return'INACTIVO';return'CONFORME';}
+  function equipmentTypeLabel(type){return ({CAMILLA:'Camilla',LAVAOJOS:'Lavaojos',DUCHA_EMERGENCIA:'Ducha de emergencia',ALARMA:'Alarma',LUZ_EMERGENCIA:'Luz de emergencia',PUNTO_REUNION:'Punto de reunión',ZONA_SEGURA:'Zona segura',OTRO:'Otro equipo'})[type]||type||'Otro equipo';}
 
   function render(){
     const img=$('mapImage'),empty=$('mapEmpty'),canvas=$('mapCanvas'),markers=$('mapMarkers'),side=$('mapSide'),stage=$('mapStage'),caption=$('mapPlanCaption');
@@ -266,27 +280,30 @@
       if(el.tipo_elemento==='BOTIQUIN'){
         const bot=botiquines.find(x=>x.id===el.botiquin_id);return showBot&&!!bot&&bot.activo!==false;
       }
-      return showOther;
+      const eq=el.equipo_emergencia_id?emergencyEquipment.find(x=>x.id===el.equipo_emergencia_id):null;
+      return showOther&&(!el.equipo_emergencia_id||!!eq&&eq.activo!==false);
     });
     visible.forEach(el=>renderMarker(el,markers));
     updateKpis();
     if(editMode)renderEditPanel();
     else if(selectedElementId){
-      const el=currentElements().find(x=>x.id===selectedElementId);if(el){const entity=el.tipo_elemento==='EXTINTOR'?extinguishers.find(x=>x.id===el.extintor_id):el.tipo_elemento==='BOTIQUIN'?botiquines.find(x=>x.id===el.botiquin_id):null;const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):el.tipo_elemento==='BOTIQUIN'?stateForBotiquin(el.botiquin_id):'OTRO';showElement(el,entity,state);}else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
+      const el=currentElements().find(x=>x.id===selectedElementId);if(el){const entity=el.tipo_elemento==='EXTINTOR'?extinguishers.find(x=>x.id===el.extintor_id):el.tipo_elemento==='BOTIQUIN'?botiquines.find(x=>x.id===el.botiquin_id):emergencyEquipment.find(x=>x.id===el.equipo_emergencia_id);const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):el.tipo_elemento==='BOTIQUIN'?stateForBotiquin(el.botiquin_id):stateForEmergencyEquipment(entity);showElement(el,entity,state);}else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
     }else{side.innerHTML=sideEmpty();bindSideEmptyAction();}
   }
 
   function renderMarker(el,markers){
     const ext=el.extintor_id?extinguishers.find(x=>x.id===el.extintor_id):null;
     const bot=el.botiquin_id?botiquines.find(x=>x.id===el.botiquin_id):null;
-    const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):el.tipo_elemento==='BOTIQUIN'?stateForBotiquin(el.botiquin_id):'OTRO';
+    const eq=el.equipo_emergencia_id?emergencyEquipment.find(x=>x.id===el.equipo_emergencia_id):null;
+    const entity=ext||bot||eq;
+    const state=el.tipo_elemento==='EXTINTOR'?stateForExtinguisher(el.extintor_id):el.tipo_elemento==='BOTIQUIN'?stateForBotiquin(el.botiquin_id):stateForEmergencyEquipment(eq);
     const b=document.createElement('button');
-    b.type='button';b.className=`safety-marker ${state.toLowerCase()}${dirtyMoves.has(el.id)?' map-dirty':''}${selectedElementId===el.id?' selected':''}`;
+    b.type='button';b.className=`safety-marker ${state.toLowerCase()}${el.tipo_elemento==='BOTIQUIN'?' botiquin':''}${dirtyMoves.has(el.id)?' map-dirty':''}${selectedElementId===el.id?' selected':''}`;
     b.style.left=`${Number(el.pos_x)||50}%`;b.style.top=`${Number(el.pos_y)||50}%`;
     b.style.transform=`translate(-50%,-50%) scale(${Number(el.escala)||1}) rotate(${Number(el.rotacion)||0}deg)`;
-    b.title=ext?.codigo_extintor||bot?.codigo_botiquin||el.codigo||el.nombre||el.tipo_elemento;
-    b.innerHTML=`<span class="safety-marker-icon">${markerIcon(el.tipo_elemento)}</span><small>${esc(ext?.codigo_extintor||bot?.codigo_botiquin||el.codigo||'')}</small>`;
-    b.onclick=e=>{e.preventDefault();e.stopPropagation();selectedElementId=el.id;if(editMode)renderEditPanel();else showElement(el,ext,state);};
+    b.title=ext?.codigo_extintor||bot?.codigo_botiquin||eq?.codigo||el.codigo||el.nombre||el.tipo_elemento;
+    b.innerHTML=`<span class="safety-marker-icon">${markerIcon(el.tipo_elemento)}</span><small>${esc(ext?.codigo_extintor||bot?.codigo_botiquin||eq?.codigo||el.codigo||'')}</small>`;
+    b.onclick=e=>{e.preventDefault();e.stopPropagation();selectedElementId=el.id;if(editMode)renderEditPanel();else showElement(el,entity,state);};
     if(editMode)b.addEventListener('pointerdown',e=>startDrag(e,el,b));
     markers.appendChild(b);
   }
@@ -303,21 +320,23 @@
     $('mapKpiTotal').textContent=active.length;$('mapKpiOk').textContent=ok;$('mapKpiObs').textContent=obs;$('mapKpiPending').textContent=pending;
     const bots=activeBotiquines();let botObs=0;bots.forEach(b=>{if(stateForBotiquin(b.id)==='OBSERVADO')botObs++;});
     if($('mapKpiBotTotal'))$('mapKpiBotTotal').textContent=bots.length;if($('mapKpiBotObs'))$('mapKpiBotObs').textContent=botObs;
+    if($('mapKpiOtherTotal'))$('mapKpiOtherTotal').textContent=activeEmergencyEquipment().length;
   }
 
   function sideEmpty(){
     if(currentMap){
-      const placedExt=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length,placedBot=currentElements().filter(x=>x.tipo_elemento==='BOTIQUIN').length;
-      const unplacedExt=unplacedExtinguishers().length,unplacedBot=unplacedBotiquines().length;
+      const placedExt=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length,placedBot=currentElements().filter(x=>x.tipo_elemento==='BOTIQUIN').length,placedOther=currentElements().filter(x=>x.equipo_emergencia_id).length;
+      const unplacedExt=unplacedExtinguishers().length,unplacedBot=unplacedBotiquines().length,unplacedOther=unplacedEmergencyEquipment().length;
       const disabled=canPersistCurrentMap()?'':' disabled';
       const hint=canPersistCurrentMap()?'Ubica los equipos del catálogo sobre su posición real en la planta.':'Ejecuta primero el SQL de la Etapa 49.2.2 para habilitar el guardado de ubicaciones.';
-      return `<div class="safety-map-side-empty"><span class="map-type">MAPA LISTO</span><strong>${placedExt} extintores · ${placedBot} botiquines ubicados</strong><span>${unplacedExt} extintor(es) y ${unplacedBot} botiquín(es) sin ubicar.</span><span>${hint}</span><button id="mapSideEditBtn" type="button" class="map-side-edit-btn"${disabled}>Ubicar equipos</button></div>`;
+      return `<div class="safety-map-side-empty"><span class="map-type">MAPA LISTO</span><strong>${placedExt} extintores · ${placedBot} botiquines · ${placedOther} otros equipos ubicados</strong><span>${unplacedExt} extintor(es), ${unplacedBot} botiquín(es) y ${unplacedOther} otro(s) equipo(s) sin ubicar.</span><span>${hint}</span><button id="mapSideEditBtn" type="button" class="map-side-edit-btn"${disabled}>Ubicar equipos</button><button id="mapSideManageBtn" type="button" class="secondary map-side-manage-btn">Gestionar otros equipos</button></div>`;
     }
     return '<div class="safety-map-side-empty"><strong>Selecciona un equipo</strong><span>Aquí aparecerán sus datos, estado e historial.</span></div>';
   }
 
   function bindSideEmptyAction(){
     const btn=$('mapSideEditBtn');if(btn)btn.onclick=enterEditMode;
+    const manage=$('mapSideManageBtn');if(manage)manage.onclick=openEquipmentManager;
   }
 
   function showElement(el,ext,state){
@@ -328,6 +347,10 @@
     }else if(el.tipo_elemento==='BOTIQUIN'&&ext){
       const last=botiquinInspections.filter(r=>r.botiquin_id===ext.id).sort((a,b)=>String(b.fecha_inspeccion||'').localeCompare(String(a.fecha_inspeccion||'')))[0];
       side.innerHTML=`<div class="safety-side-head"><div><span class="map-type">BOTIQUÍN</span><h3>${esc(ext.codigo_botiquin||'BOTIQUÍN')}</h3></div><span class="e49-status ${state==='PENDIENTE'?'INACTIVO':state}">${esc(state)}</span></div><div class="safety-side-grid"><span>Ubicación</span><strong>${esc(ext.ubicacion_nombre||'—')}</strong><span>Responsable</span><strong>${esc(ext.responsable_botiquin||'—')}</strong><span>Posición mapa</span><strong>X ${Number(el.pos_x).toFixed(2)}% · Y ${Number(el.pos_y).toFixed(2)}%</strong><span>Última inspección</span><strong>${esc(fmt(last?.fecha_inspeccion))}</strong><span>Resultado</span><strong>${esc(last?.estado||'Sin inspección')}</strong></div><div class="workflow-actions"><a class="button-link secondary-link" href="botiquines.html">Ir a botiquines</a></div>`;
+    }else if(ext){
+      const stateLabel=ext.estado_equipo==='FUERA_SERVICIO'?'FUERA DE SERVICIO':ext.estado_equipo||'OPERATIVO';
+      side.innerHTML=`<div class="safety-side-head"><div><span class="map-type">${esc(equipmentTypeLabel(ext.tipo_equipo))}</span><h3>${esc(ext.codigo||'EQUIPO')}</h3></div><span class="e49-status ${state==='INACTIVO'?'INACTIVO':state}">${esc(stateLabel)}</span></div><div class="safety-side-grid"><span>Nombre</span><strong>${esc(ext.nombre||'—')}</strong><span>Ubicación</span><strong>${esc(ext.ubicacion_nombre||'—')}</strong><span>Responsable</span><strong>${esc(ext.responsable||'—')}</strong><span>Última revisión</span><strong>${esc(fmt(ext.fecha_ultima_revision))}</strong><span>Próxima revisión</span><strong>${esc(fmt(ext.fecha_proxima_revision))}</strong><span>Posición mapa</span><strong>X ${Number(el.pos_x).toFixed(2)}% · Y ${Number(el.pos_y).toFixed(2)}%</strong></div>${ext.observacion?`<div class="map-equipment-observation"><strong>Observación</strong><p>${esc(ext.observacion)}</p></div>`:''}<div class="workflow-actions"><button id="mapEditGenericEquipment" type="button" class="secondary">Editar equipo</button></div>`;
+      const editBtn=$('mapEditGenericEquipment');if(editBtn)editBtn.onclick=()=>openEquipmentManager(ext.id);
     }else side.innerHTML=`<div class="safety-side-head"><div><span class="map-type">${esc(el.tipo_elemento)}</span><h3>${esc(el.codigo||el.nombre||'Equipo')}</h3></div></div><p>${esc(el.descripcion||'Sin descripción registrada.')}</p>`;
   }
 
@@ -340,24 +363,31 @@
     applyMapTransform();
   }
 
-  function enterEditMode(){
+  function enterEditMode(preferredType=null,preferredId=''){
     if(!currentMap)return;
     if(!canPersistCurrentMap()){msg('Este plano todavía no está registrado en Supabase. Ejecuta ETAPA_49_2_2_PLANTA_ISOMETRICA_SEDE_CENTRAL.sql y recarga la página.');return;}
-    editMode=true;panMode=false;selectedElementId='';editTargetType=unplacedExtinguishers().length?'EXTINTOR':unplacedBotiquines().length?'BOTIQUIN':'EXTINTOR';selectedUnplacedId=unplacedForType()[0]?.id||'';syncEditUi();render();
-    msg('Modo edición activo: selecciona Extintor o Botiquín, ubícalo con clic y ajusta arrastrando.');
+    editMode=true;panMode=false;selectedElementId='';
+    if(preferredType)editTargetType=preferredType;
+    else editTargetType=unplacedExtinguishers().length?'EXTINTOR':unplacedBotiquines().length?'BOTIQUIN':unplacedEmergencyEquipment().length?'OTRO':'EXTINTOR';
+    selectedUnplacedId=preferredId||unplacedForType()[0]?.id||'';syncEditUi();render();
+    msg('Modo edición activo: selecciona Extintor, Botiquín u Otro equipo, ubícalo con clic y ajusta arrastrando.');
   }
 
   function renderEditPanel(){
     const side=$('mapSide'),unplaced=unplacedForType();
-    const placedExt=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length,placedBot=currentElements().filter(x=>x.tipo_elemento==='BOTIQUIN').length;
+    const placedExt=currentElements().filter(x=>x.tipo_elemento==='EXTINTOR').length,placedBot=currentElements().filter(x=>x.tipo_elemento==='BOTIQUIN').length,placedOther=currentElements().filter(x=>x.equipo_emergencia_id).length;
     if(selectedUnplacedId&&!unplaced.some(x=>x.id===selectedUnplacedId))selectedUnplacedId=unplaced[0]?.id||'';
     const selectedEl=selectedElementId?currentElements().find(x=>x.id===selectedElementId):null;
-    const selectedEntity=selectedEl?.tipo_elemento==='EXTINTOR'?extinguishers.find(x=>x.id===selectedEl.extintor_id):selectedEl?.tipo_elemento==='BOTIQUIN'?botiquines.find(x=>x.id===selectedEl.botiquin_id):null;
-    const label=editTargetType==='BOTIQUIN'?'botiquín':'extintor';
-    const opts=unplaced.map(x=>{const code=editTargetType==='BOTIQUIN'?x.codigo_botiquin:x.codigo_extintor;return `<option value="${x.id}" ${selectedUnplacedId===x.id?'selected':''}>${esc(code||'Sin código')} · ${esc(x.ubicacion_nombre||'Sin ubicación')}</option>`;}).join('');
-    side.innerHTML=`<div class="safety-edit-panel"><span class="map-type">MODO EDICIÓN</span><h3>Ubicar equipos</h3><div class="map-edit-type"><button type="button" data-type="EXTINTOR" class="${editTargetType==='EXTINTOR'?'active':''}">🧯 Extintores</button><button type="button" data-type="BOTIQUIN" class="${editTargetType==='BOTIQUIN'?'active':''}">✚ Botiquines</button></div><div class="safety-edit-counts"><span><strong>${placedExt}</strong> extintores ubicados</span><span><strong>${placedBot}</strong> botiquines ubicados</span></div>${unplaced.length?`<div class="field"><label for="mapUnplacedSelect">${editTargetType==='BOTIQUIN'?'Botiquín':'Extintor'} por ubicar</label><select id="mapUnplacedSelect"><option value="">Seleccione...</option>${opts}</select></div><div class="map-edit-help"><strong>1.</strong> Selecciona el ${label}.<br><strong>2.</strong> Haz clic en su posición real sobre la planta.<br><strong>3.</strong> Ajusta arrastrando el marcador.<br><strong>4.</strong> Usa <em>Mover plano</em> si necesitas desplazarte.</div>`:`<div class="map-edit-complete">Todos los ${editTargetType==='BOTIQUIN'?'botiquines':'extintores'} activos ya tienen una posición en este plano.</div>`}${selectedEl&&selectedEntity?`<div class="map-edit-selected"><span>Seleccionado</span><strong>${esc(selectedEl.tipo_elemento==='BOTIQUIN'?selectedEntity.codigo_botiquin:selectedEntity.codigo_extintor)}</strong><small>${esc(selectedEntity.ubicacion_nombre||'')}</small><small>X ${Number(selectedEl.pos_x).toFixed(2)}% · Y ${Number(selectedEl.pos_y).toFixed(2)}%</small></div>`:''}<div class="map-edit-note">Los cambios se guardan únicamente al pulsar <strong>Guardar ubicaciones</strong>.</div></div>`;
+    const selectedEntity=selectedEl?.tipo_elemento==='EXTINTOR'?extinguishers.find(x=>x.id===selectedEl.extintor_id):selectedEl?.tipo_elemento==='BOTIQUIN'?botiquines.find(x=>x.id===selectedEl.botiquin_id):emergencyEquipment.find(x=>x.id===selectedEl?.equipo_emergencia_id);
+    const label=editTargetType==='BOTIQUIN'?'botiquín':editTargetType==='OTRO'?'equipo':'extintor';
+    const typeLabel=editTargetType==='BOTIQUIN'?'Botiquín':editTargetType==='OTRO'?'Otro equipo':'Extintor';
+    const opts=unplaced.map(x=>{const code=editTargetType==='BOTIQUIN'?x.codigo_botiquin:editTargetType==='OTRO'?x.codigo:x.codigo_extintor;const extra=editTargetType==='OTRO'?equipmentTypeLabel(x.tipo_equipo):x.ubicacion_nombre||'Sin ubicación';return `<option value="${x.id}" ${selectedUnplacedId===x.id?'selected':''}>${esc(code||'Sin código')} · ${esc(extra)}</option>`;}).join('');
+    let selectedCode='';
+    if(selectedEl&&selectedEntity)selectedCode=selectedEl.tipo_elemento==='BOTIQUIN'?selectedEntity.codigo_botiquin:selectedEl.tipo_elemento==='EXTINTOR'?selectedEntity.codigo_extintor:selectedEntity.codigo;
+    side.innerHTML=`<div class="safety-edit-panel"><span class="map-type">MODO EDICIÓN</span><h3>Ubicar equipos</h3><div class="map-edit-type"><button type="button" data-type="EXTINTOR" class="${editTargetType==='EXTINTOR'?'active':''}">🧯 Extintores</button><button type="button" data-type="BOTIQUIN" class="${editTargetType==='BOTIQUIN'?'active':''}">✚ Botiquines</button><button type="button" data-type="OTRO" class="${editTargetType==='OTRO'?'active':''}">◆ Otros</button></div><div class="safety-edit-counts"><span><strong>${placedExt}</strong> extintores</span><span><strong>${placedBot}</strong> botiquines</span><span><strong>${placedOther}</strong> otros</span></div>${unplaced.length?`<div class="field"><label for="mapUnplacedSelect">${typeLabel} por ubicar</label><select id="mapUnplacedSelect"><option value="">Seleccione...</option>${opts}</select></div><div class="map-edit-help"><strong>1.</strong> Selecciona el ${label}.<br><strong>2.</strong> Haz clic en su posición real sobre la planta.<br><strong>3.</strong> Ajusta arrastrando el marcador.<br><strong>4.</strong> Usa <em>Mover plano</em> si necesitas desplazarte.</div>`:`<div class="map-edit-complete">Todos los ${editTargetType==='BOTIQUIN'?'botiquines':editTargetType==='OTRO'?'otros equipos':'extintores'} activos ya tienen una posición en este plano.${editTargetType==='OTRO'?'<br><button id="mapEditAddOther" type="button" class="secondary">Registrar otro equipo</button>':''}</div>`}${selectedEl&&selectedEntity?`<div class="map-edit-selected"><span>Seleccionado</span><strong>${esc(selectedCode||'Equipo')}</strong><small>${esc(selectedEntity.ubicacion_nombre||'')}</small><small>X ${Number(selectedEl.pos_x).toFixed(2)}% · Y ${Number(selectedEl.pos_y).toFixed(2)}%</small></div>`:''}<div class="map-edit-note">Los cambios se guardan únicamente al pulsar <strong>Guardar ubicaciones</strong>.</div></div>`;
     side.querySelectorAll('[data-type]').forEach(btn=>btn.onclick=()=>{editTargetType=btn.dataset.type;selectedUnplacedId=unplacedForType()[0]?.id||'';selectedElementId='';render();});
     const sel=$('mapUnplacedSelect');if(sel)sel.onchange=e=>{selectedUnplacedId=e.target.value;selectedElementId='';render();};
+    const addOther=$('mapEditAddOther');if(addOther)addOther.onclick=()=>openEquipmentManager();
   }
 
   function pointFromPointer(e){
@@ -367,10 +397,12 @@
 
   function placeSelectedEquipment(e){
     if(!editMode||panMode||spaceHeld||suppressMapClick||!selectedUnplacedId||e.target.closest('.safety-marker')||!currentMap)return;
-    const p=pointFromPointer(e);const isBot=editTargetType==='BOTIQUIN';
-    const entity=isBot?botiquines.find(x=>x.id===selectedUnplacedId):extinguishers.find(x=>x.id===selectedUnplacedId);if(!entity)return;
-    const code=isBot?entity.codigo_botiquin:entity.codigo_extintor;const tempId=`tmp_${isBot?'bot':'ext'}_${entity.id}_${Date.now()}`;
-    const el={id:tempId,mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:isBot?'BOTIQUIN':'EXTINTOR',extintor_id:isBot?null:entity.id,botiquin_id:isBot?entity.id:null,codigo:code,nombre:`${isBot?'Botiquín':'Extintor'} ${code}`,descripcion:null,icono:isBot?'BOTIQUIN':'EXTINTOR',pos_x:p.x,pos_y:p.y,escala:1,rotacion:0,orden_capa:20,activo:true,_new:true};
+    const p=pointFromPointer(e);const isBot=editTargetType==='BOTIQUIN',isOther=editTargetType==='OTRO';
+    const entity=isBot?botiquines.find(x=>x.id===selectedUnplacedId):isOther?emergencyEquipment.find(x=>x.id===selectedUnplacedId):extinguishers.find(x=>x.id===selectedUnplacedId);if(!entity)return;
+    const code=isBot?entity.codigo_botiquin:isOther?entity.codigo:entity.codigo_extintor;
+    const type=isBot?'BOTIQUIN':isOther?entity.tipo_equipo:'EXTINTOR';
+    const tempId=`tmp_${isBot?'bot':isOther?'oth':'ext'}_${entity.id}_${Date.now()}`;
+    const el={id:tempId,mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:type,extintor_id:isBot||isOther?null:entity.id,botiquin_id:isBot?entity.id:null,equipo_emergencia_id:isOther?entity.id:null,codigo:code,nombre:isOther?(entity.nombre||`${equipmentTypeLabel(entity.tipo_equipo)} ${code}`):`${isBot?'Botiquín':'Extintor'} ${code}`,descripcion:isOther?entity.observacion:null,icono:type,pos_x:p.x,pos_y:p.y,escala:1,rotacion:0,orden_capa:20,activo:true,_new:true};
     elements.push(el);selectedElementId=tempId;selectedUnplacedId='';dirtyMoves.set(tempId,{element:el,oldX:null,oldY:null,newX:p.x,newY:p.y,isNew:true});
     render();msg(`${code} colocado temporalmente. Puedes arrastrarlo para ajustar antes de guardar.`);
   }
@@ -398,19 +430,150 @@
       for(const change of changes){
         let el=change.element;
         if(change.isNew||el._new){
-          const payload={mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:el.tipo_elemento,extintor_id:el.extintor_id||null,botiquin_id:el.botiquin_id||null,codigo:el.codigo||null,nombre:el.nombre||null,descripcion:el.descripcion||null,icono:el.icono||el.tipo_elemento,pos_x:Number(el.pos_x),pos_y:Number(el.pos_y),escala:Number(el.escala)||1,rotacion:Number(el.rotacion)||0,orden_capa:Number(el.orden_capa)||20,activo:true,creado_por:session.user.id,actualizado_en:new Date().toISOString()};
+          const payload={mapa_id:currentMap.id,proyecto_id:currentProject.id,tipo_elemento:el.tipo_elemento,extintor_id:el.extintor_id||null,botiquin_id:el.botiquin_id||null,equipo_emergencia_id:el.equipo_emergencia_id||null,codigo:el.codigo||null,nombre:el.nombre||null,descripcion:el.descripcion||null,icono:el.icono||el.tipo_elemento,pos_x:Number(el.pos_x),pos_y:Number(el.pos_y),escala:Number(el.escala)||1,rotacion:Number(el.rotacion)||0,orden_capa:Number(el.orden_capa)||20,activo:true,creado_por:session.user.id,actualizado_en:new Date().toISOString()};
           const {data:saved,error}=await sb.from('mapa_seguridad_elementos').insert(payload).select('*').single();if(error)throw error;
           const idx=elements.findIndex(x=>x.id===el.id);if(idx>=0)elements[idx]=saved;el=saved;
-          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:saved.id,mapa_id:currentMap.id,pos_x_anterior:null,pos_y_anterior:null,pos_x_nueva:Number(saved.pos_x),pos_y_nueva:Number(saved.pos_y),motivo:`Ubicación inicial de ${el.tipo_elemento==='BOTIQUIN'?'botiquín':'extintor'} en el mapa`,movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de ubicación inicial',me);
+          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:saved.id,mapa_id:currentMap.id,pos_x_anterior:null,pos_y_anterior:null,pos_x_nueva:Number(saved.pos_x),pos_y_nueva:Number(saved.pos_y),motivo:`Ubicación inicial de ${el.tipo_elemento==='BOTIQUIN'?'botiquín':el.tipo_elemento==='EXTINTOR'?'extintor':'equipo de emergencia'} en el mapa`,movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de ubicación inicial',me);
         }else{
           const {data:saved,error}=await sb.from('mapa_seguridad_elementos').update({pos_x:Number(el.pos_x),pos_y:Number(el.pos_y),actualizado_en:new Date().toISOString()}).eq('id',el.id).select('*').single();if(error)throw error;
           const idx=elements.findIndex(x=>x.id===el.id);if(idx>=0)elements[idx]=saved;
-          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:el.id,mapa_id:currentMap.id,pos_x_anterior:change.oldX,pos_y_anterior:change.oldY,pos_x_nueva:Number(el.pos_x),pos_y_nueva:Number(el.pos_y),motivo:`Reubicación manual de ${el.tipo_elemento==='BOTIQUIN'?'botiquín':'extintor'} en el mapa`,movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de reubicación',me);
+          const {error:me}=await sb.from('mapa_seguridad_movimientos').insert({elemento_id:el.id,mapa_id:currentMap.id,pos_x_anterior:change.oldX,pos_y_anterior:change.oldY,pos_x_nueva:Number(el.pos_x),pos_y_nueva:Number(el.pos_y),motivo:`Reubicación manual de ${el.tipo_elemento==='BOTIQUIN'?'botiquín':el.tipo_elemento==='EXTINTOR'?'extintor':'equipo de emergencia'} en el mapa`,movido_por:session.user.id});if(me)console.warn('No se pudo registrar trazabilidad de reubicación',me);
         }
       }
       dirtyMoves.clear();selectedElementId='';selectedUnplacedId=unplacedForType()[0]?.id||'';syncEditUi();render();msg('Ubicaciones guardadas correctamente en Supabase.',true);
     }catch(err){console.error(err);msg('No se pudieron guardar las ubicaciones: '+(err.message||err));syncEditUi();}
     finally{btn.disabled=!dirtyMoves.size;btn.textContent=dirtyMoves.size?`Guardar ubicaciones (${dirtyMoves.size})`:'Guardar ubicaciones';}
+  }
+
+  function equipmentMsg(text='',ok=false){
+    const el=$('equipmentMessage');if(!el)return;el.textContent=text;el.className=`message ${text?'visible':''} ${ok?'success':''}`;
+  }
+
+  function openEquipmentManager(editId=''){
+    if(!currentProject){msg('Selecciona primero un proyecto / sede.');return;}
+    $('emergencyEquipmentModal').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    equipmentMsg('');
+    resetEquipmentForm();
+    renderEquipmentList();
+    if(editId){const eq=emergencyEquipment.find(x=>x.id===editId);if(eq)fillEquipmentForm(eq);}
+  }
+
+  function closeEquipmentManager(){
+    $('emergencyEquipmentModal').classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    equipmentMsg('');
+  }
+
+  function resetEquipmentForm(){
+    $('equipmentId').value='';
+    $('equipmentType').value='CAMILLA';
+    $('equipmentCode').value='';
+    $('equipmentName').value='';
+    $('equipmentLocation').value='';
+    $('equipmentResponsible').value='';
+    $('equipmentState').value='OPERATIVO';
+    $('equipmentLastReview').value='';
+    $('equipmentNextReview').value='';
+    $('equipmentObservation').value='';
+    $('equipmentSaveBtn').textContent='Guardar equipo';
+    equipmentMsg('');
+  }
+
+  function fillEquipmentForm(eq){
+    $('equipmentId').value=eq.id||'';
+    $('equipmentType').value=eq.tipo_equipo||'OTRO';
+    $('equipmentCode').value=eq.codigo||'';
+    $('equipmentName').value=eq.nombre||'';
+    $('equipmentLocation').value=eq.ubicacion_nombre||'';
+    $('equipmentResponsible').value=eq.responsable||'';
+    $('equipmentState').value=eq.estado_equipo||'OPERATIVO';
+    $('equipmentLastReview').value=String(eq.fecha_ultima_revision||'').slice(0,10);
+    $('equipmentNextReview').value=String(eq.fecha_proxima_revision||'').slice(0,10);
+    $('equipmentObservation').value=eq.observacion||'';
+    $('equipmentSaveBtn').textContent='Actualizar equipo';
+    $('equipmentCode').focus();
+  }
+
+  function renderEquipmentList(){
+    const host=$('equipmentList');if(!host)return;
+    const rows=[...emergencyEquipment].sort((a,b)=>`${a.tipo_equipo} ${a.codigo}`.localeCompare(`${b.tipo_equipo} ${b.codigo}`,'es'));
+    $('equipmentListCount').textContent=`${rows.filter(x=>x.activo!==false).length} activo(s) · ${rows.length} total`;
+    if(!rows.length){host.innerHTML='<div class="equipment-list-empty">Todavía no hay otros equipos registrados para este proyecto.</div>';return;}
+    host.innerHTML=rows.map(eq=>{
+      const placed=currentElements().some(el=>el.equipo_emergencia_id===eq.id&&el.activo!==false);
+      const state=eq.estado_equipo==='FUERA_SERVICIO'?'Fuera de servicio':eq.estado_equipo==='OBSERVADO'?'Observado':'Operativo';
+      return `<article class="equipment-list-item ${eq.activo===false?'inactive':''}"><div class="equipment-list-icon">${markerIcon(eq.tipo_equipo)}</div><div class="equipment-list-main"><div class="equipment-list-title"><strong>${esc(eq.codigo)}</strong><span>${esc(equipmentTypeLabel(eq.tipo_equipo))}</span></div><small>${esc(eq.nombre||eq.ubicacion_nombre||'Sin descripción')}</small><div class="equipment-list-meta"><span class="equipment-state ${String(eq.estado_equipo||'OPERATIVO').toLowerCase()}">${esc(state)}</span><span>${placed?'Ubicado en plano':'Sin ubicar'}</span>${eq.activo===false?'<span>Inactivo</span>':''}</div></div><div class="equipment-list-actions"><button type="button" class="secondary" data-eq-edit="${eq.id}">Editar</button><button type="button" class="secondary" data-eq-toggle="${eq.id}">${eq.activo===false?'Reactivar':'Desactivar'}</button>${eq.activo!==false&&!placed?`<button type="button" data-eq-place="${eq.id}">Ubicar</button>`:''}</div></article>`;
+    }).join('');
+    host.querySelectorAll('[data-eq-edit]').forEach(b=>b.onclick=()=>{const eq=emergencyEquipment.find(x=>x.id===b.dataset.eqEdit);if(eq)fillEquipmentForm(eq);});
+    host.querySelectorAll('[data-eq-toggle]').forEach(b=>b.onclick=()=>toggleEmergencyEquipment(b.dataset.eqToggle));
+    host.querySelectorAll('[data-eq-place]').forEach(b=>b.onclick=()=>{const id=b.dataset.eqPlace;closeEquipmentManager();enterEditMode('OTRO',id);});
+  }
+
+  async function saveEquipment(e,placeAfter=false){
+    e?.preventDefault?.();
+    if(!currentProject){equipmentMsg('Selecciona primero un proyecto / sede.');return;}
+    const id=$('equipmentId').value.trim();
+    const code=$('equipmentCode').value.trim().toUpperCase();
+    if(!code){equipmentMsg('Ingresa el código del equipo.');$('equipmentCode').focus();return;}
+    const existingRecord=id?emergencyEquipment.find(x=>x.id===id):null;
+    const payload={
+      proyecto_id:currentProject.id,
+      tipo_equipo:$('equipmentType').value,
+      codigo:code,
+      nombre:$('equipmentName').value.trim()||null,
+      ubicacion_nombre:$('equipmentLocation').value.trim()||null,
+      responsable:$('equipmentResponsible').value.trim()||null,
+      estado_equipo:$('equipmentState').value,
+      fecha_ultima_revision:$('equipmentLastReview').value||null,
+      fecha_proxima_revision:$('equipmentNextReview').value||null,
+      observacion:$('equipmentObservation').value.trim()||null,
+      activo:existingRecord?existingRecord.activo!==false:true,
+      actualizado_en:new Date().toISOString()
+    };
+    const saveBtn=placeAfter?$('equipmentSavePlaceBtn'):$('equipmentSaveBtn');
+    const oldText=saveBtn.textContent;saveBtn.disabled=true;saveBtn.textContent='Guardando...';equipmentMsg('Guardando equipo...');
+    try{
+      let saved,error;
+      if(id){({data:saved,error}=await sb.from('equipos_emergencia').update(payload).eq('id',id).select('*').single());}
+      else{payload.creado_por=session.user.id;({data:saved,error}=await sb.from('equipos_emergencia').insert(payload).select('*').single());}
+      if(error)throw error;
+      const idx=emergencyEquipment.findIndex(x=>x.id===saved.id);if(idx>=0)emergencyEquipment[idx]=saved;else emergencyEquipment.push(saved);
+      const linked=elements.filter(el=>el.equipo_emergencia_id===saved.id);
+      if(linked.length){
+        const {error:mapErr}=await sb.from('mapa_seguridad_elementos').update({tipo_elemento:saved.tipo_equipo,codigo:saved.codigo,nombre:saved.nombre||`${equipmentTypeLabel(saved.tipo_equipo)} ${saved.codigo}`,descripcion:saved.observacion||null,icono:saved.tipo_equipo,actualizado_en:new Date().toISOString()}).eq('equipo_emergencia_id',saved.id);
+        if(mapErr)console.warn('No se pudo sincronizar el marcador del equipo',mapErr);
+        linked.forEach(el=>{el.tipo_elemento=saved.tipo_equipo;el.codigo=saved.codigo;el.nombre=saved.nombre||`${equipmentTypeLabel(saved.tipo_equipo)} ${saved.codigo}`;el.descripcion=saved.observacion||null;el.icono=saved.tipo_equipo;});
+      }
+      resetEquipmentForm();renderEquipmentList();render();equipmentMsg('Equipo guardado correctamente.',true);
+      if(placeAfter){
+        closeEquipmentManager();
+        const existing=currentElements().find(el=>el.equipo_emergencia_id===saved.id&&el.activo!==false);
+        if(existing){editMode=true;editTargetType='OTRO';selectedElementId=existing.id;selectedUnplacedId='';syncEditUi();render();msg(`${saved.codigo} ya está ubicado. Puedes arrastrarlo para cambiar su posición.`);}
+        else enterEditMode('OTRO',saved.id);
+      }
+    }catch(err){
+      console.error(err);
+      const text=String(err?.message||err||'');
+      equipmentMsg(text.toLowerCase().includes('uq_equipo_emergencia_codigo_activo')||text.toLowerCase().includes('duplicate')?'Ya existe un equipo activo con ese código en este proyecto.':'No se pudo guardar el equipo: '+text);
+    }finally{saveBtn.disabled=false;saveBtn.textContent=oldText;}
+  }
+
+  async function toggleEmergencyEquipment(id){
+    const eq=emergencyEquipment.find(x=>x.id===id);if(!eq)return;
+    const next=eq.activo===false;
+    const verb=next?'reactivar':'desactivar';
+    if(!confirm(`¿Deseas ${verb} ${eq.codigo}?`))return;
+    equipmentMsg(`${next?'Reactivando':'Desactivando'} equipo...`);
+    try{
+      const {data:saved,error}=await sb.from('equipos_emergencia').update({activo:next,actualizado_en:new Date().toISOString()}).eq('id',id).select('*').single();if(error)throw error;
+      const idx=emergencyEquipment.findIndex(x=>x.id===id);if(idx>=0)emergencyEquipment[idx]=saved;
+      if(!next){
+        const {error:me}=await sb.from('mapa_seguridad_elementos').update({activo:false,actualizado_en:new Date().toISOString()}).eq('equipo_emergencia_id',id);if(me)console.warn(me);
+        elements.forEach(el=>{if(el.equipo_emergencia_id===id)el.activo=false;});
+      }
+      renderEquipmentList();render();equipmentMsg(`Equipo ${next?'reactivado':'desactivado'} correctamente.`,true);
+    }catch(err){console.error(err);equipmentMsg('No se pudo actualizar el equipo: '+(err.message||err));}
   }
 
   function cancelEditMode(){

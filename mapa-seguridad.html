@@ -4,7 +4,7 @@
   <title>SSOMAC Digital | Mapa de Seguridad</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="styles.css?v=11.10.8">
+  <link rel="stylesheet" href="styles.css?v=11.10.9">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
 </head>
@@ -24,12 +24,13 @@
     <section class="card safety-map-card">
       <div class="page-head">
         <div>
-          <p class="eyebrow">ETAPA 49.2.5</p>
+          <p class="eyebrow">ETAPA 49.2.6</p>
           <h1>Mapa interactivo de seguridad</h1>
-          <p class="muted">Visualiza y ubica extintores y botiquines de ubicación sobre la planta. El estado de cada equipo se actualiza según la inspección del periodo seleccionado.</p>
+          <p class="muted">Visualiza y ubica extintores, botiquines y otros equipos de emergencia sobre la planta. Los equipos genéricos se administran directamente desde este mapa.</p>
         </div>
         <div class="e49-actions">
           <span class="map-stage-badge"><strong>Vista isométrica</strong><small id="mapVersionLabel">Plano base</small></span>
+          <button id="mapEquipmentManageBtn" type="button" class="secondary">Gestionar otros equipos</button>
           <button id="mapEditBtn" type="button" class="secondary">Editar ubicaciones</button>
           <button id="mapSaveBtn" type="button" class="hidden">Guardar ubicaciones</button>
           <button id="mapCancelEditBtn" type="button" class="secondary hidden">Cancelar</button>
@@ -50,6 +51,7 @@
         <article><span>Pendientes</span><strong id="mapKpiPending">0</strong></article>
         <article class="botiquin-kpi"><span>Botiquines activos</span><strong id="mapKpiBotTotal">0</strong></article>
         <article class="botiquin-kpi"><span>Botiquines observados</span><strong id="mapKpiBotObs">0</strong></article>
+        <article class="other-kpi"><span>Otros equipos activos</span><strong id="mapKpiOtherTotal">0</strong></article>
       </div>
 
       <div class="safety-map-layout">
@@ -71,13 +73,14 @@
               <button id="mapZoomInBtn" type="button" class="map-nav-btn icon" title="Acercar">+</button>
               <button id="mapPanBtn" type="button" class="map-nav-btn" title="Activar o desactivar desplazamiento">Mover plano</button>
             </div>
-            <div id="mapEditBanner" class="safety-map-edit-banner hidden">Modo edición · selecciona Extintor o Botiquín · clic para ubicar · arrastra marcadores · usa “Mover plano” para desplazarte.</div>
+            <div id="mapEditBanner" class="safety-map-edit-banner hidden">Modo edición · selecciona Extintor, Botiquín u Otro equipo · clic para ubicar · arrastra marcadores · usa “Mover plano” para desplazarte.</div>
             <div id="mapPlanCaption" class="safety-map-caption hidden"></div>
           </div>
           <div class="safety-map-legend">
-            <span><i class="dot ok"></i> Conforme</span>
+            <span><i class="dot ok"></i> Conforme / Operativo</span>
             <span><i class="dot obs"></i> Observado</span>
             <span><i class="dot pending"></i> Pendiente del periodo</span>
+            <span><i class="dot off"></i> Fuera de servicio</span>
             <span><i class="dot bot"></i> Botiquín</span>
             <span><i class="dot other"></i> Otro equipo</span>
           </div>
@@ -94,7 +97,58 @@
     </section>
   </main>
 
-  <script src="app.js?v=11.10.8"></script>
-  <script src="mapa-seguridad.js?v=11.10.8"></script>
+
+  <div id="emergencyEquipmentModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="emergencyEquipmentTitle">
+    <div class="modal-card emergency-equipment-modal">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">MAPA DE SEGURIDAD</p>
+          <h2 id="emergencyEquipmentTitle">Gestión de otros equipos de emergencia</h2>
+          <p class="muted">Registra equipos permanentes de la sede y luego ubícalos sobre el plano.</p>
+        </div>
+        <button id="equipmentModalClose" type="button" class="secondary">Cerrar</button>
+      </div>
+
+      <form id="equipmentForm" class="equipment-form">
+        <input id="equipmentId" type="hidden">
+        <div class="form-grid equipment-form-grid">
+          <div class="field"><label for="equipmentType">Tipo *</label><select id="equipmentType" required>
+            <option value="CAMILLA">Camilla</option>
+            <option value="LAVAOJOS">Lavaojos</option>
+            <option value="DUCHA_EMERGENCIA">Ducha de emergencia</option>
+            <option value="ALARMA">Alarma</option>
+            <option value="LUZ_EMERGENCIA">Luz de emergencia</option>
+            <option value="PUNTO_REUNION">Punto de reunión</option>
+            <option value="ZONA_SEGURA">Zona segura</option>
+            <option value="OTRO">Otro</option>
+          </select></div>
+          <div class="field"><label for="equipmentCode">Código *</label><input id="equipmentCode" required maxlength="40" placeholder="Ej. CAM-001"></div>
+          <div class="field"><label for="equipmentName">Nombre / descripción corta</label><input id="equipmentName" maxlength="120" placeholder="Ej. Camilla rígida"></div>
+          <div class="field"><label for="equipmentLocation">Ubicación referencial</label><input id="equipmentLocation" maxlength="160" placeholder="Ej. Taller de mantenimiento"></div>
+          <div class="field"><label for="equipmentResponsible">Responsable</label><input id="equipmentResponsible" maxlength="120" placeholder="Área o responsable"></div>
+          <div class="field"><label for="equipmentState">Estado *</label><select id="equipmentState" required>
+            <option value="OPERATIVO">Operativo</option>
+            <option value="OBSERVADO">Observado</option>
+            <option value="FUERA_SERVICIO">Fuera de servicio</option>
+          </select></div>
+          <div class="field"><label for="equipmentLastReview">Última revisión</label><input id="equipmentLastReview" type="date"></div>
+          <div class="field"><label for="equipmentNextReview">Próxima revisión</label><input id="equipmentNextReview" type="date"></div>
+          <div class="field span-2"><label for="equipmentObservation">Observación</label><textarea id="equipmentObservation" rows="2" maxlength="500" placeholder="Detalle opcional"></textarea></div>
+        </div>
+        <div class="workflow-actions equipment-form-actions">
+          <button id="equipmentResetBtn" type="button" class="secondary">Limpiar</button>
+          <button id="equipmentSaveBtn" type="submit">Guardar equipo</button>
+          <button id="equipmentSavePlaceBtn" type="button">Guardar y ubicar</button>
+        </div>
+      </form>
+
+      <div class="equipment-list-head"><strong>Equipos registrados</strong><span id="equipmentListCount" class="muted">0</span></div>
+      <div id="equipmentList" class="equipment-list"></div>
+      <p id="equipmentMessage" class="message"></p>
+    </div>
+  </div>
+
+  <script src="app.js?v=11.10.9"></script>
+  <script src="mapa-seguridad.js?v=11.10.9"></script>
 </body>
 </html>

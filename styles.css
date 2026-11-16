@@ -1106,7 +1106,7 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .safety-map-toolbar{display:grid;grid-template-columns:1.1fr 1.1fr .8fr 1.5fr;gap:12px;align-items:end;margin:16px 0}
 .map-layer-pills{min-height:43px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .map-layer-pills label{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;font-size:12px;font-weight:800;color:#344054;cursor:pointer}
-.safety-map-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:12px 0 16px}
+.safety-map-kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin:12px 0 16px}
 .safety-map-kpis article{padding:13px 15px;border:1px solid #e4e7ec;border-radius:12px;background:#f9fafb}
 .safety-map-kpis span{display:block;color:#667085;font-size:11px}.safety-map-kpis strong{font-size:24px;color:#101828}
 .safety-map-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
@@ -1222,3 +1222,38 @@ a.nav-item-v46.is-active-v46{background:#fff1f1;color:#b42318}
 .map-edit-type button.active{background:#101828;border-color:#101828;color:#fff}
 @media(max-width:1200px){.safety-map-kpis{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:620px){.safety-map-kpis{grid-template-columns:1fr 1fr}.map-edit-type{grid-template-columns:1fr 1fr}}
+
+/* ============================================================
+   ETAPA 49.2.6 - OTROS EQUIPOS DE EMERGENCIA
+   ============================================================ */
+.safety-marker.inactivo .safety-marker-icon{box-shadow:0 0 0 3px #667085;background:#f2f4f7;filter:grayscale(.45)}
+.other-kpi strong{color:#175cd3}
+.map-side-manage-btn{width:100%;margin-top:8px}
+.map-equipment-observation{margin-top:14px;padding:12px;border:1px solid #e4e7ec;border-radius:10px;background:#f9fafb}
+.map-equipment-observation strong{display:block;margin-bottom:4px;color:#344054}.map-equipment-observation p{margin:0;color:#475467;line-height:1.45}
+.map-edit-type{grid-template-columns:repeat(3,1fr)}
+.safety-edit-counts{grid-template-columns:repeat(3,1fr)}
+
+.modal-open{overflow:hidden}
+.modal-overlay{position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:20px}
+.modal-overlay.hidden{display:none}
+.modal-card{width:min(1080px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border:1px solid #e4e7ec;border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.28);padding:22px}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px}.modal-head h2{margin:2px 0 5px}.modal-head p{margin-bottom:0}
+.emergency-equipment-modal{width:min(1120px,100%)}
+.equipment-form{border:1px solid #e4e7ec;border-radius:14px;background:#f9fafb;padding:16px;margin-bottom:18px}
+.equipment-form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.equipment-form-grid .span-2{grid-column:span 2}.equipment-form textarea{width:100%;resize:vertical;box-sizing:border-box}
+.equipment-form-actions{margin-top:14px;justify-content:flex-end}
+.equipment-list-head{display:flex;align-items:center;justify-content:space-between;margin:6px 0 10px}
+.equipment-list{display:grid;gap:9px}
+.equipment-list-empty{padding:22px;border:1px dashed #d0d5dd;border-radius:12px;text-align:center;color:#667085;background:#fcfcfd}
+.equipment-list-item{display:grid;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px;border:1px solid #e4e7ec;border-radius:12px;background:#fff}
+.equipment-list-item.inactive{opacity:.62;background:#f9fafb}
+.equipment-list-icon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#eff8ff;border:1px solid #b2ddff;font-size:21px}
+.equipment-list-main{min-width:0}.equipment-list-title{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.equipment-list-title strong{font-size:14px;color:#101828}.equipment-list-title span{font-size:11px;font-weight:750;color:#475467;background:#f2f4f7;border-radius:999px;padding:3px 7px}.equipment-list-main small{display:block;color:#667085;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.equipment-list-meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px}.equipment-list-meta>span{font-size:10px;font-weight:750;color:#667085}.equipment-state{border-radius:999px;padding:3px 7px}.equipment-state.operativo{background:#ecfdf3;color:#067647}.equipment-state.observado{background:#fffaeb;color:#b54708}.equipment-state.fuera_servicio{background:#f2f4f7;color:#344054}
+.equipment-list-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.equipment-list-actions button{padding:8px 10px;font-size:11px}
+
+@media(max-width:900px){.equipment-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.equipment-list-item{grid-template-columns:42px minmax(0,1fr)}.equipment-list-actions{grid-column:1/-1;justify-content:flex-start;padding-left:54px}}
+@media(max-width:620px){.modal-overlay{padding:8px}.modal-card{max-height:calc(100vh - 16px);padding:15px;border-radius:14px}.modal-head{gap:10px}.modal-head h2{font-size:20px}.equipment-form-grid{grid-template-columns:1fr}.equipment-form-grid .span-2{grid-column:auto}.equipment-form-actions{display:grid;grid-template-columns:1fr}.equipment-form-actions>*{width:100%}.equipment-list-item{grid-template-columns:38px minmax(0,1fr)}.equipment-list-icon{width:36px;height:36px;font-size:18px}.equipment-list-actions{padding-left:0;grid-column:1/-1}.equipment-list-actions button{flex:1}.map-edit-type{grid-template-columns:1fr}.safety-edit-counts{grid-template-columns:1fr 1fr 1fr}}
+
+.dot.off{background:#667085}
